@@ -96,13 +96,14 @@ npm run dev                          # 启动 http://localhost:5173
 
 ##  提交方式
 
-1. 将你的代码推送到提供的 Git 仓库（或打包为 zip）
+1. **Fork 本仓库**，在你自己 Fork 的仓库中完成开发(或以zip形式提交)
 2. 确保 **保留 Git 提交历史**（我们会关注你的开发过程）
 3. 在项目根目录添加 `NOTES.md`，简要说明：
    - 你使用了哪些 AI 工具？如何使用的？
    - 遇到了什么问题？如何解决的？
    - 如果有更多时间，你还会做什么？
-4. 如果选择以zip形式提交，发送至 **zhangjiahui@gzyouliu.cn**，抄送 jiangziqi@gzyouliu.cn、dengsuiming@gzyouliu.cn
+4. 将你的 Fork 仓库地址(或源代码zip，请确认包含.git文件夹)发送至 **zhangjiahui@gzyouliu.cn**，抄送 jiangziqi@gzyouliu.cn、dengsuiming@gzyouliu.cn
+5. 如果以zip形式提交，请删除.venv/.node_modules等环境文件夹
 
 **截止时间：收到测试题后 48 小时内**
 
