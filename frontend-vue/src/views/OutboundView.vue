@@ -1,13 +1,9 @@
 <script setup lang="ts">
 /**
- * 入库管理页 — 任务1 实现
+ * 出库管理页 — 选做 A
  *
- * 功能：
- * 1. 供应商名称 + 多行入库明细
- * 2. 每行：商品下拉搜索 → 仓库下拉 → 库位级联 → 数量
- * 3. 支持添加 / 删除明细行
- * 4. 提交前表单校验，调用 createInboundOrder
- * 5. 提交成功后展示入库单号，并支持继续录入
+ * 功能：客户名称 + 多行出库明细，提交后库存原子扣减。
+ * 库存不足时后端返回 409，前端展示具体错误信息，单据不会被创建。
  */
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
@@ -15,42 +11,39 @@ import {
   getProducts,
   getWarehouses,
   getLocations,
-  createInboundOrder,
+  createOutboundOrder,
   type Product,
   type Warehouse,
   type Location,
 } from '@/api'
 
-interface InboundRow {
+interface OutboundRow {
   productId: number | undefined
   warehouseId: number | undefined
   locationCode: string
   quantity: number
-  locations: Location[] // 当前行可选库位（依仓库动态加载）
+  locations: Location[]
 }
 
 const formRef = ref<FormInstance>()
-const form = reactive({
-  supplierName: '',
-})
+const form = reactive({ customerName: '' })
 const products = ref<Product[]>([])
 const warehouses = ref<Warehouse[]>([])
-const items = ref<InboundRow[]>([])
+const items = ref<OutboundRow[]>([])
 const submitting = ref(false)
 const lastOrderNo = ref('')
 
 const rules: FormRules = {
-  supplierName: [{ required: true, message: '请输入供应商名称', trigger: 'blur' }],
+  customerName: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
 }
 
-// 加载商品 & 仓库
 onMounted(async () => {
   try {
     const [pRes, wRes] = await Promise.all([getProducts(), getWarehouses()])
     products.value = pRes.data
     warehouses.value = wRes.data
   } catch (e: any) {
-    ElMessage.error('基础数据加载失败: ' + (e.response?.data?.detail || e.message))
+    ElMessage.error('基础数据加载失败')
   }
 })
 
@@ -68,8 +61,7 @@ const removeItem = (index: number) => {
   items.value.splice(index, 1)
 }
 
-// 仓库变更：重新加载该仓库下的库位，并清空已选库位
-const onWarehouseChange = async (row: InboundRow) => {
+const onWarehouseChange = async (row: OutboundRow) => {
   row.locationCode = ''
   row.locations = []
   if (!row.warehouseId) return
@@ -77,13 +69,12 @@ const onWarehouseChange = async (row: InboundRow) => {
     const res = await getLocations(row.warehouseId)
     row.locations = res.data
   } catch (e: any) {
-    ElMessage.error('库位加载失败: ' + (e.response?.data?.detail || e.message))
+    ElMessage.error('库位加载失败')
   }
 }
 
-// 行级校验
 const validateItems = (): string | null => {
-  if (items.value.length === 0) return '请至少添加一条入库明细'
+  if (items.value.length === 0) return '请至少添加一条出库明细'
   for (let i = 0; i < items.value.length; i++) {
     const row = items.value[i]
     if (!row.productId) return `第 ${i + 1} 行：请选择商品`
@@ -111,22 +102,22 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     const payload = {
-      supplierName: form.supplierName,
+      customerName: form.customerName,
       items: items.value.map((r) => ({
         productId: r.productId!,
         quantity: r.quantity,
         locationCode: r.locationCode,
       })),
     }
-    const res = await createInboundOrder(payload)
+    const res = await createOutboundOrder(payload)
     lastOrderNo.value = res.data.orderNo
-    ElMessage.success(`入库单创建成功：${res.data.orderNo}`)
-    // 重置表单
-    form.supplierName = ''
+    ElMessage.success(`出库单创建成功：${res.data.orderNo}`)
+    form.customerName = ''
     items.value = []
   } catch (e: any) {
-    const detail = e.response?.data?.detail || e.response?.data?.message || '创建失败'
-    ElMessage.error('入库失败: ' + detail)
+    // 库存不足时后端返回 409 + detail，展示给用户
+    const detail = e.response?.data?.detail || e.response?.data?.message || '出库失败'
+    ElMessage.error('出库失败: ' + detail)
   } finally {
     submitting.value = false
   }
@@ -135,11 +126,11 @@ const handleSubmit = async () => {
 
 <template>
   <div>
-    <h3>入库管理</h3>
+    <h3>出库管理</h3>
 
     <el-alert
       v-if="lastOrderNo"
-      :title="`最近一次入库单：${lastOrderNo}`"
+      :title="`最近一次出库单：${lastOrderNo}`"
       type="success"
       :closable="false"
       style="margin-bottom: 16px"
@@ -152,8 +143,8 @@ const handleSubmit = async () => {
       label-width="100px"
       style="max-width: 1100px"
     >
-      <el-form-item label="供应商名称" prop="supplierName">
-        <el-input v-model="form.supplierName" placeholder="请输入供应商名称" maxlength="200" />
+      <el-form-item label="客户名称" prop="customerName">
+        <el-input v-model="form.customerName" placeholder="请输入客户名称" maxlength="200" />
       </el-form-item>
     </el-form>
 
@@ -164,17 +155,11 @@ const handleSubmit = async () => {
       </span>
     </div>
 
-    <!-- 明细列表 -->
     <el-table :data="items" border style="width: 100%" empty-text="请点击「添加明细」">
       <el-table-column label="序号" type="index" width="60" align="center" />
       <el-table-column label="商品" min-width="220">
         <template #default="{ row }">
-          <el-select
-            v-model="row.productId"
-            placeholder="搜索商品名称/SKU"
-            filterable
-            style="width: 100%"
-          >
+          <el-select v-model="row.productId" placeholder="搜索商品名称/SKU" filterable style="width: 100%">
             <el-option
               v-for="p in products"
               :key="p.id"
@@ -192,12 +177,7 @@ const handleSubmit = async () => {
             style="width: 100%"
             @change="onWarehouseChange(row)"
           >
-            <el-option
-              v-for="w in warehouses"
-              :key="w.id"
-              :label="w.name"
-              :value="w.id"
-            />
+            <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
           </el-select>
         </template>
       </el-table-column>
@@ -237,7 +217,7 @@ const handleSubmit = async () => {
         :disabled="items.length === 0"
         @click="handleSubmit"
       >
-        提交入库单
+        提交出库单
       </el-button>
     </div>
   </div>
