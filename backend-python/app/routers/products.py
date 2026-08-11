@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Product
+from app.models import Product, Inventory
 from app.schemas import ProductCreate, ProductUpdate, ProductResponse
 
 router = APIRouter(prefix="/api/products", tags=["商品管理"])
@@ -66,12 +66,27 @@ def update_product(product_id: int, req: ProductUpdate, db: Session = Depends(ge
 
 @router.delete("/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    """删除商品"""
-    # ️ BUG 预埋点：没有校验该商品是否有关联库存
-    # 候选人需要在任务3中发现并修复此问题
+    """删除商品
+
+    【任务3 Bug 修复】原实现未校验该商品是否有关联库存，直接删除会导致
+    inventory 表中 product_id 指向已删除商品，库存数据孤立。
+    修复：删除前校验是否存在关联库存（quantity > 0），存在则拒绝删除。
+    """
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
+
+    # 校验关联库存：存在库存记录则禁止删除，避免库存数据孤立
+    stock_count = (
+        db.query(Inventory)
+        .filter(Inventory.product_id == product_id, Inventory.quantity > 0)
+        .count()
+    )
+    if stock_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"商品「{product.name}」仍有 {stock_count} 条库存记录，无法删除",
+        )
 
     db.delete(product)
     db.commit()
