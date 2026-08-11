@@ -1,58 +1,112 @@
 """
-============================================
- 候选人需要实现以下接口：
-============================================
+库存 & 入库 API
 
-POST /api/inbound-orders   — 创建入库单（任务1）
-GET  /api/inventory         — 库存查询（任务2）
-
-提示：
-- 参考 routers/products.py 的实现风格
-- 使用 SQLAlchemy 进行数据库操作
-- 入库单创建需要使用事务（db.commit / db.rollback）
-- 库存查询需要 JOIN 多表获取商品名、仓库名
-- 注意 SQL 注入防护（使用参数化查询）
+- POST /api/inbound-orders        创建入库单（任务1）
+- GET  /api/inbound-orders        入库单列表
+- GET  /api/inbound-orders/{id}   入库单详情
+- GET  /api/inventory             库存查询（任务2）
 """
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas import InboundOrderCreate
+from app.services import inbound_service, inventory_service
 
 router = APIRouter(tags=["库存 & 入库"])
 
 
+def _to_inbound_order_dict(order) -> dict:
+    """将入库单 ORM 对象转为 camelCase 响应 dict（含明细）。"""
+    return {
+        "id": order.id,
+        "orderNo": order.order_no,
+        "supplierName": order.supplier_name,
+        "status": order.status,
+        "items": [
+            {
+                "productId": it.product_id,
+                "productName": it.product.name if it.product else "",
+                "quantity": it.quantity,
+                "locationCode": it.location_code,
+            }
+            for it in order.items
+        ],
+        "createdAt": order.created_at,
+    }
+
+
 @router.post("/api/inbound-orders", status_code=201)
 def create_inbound_order(req: InboundOrderCreate, db: Session = Depends(get_db)):
-    """
-    创建入库单 — 候选人实现
+    """创建入库单 —— 任务1
 
-    要求：
-    1. 生成入库单号 IN-YYYYMMDD-XXX
-    2. 校验商品和库位是否存在
-    3. 在事务中同时创建入库单 + 更新库存
+    - 自动生成单号 IN-YYYYMMDD-XXX
+    - 校验商品 / 库位存在
+    - 事务内创建入库单 + 累加库存，保证一致性
     """
-    # TODO: 候选人实现
-    raise HTTPException(status_code=501, detail="请实现入库单创建功能（任务1）")
+    try:
+        order = inbound_service.create_inbound_order(db, req)
+    except inbound_service.InboundError as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+    return {
+        "code": 201,
+        "message": "入库单创建成功",
+        "data": _to_inbound_order_dict(order),
+    }
+
+
+@router.get("/api/inbound-orders")
+def list_inbound_orders(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    db: Session = Depends(get_db),
+):
+    """入库单列表（分页）"""
+    result = inbound_service.list_inbound_orders(db, page=page, page_size=page_size)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {
+            "list": [_to_inbound_order_dict(o) for o in result["list"]],
+            "total": result["total"],
+            "page": result["page"],
+            "pageSize": result["page_size"],
+        },
+    }
+
+
+@router.get("/api/inbound-orders/{order_id}")
+def get_inbound_order(order_id: int, db: Session = Depends(get_db)):
+    """入库单详情"""
+    try:
+        order = inbound_service.get_inbound_order(db, order_id)
+    except inbound_service.InboundError as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+    return {"code": 200, "message": "success", "data": _to_inbound_order_dict(order)}
 
 
 @router.get("/api/inventory")
 def query_inventory(
     keyword: str | None = Query(default=None, description="商品名称/SKU 模糊搜索"),
-    warehouse_id: int | None = Query(default=None, description="仓库ID"),
+    warehouse_id: int | None = Query(default=None, alias="warehouseId", description="仓库ID"),
+    location_code: str | None = Query(default=None, alias="locationCode", description="库位编码"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
     db: Session = Depends(get_db),
 ):
-    """
-    库存查询 — 候选人实现
+    """库存查询 —— 任务2
 
-    要求：
-    1. 支持按 keyword 模糊搜索（商品名称/SKU）
-    2. 支持按 warehouse_id 筛选
-    3. 支持分页
-    4. 返回关联的商品名称、SKU、仓库名称
+    - 支持按 keyword 模糊搜索（商品名/SKU）
+    - 支持按 warehouseId / locationCode 筛选
+    - 支持分页
+    - JOIN 返回商品名、SKU、仓库名
     """
-    # TODO: 候选人实现
-    raise HTTPException(status_code=501, detail="请实现库存查询功能（任务2）")
+    result = inventory_service.query_inventory(
+        db,
+        keyword=keyword,
+        warehouse_id=warehouse_id,
+        location_code=location_code,
+        page=page,
+        page_size=page_size,
+    )
+    return {"code": 200, "message": "success", "data": result}
