@@ -64,7 +64,8 @@ const handleEdit = (product: Product) => {
 // 提交
 const handleSubmit = async () => {
   try {
-    if (form.value.id) {
+    const isEdit = !!form.value.id
+    if (isEdit) {
       await updateProduct(form.value.id, { name: form.value.name, unit: form.value.unit })
       ElMessage.success('更新成功')
     } else {
@@ -72,8 +73,12 @@ const handleSubmit = async () => {
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false
-    // ️ BUG: 编辑后不保留当前页码
-    currentPage.value = 1
+    // 【任务3 Bug 修复】原实现无论新增/编辑都把 currentPage 重置为 1，
+    // 导致编辑后返回列表时跳回第 1 页。修复：编辑时保留当前页码；
+    // 仅新增时跳到第 1 页（新记录通常出现在列表首页）。
+    if (!isEdit) {
+      currentPage.value = 1
+    }
     await loadProducts()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || '操作失败')
