@@ -29,7 +29,11 @@ dist/
 .DS_Store
 Thumbs.db
 
-# ====== Environment ======
+# ===== Environment =====
 .env
 .env.local
 *.log
+
+# ===== Playwright E2E =====
+test-results/
+playwright-report/

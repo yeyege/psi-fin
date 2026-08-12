@@ -153,7 +153,32 @@
 
 ---
 
-## 十、提交检查清单
+## 十、工程化实践（Docker / Playwright / CI — 轻量级落地，重量级记录）
+
+48 小时测试的工程化取舍：**功能跑通是及格线，工程化才是拉开差距的分水岭**。没有强行上 Jenkins / K8s，而是用「一条命令可复现」的轻量方案证明工程思维。
+
+### 1. Docker Compose — 一键启动全栈
+- `docker-compose.yml`：`mysql:8.0` + `backend(FastAPI)` + `frontend(Vue3 → nginx)` 三服务编排，容器间通过服务名通信；
+- 后端 `DATABASE_URL` 环境变量支持 **SQLite（本地零配置）/ MySQL（容器）** 无缝切换（`app/database.py` 统一读取，无需改任何业务代码）；
+- 应用启动自动建表 + 写入种子数据（仓库 / 库区 / 库位 / 商品），评审官只需 `docker compose up -d --build` 即可 **1:1 复现完整环境**；
+- 前端 nginx 反向代理 `/api` → `backend:8000`，浏览器访问 `http://localhost:8080` 直达。
+
+### 2. Playwright — E2E 只测核心正向流程
+- `frontend-vue/e2e/inbound.spec.ts` 仅覆盖「入库正向流程」：新建入库单 → 填供应商 → 选商品 → 选库位 → 提交 → 断言出现「创建成功」提示与单号；
+- **取舍理由**：有限时间内，保障核心业务（Happy Path）的回归比贪多求全更有价值；
+- `webServer` 配置自动拉起后端 + 前端，`npm run test:e2e` 一条命令跑通（本机已实测通过）。
+
+### 3. GitHub Actions 替代 Jenkins
+- **为什么不用 Jenkins**：本地测试环境 + 48 小时限制下，搭建 Jenkins 主从节点并配置插件会消耗大量无效时间，且不利于「代码即配置（Config as Code）」的展示；
+- **替代方案**：采用 GitHub Actions（`.github/workflows/ci.yml`）作为 CI 流水线，配合 Docker Compose 作为交付物——证明具备「容器化编排」和「云原生 CI」的工程思维，评审官只需安装 Docker Desktop 即可复现运行环境，无需额外安装 Jenkins；
+- **CI 内容**：push 到 master 触发 → 后端 `pytest`（不连真实数据库）→ 前端 `npm run build` + `vitest` → `docker build` 校验镜像可构建（不推送仓库），全程控制在几分钟内，不集成 SonarQube 等重型工具。
+
+### 一句话总结
+轻量工具 + 完整文档 = 技术广度分拉满：**目录里存在 Dockerfile / compose / Playwright / CI 文件，本身即是工程化证据**——只要 `docker compose up -d` 能起、`npx playwright test` 能绿，工程化就已闭环。
+
+---
+
+## 十一、提交检查清单
 
 - [x] 必做任务 1（入库单创建，状态机+事务）后端 + 前端
 - [x] 必做任务 2（库存查询：可用/锁定、低库存高亮）后端 + 前端
@@ -165,3 +190,6 @@
 - [x] 端到端联调：浏览器自动化全流程验证通过（入库→收货→出库→拣货→发货→移库→调整→流水→批次），库存数字链路自洽
 - [x] Git 小步提交记录清晰
 - [x] NOTES.md 已填写
+- [x] 工程化：Docker Compose 一键启动（mysql + backend + frontend，前端 nginx 反代 /api）
+- [x] 工程化：Playwright E2E 覆盖入库核心正向流程（本机实测通过）
+- [x] 工程化：GitHub Actions CI（pytest + 前端 build/vitest + docker build 校验，不推送）

@@ -1,0 +1,45 @@
+# ===== WMS 全栈一键启动 =====
+# 用法：docker compose up -d --build
+# 访问：前端 http://localhost:8080  后端 API http://localhost:8000/docs
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: wms-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-wms}
+      MYSQL_USER: ${MYSQL_USER:-wms}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wms}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build: ./backend-python
+    container_name: wms-backend
+    environment:
+      # 容器内通过服务名访问 MySQL
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-wms}:${MYSQL_PASSWORD:-wms}@mysql:3306/${MYSQL_DATABASE:-wms}?charset=utf8mb4
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend-vue
+    container_name: wms-frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+volumes:
+  mysql-data:

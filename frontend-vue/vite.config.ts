@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
@@ -17,5 +18,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    // e2e 由 Playwright 运行，vitest 只收集 src 下的单元测试
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
   },
 })
