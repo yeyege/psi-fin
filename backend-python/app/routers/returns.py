@@ -1,5 +1,6 @@
 """退货管理 API（FBA / 买家 / 服务商）"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
@@ -7,7 +8,7 @@ from app.database import get_db
 from app.schemas import ReturnOrderCreate
 from app.services import return_service
 
-router = APIRouter(prefix="/api/returns", tags=["退货管理"])
+router = APIRouter(prefix="/api/returns", tags=["退货管理"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", status_code=201)

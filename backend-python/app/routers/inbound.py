@@ -1,5 +1,6 @@
 """入库单 API — 状态机 PENDING → COMPLETED"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
@@ -7,7 +8,7 @@ from app.database import get_db
 from app.schemas import InboundOrderCreate
 from app.services import inbound_service
 
-router = APIRouter(tags=["入库"])
+router = APIRouter(tags=["入库"], dependencies=[Depends(get_current_user)])
 
 
 def _handle(e: BusinessError):

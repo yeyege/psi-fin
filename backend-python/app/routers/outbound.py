@@ -1,5 +1,6 @@
 """出库单 API — 状态机 PENDING → PICKED → REVIEWED → SHIPPED"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
@@ -7,7 +8,7 @@ from app.database import get_db
 from app.schemas import OutboundOrderCreate
 from app.services import outbound_service
 
-router = APIRouter(tags=["出库"])
+router = APIRouter(tags=["出库"], dependencies=[Depends(get_current_user)])
 
 
 def _handle(e: BusinessError):

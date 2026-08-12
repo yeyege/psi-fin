@@ -1,11 +1,12 @@
 """库存查询 / 流水 / 批次 API"""
 from fastapi import APIRouter, Depends, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import inventory_service
 
-router = APIRouter(tags=["库存"])
+router = APIRouter(tags=["库存"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/api/inventory")

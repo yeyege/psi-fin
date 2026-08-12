@@ -1,5 +1,6 @@
 """波次拣货 API（智能波次策略）"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
@@ -7,7 +8,7 @@ from app.database import get_db
 from app.schemas import WaveCreate
 from app.services import wave_service
 
-router = APIRouter(prefix="/api/waves", tags=["波次拣货"])
+router = APIRouter(prefix="/api/waves", tags=["波次拣货"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", status_code=201)

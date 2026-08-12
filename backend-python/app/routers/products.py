@@ -1,5 +1,6 @@
 """商品 SKU API"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
@@ -7,7 +8,7 @@ from app.database import get_db
 from app.schemas import ProductCreate, ProductUpdate
 from app.services import product_service
 
-router = APIRouter(prefix="/api/products", tags=["商品管理"])
+router = APIRouter(prefix="/api/products", tags=["商品管理"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("")

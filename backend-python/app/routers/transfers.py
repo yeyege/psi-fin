@@ -1,5 +1,6 @@
 """库内作业 API：移库 + 库存调整"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
@@ -7,7 +8,7 @@ from app.database import get_db
 from app.schemas import StockTransferCreate, StockAdjustmentCreate
 from app.services import transfer_service, adjustment_service
 
-router = APIRouter(tags=["库内作业"])
+router = APIRouter(tags=["库内作业"], dependencies=[Depends(get_current_user)])
 
 
 def _handle(e: BusinessError):
