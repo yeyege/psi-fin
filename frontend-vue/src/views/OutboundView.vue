@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
- * 出库管理页 — 状态机：PENDING(待拣货) → PICKED(已拣货锁定) → SHIPPED(已发货扣减)
- * 拣货时原子锁定防超卖；发货扣减锁定库存。
+ * 出库管理页 — 状态机：PENDING(待拣货) → PICKED(已拣货锁定) → REVIEWED(已复核) → SHIPPED(已发货扣减)
+ * 拣货时原子锁定防超卖；复核验货后发货扣减锁定库存。
  */
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  createOutboundOrder, pickOutboundOrder, shipOutboundOrder, getOutboundOrders,
+  createOutboundOrder, pickOutboundOrder, reviewOutboundOrder, shipOutboundOrder, getOutboundOrders,
   getProducts, getLocations,
   type OutboundOrder, type OutboundItemRequest, type Product, type Location,
 } from '@/api'
@@ -33,6 +33,7 @@ const locations = ref<Location[]>([])
 const STATUS_MAP: Record<string, { label: string; type: 'info' | 'warning' | 'success' }> = {
   PENDING: { label: '待拣货', type: 'info' },
   PICKED: { label: '已拣货', type: 'warning' },
+  REVIEWED: { label: '已复核', type: 'warning' },
   SHIPPED: { label: '已发货', type: 'success' },
 }
 
@@ -99,6 +100,16 @@ const pick = async (row: OutboundOrder) => {
   }
 }
 
+const review = async (row: OutboundOrder) => {
+  try {
+    const res = await reviewOutboundOrder(row.id)
+    ElMessage.success(`复核完成：${res.data.orderNo}，可发货`)
+    await loadOrders()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '复核失败')
+  }
+}
+
 const ship = async (row: OutboundOrder) => {
   try {
     const res = await shipOutboundOrder(row.id)
@@ -128,6 +139,7 @@ onMounted(async () => {
       <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 160px" @change="page = 1; loadOrders()">
         <el-option label="待拣货" value="PENDING" />
         <el-option label="已拣货" value="PICKED" />
+        <el-option label="已复核" value="REVIEWED" />
         <el-option label="已发货" value="SHIPPED" />
       </el-select>
       <el-button type="success" @click="openCreate">新建出库单</el-button>
@@ -152,10 +164,11 @@ onMounted(async () => {
       <el-table-column label="创建时间" width="170">
         <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <el-button v-if="row.status === 'PENDING'" size="small" type="primary" @click="pick(row)">拣货</el-button>
-          <el-button v-if="row.status === 'PICKED'" size="small" type="success" @click="ship(row)">发货</el-button>
+          <el-button v-if="row.status === 'PICKED'" size="small" type="warning" @click="review(row)">复核</el-button>
+          <el-button v-if="row.status === 'REVIEWED'" size="small" type="success" @click="ship(row)">发货</el-button>
         </template>
       </el-table-column>
     </el-table>
