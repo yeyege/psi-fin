@@ -65,7 +65,7 @@ const submit = async () => {
       <section class="brand-panel">
         <div class="brand-inner">
           <div class="brand-logo">
-            <el-icon :size="34"><Box /></el-icon>
+            <img src="/favicon.png" alt="WMS" />
           </div>
           <h1 class="brand-name">WMS · </h1>
           <p class="brand-slogan">仓库全链路数字化管理平台</p>
@@ -241,11 +241,18 @@ const submit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   border-radius: 18px;
-  background: linear-gradient(135deg, #409eff 0%, #7c4dff 100%);
-  box-shadow: 0 12px 32px rgba(64, 156, 255, 0.4);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   margin-bottom: 26px;
+}
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .brand-name {
   margin: 0 0 10px;

@@ -94,34 +94,51 @@ def deduct_stock(db: Session, *, product_id: int, location_code: str, quantity: 
     """从 (product, location) 的库存中扣减可用量（跨批次，先扣早期批次）。
 
     返回 False 表示库存不足（不产生任何变更与流水）。
+    与 lock_stock 一致使用「条件 UPDATE（available >= take 才生效）+ 失败重读重试」，
+    并发下陈旧读无法覆盖他人已提交的扣减（SQLite 无行锁时尤为关键）。
     注意：调用方事务中，若某次扣减跨多行，其中间写入会随上层回滚一起撤销。
     """
-    rows = (
-        db.query(Inventory)
+    total = (
+        db.query(func.sum(Inventory.available_qty))
         .filter(
             Inventory.product_id == product_id,
             Inventory.location_code == location_code,
-            Inventory.available_qty > 0,
         )
-        .order_by(Inventory.id.asc())
-        .all()
+        .scalar()
+        or 0
     )
-    total = sum(r.available_qty for r in rows)
     if total < quantity:
         return False
 
     remaining = quantity
-    for row in rows:
-        if remaining <= 0:
-            break
+    while remaining > 0:
+        row = (
+            db.query(Inventory)
+            .filter(
+                Inventory.product_id == product_id,
+                Inventory.location_code == location_code,
+                Inventory.available_qty > 0,
+            )
+            .order_by(Inventory.id.asc())
+            .with_for_update()  # 生产库(PostgreSQL)下加行锁；SQLite 忽略
+            .first()
+        )
+        if row is None:
+            return False
         take = min(row.available_qty, remaining)
         before = row.available_qty
-        row.available_qty -= take
+        result = db.execute(
+            update(Inventory)
+            .where(Inventory.id == row.id, Inventory.available_qty >= take)
+            .values(available_qty=Inventory.available_qty - take)
+        )
+        if result.rowcount == 0:
+            continue  # 该行已被并发修改，重读最新状态再扣
         remaining -= take
         _add_flow(
             db, flow_type=flow_type, order_type=order_type, order_no=order_no,
             product_id=product_id, location_code=location_code, batch_id=row.batch_id,
-            quantity=-take, before_qty=before, after_qty=row.available_qty,
+            quantity=-take, before_qty=before, after_qty=row.available_qty - take,
             remark=remark,
         )
     return True

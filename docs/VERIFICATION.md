@@ -9,10 +9,10 @@
 
 | 范围 | 命令 | 结果 |
 |---|---|---|
-| 后端 pytest | `cd backend-python && uv run pytest` | **76 passed**（55.3s） |
-| 前端 vitest | `cd frontend-vue && npx vitest run` | **14 passed**（0.6s） |
+| 后端 pytest | `cd backend-python && uv run pytest` | **80 passed**（47.6s） |
+| 前端 vitest | `cd frontend-vue && npx vitest run` | **14 passed**（1.7s） |
 
-### 后端分文件用例统计（10 个文件，共 76 例）
+### 后端分文件用例统计（11 个文件，共 80 例）
 
 | 测试文件 | 用例数 | 覆盖内容 |
 |---|---|---|
@@ -22,11 +22,12 @@
 | `test_transfer_adjustment.py` | 5 | 移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚 |
 | `test_auth_service.py` | 14 | 密码哈希与校验、登录/登出、token 校验与过期、用户 CRUD 权限、最后 admin 保护 |
 | `test_api_auth.py` | 4 | 未登录 401、无效 token、登录态访问、operator 不可管理用户 |
+| `test_api_contract.py` | 4 | camelCase 契约（products/customers 返回 fnsKu/caseQty/createdAt）、编辑商品 fnsKu 不被置空、全局异常处理器返回 JSON body |
 | `test_customer_product.py` | 9 | 客户 CRUD/软删除、商品 FNSKU+箱规、camelCase 映射 |
 | `test_dashboard.py` | 3 | 看板聚合（今日单量/库存总量/低库存） |
 | `test_return_service.py` | 8 | 退货收货回补/报废不补、重复收货拒绝、单号递增 |
 | `test_wave_service.py` | 6 | 波次生成拣货单、按库位优先级排序、拣货锁定推进、库存不足回滚 |
-| **合计** | **76** | |
+| **合计** | **80** | |
 
 ### 前端（vitest，14 例）
 
@@ -62,7 +63,7 @@
 | 必做 2 库存查询 | ✅ | 商品/库位双视图、SKU/仓库/库位筛选、服务端分页、低库存（<10）红色高亮 |
 | 必做 3 Bug 修复 | ✅ | 后端：删除商品校验关联库存（软删除保流水）；前端：编辑返回保留页码 |
 | 选做 A 出库+防超卖 | ✅ | `available/locked` 分离 + 原子条件 UPDATE（`WHERE available >= take`），并发测试覆盖 |
-| 选做 B 单元测试 | ✅ | 后端 76 例 + 前端 14 例 |
+| 选做 B 单元测试 | ✅ | 后端 80 例 + 前端 14 例 |
 | 选做 C 前端性能优化 | ✅ | 服务端分页 + 300ms 搜索防抖 + 筛选纯函数抽离 |
 | MVP M1-M7 | ✅ | 客户管理 / 商品 FNSKU+箱规 / 数据看板 / 退货管理 / 波次拣货 / 复核验货 / 用户权限 |
 

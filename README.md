@@ -62,7 +62,7 @@ wms-test/
 cd backend-python
 uv sync                              # 安装依赖
 uv run uvicorn app.main:app --port 8000  # 启动服务 http://localhost:8000（自动建表 + 示例数据）
-uv run pytest                        # 运行测试（28 用例）
+uv run pytest                        # 运行测试（80 用例）
 ```
 
 API 文档自动生成：http://localhost:8000/docs

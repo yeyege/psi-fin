@@ -2,9 +2,10 @@
 
 并发下单号可能冲突（唯一约束），由调用方在事务中捕获 IntegrityError 重试。
 """
+import re
 from datetime import datetime
 
-from sqlalchemy import inspect
+from sqlalchemy import func
 
 
 def generate_order_no(db, model, prefix: str, seq_len: int = 3,
@@ -21,11 +22,16 @@ def generate_order_no(db, model, prefix: str, seq_len: int = 3,
     today = datetime.now().strftime("%Y%m%d")
     like = f"{prefix}-{today}-%"
     col = getattr(model, no_col)
+    # 先按字符串长度降序（同长度下字典序≈数值序），避免 "999" 大于 "1000" 的字符串排序陷阱
     last = (
         db.query(model)
         .filter(col.like(like))
-        .order_by(col.desc())
+        .order_by(func.length(col).desc(), col.desc())
         .first()
     )
-    seq = int(getattr(last, no_col)[-(seq_len):]) + 1 if last else 1
+    if last is None:
+        return f"{prefix}-{today}-{1:0{seq_len}d}"
+    # 解析末尾全部数字，避免固定截取 3 位导致 1000+ 序号回绕冲突
+    match = re.search(r"(\d+)$", getattr(last, no_col))
+    seq = int(match.group(1)) + 1 if match else 1
     return f"{prefix}-{today}-{seq:0{seq_len}d}"

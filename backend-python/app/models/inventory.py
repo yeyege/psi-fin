@@ -88,8 +88,8 @@ class InventoryFlow(Base):
     location_code = Column(String(50), nullable=True)
     batch_id = Column(Integer, ForeignKey("batches.id"), nullable=True)
     quantity = Column(Integer, nullable=False)        # 变动量（可为负）
-    before_qty = Column(Integer, nullable=True)       # 变动前可用量
-    after_qty = Column(Integer, nullable=True)        # 变动后可用量
+    before_qty = Column(Integer, nullable=True)       # 变动前对应维度数量（可用量/锁定量随 flow_type 而定）
+    after_qty = Column(Integer, nullable=True)        # 变动后对应维度数量（可用量/锁定量随 flow_type 而定）
     remark = Column(String(200), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 

@@ -4,53 +4,13 @@
 - 未登录访问任一业务 API → 401；
 - 登录拿到 token 后 → 200；
 - 操作员访问用户管理 → 403（仅 admin）。
+
+client fixture 见 conftest.py（独立临时库 + admin 账号）。
 """
-import os
-import tempfile
-
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from app.database import Base, get_db
-from app.main import app
 from app.schemas import UserCreate
 from app.services import auth_service
-
-
-@pytest.fixture()
-def client():
-    """TestClient + 独立临时库（dependency_overrides 隔离，不触碰开发库）。"""
-    fd, db_path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-    engine = create_engine(
-        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
-    )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
-
-    def _override():
-        db = Session()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = _override
-
-    s = Session()
-    auth_service.create_user(
-        s, UserCreate(username="admin", password="admin123", role="admin"))
-    s.close()
-
-    c = TestClient(app)
-    yield c, Session
-
-    app.dependency_overrides.clear()
-    engine.dispose()
-    if os.path.exists(db_path):
-        os.remove(db_path)
 
 
 def _login(c: TestClient, username="admin", password="admin123") -> str:

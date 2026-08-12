@@ -1,9 +1,8 @@
 """库内作业 API：移库 + 库存调整"""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
-from app.common.errors import BusinessError
 from app.database import get_db
 from app.schemas import StockTransferCreate, StockAdjustmentCreate
 from app.services import transfer_service, adjustment_service
@@ -11,18 +10,11 @@ from app.services import transfer_service, adjustment_service
 router = APIRouter(tags=["库内作业"], dependencies=[Depends(get_current_user)])
 
 
-def _handle(e: BusinessError):
-    raise HTTPException(status_code=e.status, detail=e.message)
-
-
 # ============ 移库 ============
 
 @router.post("/api/transfers", status_code=201)
 def create_transfer(req: StockTransferCreate, db: Session = Depends(get_db)):
-    try:
-        t = transfer_service.create_transfer(db, req)
-    except BusinessError as e:
-        _handle(e)
+    t = transfer_service.create_transfer(db, req)
     return {"code": 201, "message": "移库完成", "data": transfer_service._build_response(t)}
 
 
@@ -40,10 +32,7 @@ def list_transfers(
 
 @router.post("/api/adjustments", status_code=201)
 def create_adjustment(req: StockAdjustmentCreate, db: Session = Depends(get_db)):
-    try:
-        a = adjustment_service.create_adjustment(db, req)
-    except BusinessError as e:
-        _handle(e)
+    a = adjustment_service.create_adjustment(db, req)
     return {"code": 201, "message": "调整完成", "data": adjustment_service._build_response(a)}
 
 

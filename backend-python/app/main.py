@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.common.errors import BusinessError
 from app.database import engine, Base
 from app.routers import products, warehouses, inbound, outbound, inventory, transfers, customers, dashboard, returns, waves, auth
 
@@ -24,11 +26,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+
+@app.exception_handler(BusinessError)
+async def business_error_handler(request: Request, exc: BusinessError):
+    """业务异常统一转 JSON 响应（与 router 层抛 HTTPException 的响应体保持一致）。"""
+    return JSONResponse(
+        status_code=exc.status,
+        content={"detail": exc.message, "message": exc.message, "data": None},
+    )
+
+
+# CORS（前端经 vite/nginx 代理同源访问，无 cookie 场景，无需 allow_credentials）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

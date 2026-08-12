@@ -1,8 +1,11 @@
 """通用 + 基础数据 Schema"""
 from datetime import datetime
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+T = TypeVar("T")
 
 
 class CamelModel(BaseModel):
@@ -18,14 +21,14 @@ class CamelModel(BaseModel):
     )
 
 
-class ApiResponse(BaseModel):
+class ApiResponse(BaseModel, Generic[T]):
     code: int = 200
     message: str = "success"
-    data: object = None
+    data: T | None = None
 
 
-class PageResult(BaseModel):
-    list: list
+class PageResult(BaseModel, Generic[T]):
+    list: list[T]
     total: int
     page: int
     pageSize: int

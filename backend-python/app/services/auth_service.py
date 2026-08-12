@@ -76,6 +76,19 @@ def update_user(db: Session, user_id: int, data) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise BusinessError("用户不存在", 404)
+    # 保护最后一个启用管理员：降级或停用前需保证仍有其他启用管理员
+    if user.role == ROLE_ADMIN:
+        new_role = data.role if data.role is not None else ROLE_ADMIN
+        new_status = data.status if data.status is not None else STATUS_ACTIVE
+        if new_role != ROLE_ADMIN or new_status != STATUS_ACTIVE:
+            other_admin = (
+                db.query(User)
+                .filter(User.role == ROLE_ADMIN, User.status == STATUS_ACTIVE,
+                        User.id != user_id)
+                .count()
+            )
+            if other_admin == 0:
+                raise BusinessError("不能停用或降级最后一个启用管理员", 409)
     if data.password:
         user.password_hash = hash_password(data.password)
     if data.role:

@@ -4,7 +4,7 @@
 
 - **后端**：Python 3.11+ / FastAPI / SQLAlchemy 2.0 / Pydantic v2 / SQLite（开发库 wms.db）
 - **前端**：Vue 3 + TypeScript + Element Plus + Pinia + Vite
-- **测试**：后端 pytest（76 用例）+ 前端 vitest（14 用例）
+- **测试**：后端 pytest（80 用例）+ 前端 vitest（14 用例）
 
 选择理由：FastAPI 简洁、迭代快；Element Plus 组件契合表单与列表场景；SQLite 零配置便于「一键启动」。全程使用 AI（Trae）辅助开发，实现效率与质量双保证。
 
@@ -119,13 +119,14 @@
 
 ## 七、选做 B — 单元测试
 
-- **后端**（pytest，76 用例，全部通过）：
+- **后端**（pytest，80 用例，全部通过）：
   - `tests/test_inventory_service.py`（10）：入库累加/新建行、跨批次 FIFO 扣减、库存不足无副作用、锁定+发货、product/location 视图、筛选、流水追溯
   - `tests/test_inbound_service.py`（6）：创建不改库存、收货生成批次与流水、重复收货拒绝、商品/库位不存在、单号递增
   - `tests/test_outbound_service.py`（11）：拣货锁定、库存不足 409、发货扣减、未拣货/未复核不可发货、部分失败回滚、发货后 locked 归零对账、并发双线程防超卖
   - `tests/test_transfer_adjustment.py`（5）：移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚
   - `tests/test_auth_service.py`（14）：密码哈希与校验、登录/登出、token 校验与过期、用户 CRUD 权限、最后 admin 保护
   - `tests/test_api_auth.py`（4）：未登录 401、无效 token、登录态访问、operator 不可管理用户
+  - `tests/test_api_contract.py`（4）：camelCase 契约（products/customers 返回 fnsKu/caseQty/createdAt，无 snake_case）、编辑商品 fnsKu 不被置空、全局异常处理器返回 JSON body
   - `tests/test_customer_product.py`（9）：客户 CRUD/软删除、商品 FNSKU+箱规、camelCase 映射
   - `tests/test_dashboard.py`（3）：看板聚合（今日单量/库存总量/低库存）
   - `tests/test_return_service.py`（8）：退货收货回补/报废不补、重复收货拒绝、单号递增
@@ -279,4 +280,28 @@
 - 密码 PBKDF2-SHA256（标准库，100k 轮 + 随机盐），不落明文；
 - 接口：登录 / 登出 / me / 用户 CRUD（仅 admin），未登录 401、非管理员 403、重复用户名 409；
 - 前端：登录页 + Pinia store + axios 拦截器自动带 token + 路由守卫（`/users` 仅 admin）+ 顶栏登录态；默认账号 `admin / admin123`（`init_admin` 保证存在）。
+
+---
+
+## 十四、代码审查与质量加固（8 个问题全量修复）
+
+交付前按「逻辑一致性 / 架构合理性」对全项目做了一轮代码审查，发现 **1 个 Major + 7 个 Minor** 问题，全部修复并通过回归验证（双子代理交叉复核，无 false positive）。
+
+| # | 级别 | 问题 | 修复 |
+|---|------|------|------|
+| 1 | Major | `/api/products`、`/api/customers` 返回原生 ORM（snake_case 键），与前端 camelCase 契约不符：FNSKU 列显示 "-"、箱规显示 "undefined 个/箱"，且编辑商品会提交 `fnsKu: null` 把已有 FNSKU **置空（数据丢失）** | 路由挂 `response_model=ApiResponse[PageResult[ProductResponse]]`（基于 `CamelModel` 的 Response schema + 泛型 `ApiResponse[T]`/`PageResult[T]`） |
+| 2 | Minor | `generate_order_no` 用 `[-3:]` 固定截取 + 按字符串排序，序号超过 999 后回绕生成重复单号（`"999" > "1000"` 字符串比较陷阱） | `func.length(col).desc(), col.desc()` 长度优先排序 + `re.search(r"(\d+)$")` 全量解析尾部数字 |
+| 3 | Minor | `update_user` 可停用/降级**最后一个启用管理员**（`delete_user` 已有保护，更新路径漏了） | 降级或停用前查询是否存在其他启用 admin，否则 `BusinessError(409)` |
+| 4 | Minor | `deduct_stock` 先读后扣，无条件保护，并发下陈旧读可覆盖他人已提交的扣减（`lock_stock`/`ship_stock` 已有条件 UPDATE，扣减路径漏了） | 改为与 `lock_stock` 一致：条件 UPDATE（`WHERE available_qty >= take`）+ 失败重读重试 |
+| 5 | Minor | `InventoryFlow.before_qty/after_qty` 注释未说明对应维度（可用量还是锁定量） | 注释明确「随 flow_type 而定」，与各调用方写法对齐 |
+| 6 | Minor | 各 router 重复 `try/except BusinessError → HTTPException`，易漏且不一致 | 注册全局 `@app.exception_handler(BusinessError)`，清理全部 11 个 router 的重复处理 |
+| 7 | Minor | CORS `allow_credentials=True` + `allow_origins=["*"]` 非法组合（浏览器会拒绝） | 改为 `allow_credentials=False`（无 cookie 场景，前端同源代理） |
+| 8 | Minor | 无 API 契约测试，camelCase 问题可能回归 | 新增 `tests/test_api_contract.py`（4 用例），`client` fixture 提取到 conftest 供 API 层测试复用 |
+
+**验证结果**（修复后全部通过）：
+- 后端 pytest：**80 passed**（原 76 + 新增 4 契约用例）
+- 前端 vitest：**14 passed**
+- order_no 实测：`0998→0999→1000` 后生成 `IN-20260812-1001`，不再回绕
+- TestClient 端到端实测：products 返回 `fnsKu/caseQty/createdAt`（无 snake_case），customers 返回 `createdAt/tier`；不存在的商品返回 404 JSON `{detail, message, data: null}`
+- 全量 router grep 确认无 `try/except` / `HTTPException` 残留
 

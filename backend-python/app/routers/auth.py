@@ -1,8 +1,7 @@
 """用户与鉴权 API — 登录 / 登出 / 当前用户 / 用户管理（admin）"""
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
-from app.common.errors import BusinessError
 from app.database import get_db
 from app.schemas import UserCreate, UserUpdate, LoginRequest
 from app.services import auth_service
@@ -12,17 +11,10 @@ from app.models import User
 router = APIRouter(tags=["用户与鉴权"])
 
 
-def _handle(e: BusinessError):
-    raise HTTPException(status_code=e.status, detail=e.message)
-
-
 # ---------- 登录 / 登出 / 当前用户 ----------
 @router.post("/api/auth/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    try:
-        result = auth_service.login(db, req.username, req.password)
-    except BusinessError as e:
-        _handle(e)
+    result = auth_service.login(db, req.username, req.password)
     return {"code": 200, "message": "登录成功", "data": result}
 
 
@@ -55,10 +47,7 @@ def list_users(
 @router.post("/api/users", status_code=201)
 def create_user(req: UserCreate, db: Session = Depends(get_db),
                 _: User = Depends(require_admin)):
-    try:
-        user = auth_service.create_user(db, req)
-    except BusinessError as e:
-        _handle(e)
+    user = auth_service.create_user(db, req)
     return {"code": 201, "message": "用户创建成功",
             "data": auth_service._build_user_response(user)}
 
@@ -66,10 +55,7 @@ def create_user(req: UserCreate, db: Session = Depends(get_db),
 @router.put("/api/users/{user_id}")
 def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db),
                 _: User = Depends(require_admin)):
-    try:
-        user = auth_service.update_user(db, user_id, req)
-    except BusinessError as e:
-        _handle(e)
+    user = auth_service.update_user(db, user_id, req)
     return {"code": 200, "message": "用户更新成功",
             "data": auth_service._build_user_response(user)}
 
@@ -77,8 +63,5 @@ def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db),
 @router.delete("/api/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db),
                 _: User = Depends(require_admin)):
-    try:
-        auth_service.delete_user(db, user_id)
-    except BusinessError as e:
-        _handle(e)
+    auth_service.delete_user(db, user_id)
     return {"code": 200, "message": "用户删除成功", "data": None}

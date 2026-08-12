@@ -1,9 +1,8 @@
 """波次拣货 API（智能波次策略）"""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
-from app.common.errors import BusinessError
 from app.database import get_db
 from app.schemas import WaveCreate
 from app.services import wave_service
@@ -13,10 +12,7 @@ router = APIRouter(prefix="/api/waves", tags=["波次拣货"], dependencies=[Dep
 
 @router.post("", status_code=201)
 def create_wave(req: WaveCreate, db: Session = Depends(get_db)):
-    try:
-        wave = wave_service.create_wave(db, req.outbound_order_ids, remark=req.remark)
-    except BusinessError as e:
-        raise HTTPException(status_code=e.status, detail=e.message)
+    wave = wave_service.create_wave(db, req.outbound_order_ids, remark=req.remark)
     return {"code": 201, "message": "波次生成成功",
             "data": wave_service._build_wave_response(wave)}
 
@@ -48,17 +44,11 @@ def list_picking_orders(
 @router.post("/picking-orders/{picking_id}/pick", status_code=200)
 def pick_picking_order(picking_id: int, db: Session = Depends(get_db)):
     """执行拣货：锁定库存（防超卖），出库单进入 PICKED"""
-    try:
-        picking = wave_service.pick_picking_order(db, picking_id)
-    except BusinessError as e:
-        raise HTTPException(status_code=e.status, detail=e.message)
+    picking = wave_service.pick_picking_order(db, picking_id)
     return {"code": 200, "message": "拣货完成", "data": wave_service._build_picking_response(picking)}
 
 
 @router.get("/{wave_id}")
 def get_wave(wave_id: int, db: Session = Depends(get_db)):
-    try:
-        wave = wave_service.get_wave(db, wave_id)
-    except BusinessError as e:
-        raise HTTPException(status_code=e.status, detail=e.message)
+    wave = wave_service.get_wave(db, wave_id)
     return {"code": 200, "message": "success", "data": wave_service._build_wave_response(wave)}

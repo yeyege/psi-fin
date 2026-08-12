@@ -1,9 +1,8 @@
 """仓库 / 库区 / 库位 API"""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
-from app.common.errors import BusinessError
 from app.database import get_db
 from app.schemas import WarehouseCreate, ZoneCreate, LocationCreate
 from app.services import warehouse_service
@@ -20,10 +19,7 @@ def list_warehouses(db: Session = Depends(get_db)):
 
 @router.post("/api/warehouses", status_code=201)
 def create_warehouse(req: WarehouseCreate, db: Session = Depends(get_db)):
-    try:
-        w = warehouse_service.create_warehouse(db, req)
-    except BusinessError as e:
-        raise HTTPException(status_code=e.status, detail=e.message)
+    w = warehouse_service.create_warehouse(db, req)
     return {"code": 201, "message": "创建成功", "data": w}
 
 
@@ -38,10 +34,7 @@ def list_zones(warehouse_id: int | None = Query(default=None, alias="warehouseId
 
 @router.post("/api/zones", status_code=201)
 def create_zone(req: ZoneCreate, db: Session = Depends(get_db)):
-    try:
-        z = warehouse_service.create_zone(db, req)
-    except BusinessError as e:
-        raise HTTPException(status_code=e.status, detail=e.message)
+    z = warehouse_service.create_zone(db, req)
     return {"code": 201, "message": "创建成功", "data": z}
 
 
@@ -58,8 +51,5 @@ def list_locations(warehouse_id: int | None = Query(default=None, alias="warehou
 
 @router.post("/api/locations", status_code=201)
 def create_location(req: LocationCreate, db: Session = Depends(get_db)):
-    try:
-        loc = warehouse_service.create_location(db, req)
-    except BusinessError as e:
-        raise HTTPException(status_code=e.status, detail=e.message)
+    loc = warehouse_service.create_location(db, req)
     return {"code": 201, "message": "创建成功", "data": loc}
