@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { login } from './helpers'
 
 /**
  * E2E 核心正向流程：波次拣货（含前置：创建出库单）
@@ -7,6 +8,7 @@ import { test, expect } from '@playwright/test'
  * 种子数据（init_data.py 启动时自动写入）：商品 SKU-001、库位 A-01-01
  */
 test('波次正向流程：创建出库单 → 生成波次并提示成功', async ({ page }) => {
+  await login(page) // 全局登录校验：先登录再进入业务页
   // ===== 步骤 1：创建一张 PENDING 出库单 =====
   await page.goto('/#/outbound')
 

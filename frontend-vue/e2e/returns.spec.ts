@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { login } from './helpers'
 
 /**
  * E2E 核心正向流程：退货管理
@@ -7,6 +8,7 @@ import { test, expect } from '@playwright/test'
  * 种子数据（init_data.py 启动时自动写入）：客户 CUST-A01 领星科技、商品 SKU-001、库位 A-01-01
  */
 test('退货正向流程：创建退货单并提示成功', async ({ page }) => {
+  await login(page) // 全局登录校验：先登录再进入业务页
   await page.goto('/#/returns')
 
   const createBtn = page.getByRole('button', { name: '新建退货单' })

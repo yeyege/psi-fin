@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { login } from './helpers'
 
 /**
  * E2E 核心正向流程：入库
@@ -7,6 +8,7 @@ import { test, expect } from '@playwright/test'
  * 种子数据（init_data.py 启动时自动写入）：SKU-001 蓝牙耳机 Pro、库位 A-01-01
  */
 test('入库正向流程：创建入库单并提示成功', async ({ page }) => {
+  await login(page) // 全局登录校验：先登录再进入业务页
   await page.goto('/#/inbound')
 
   // 页面加载：新建按钮可见（等待商品/库位下拉数据就绪）

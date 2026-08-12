@@ -22,17 +22,17 @@ const router = createRouter({
   ],
 })
 
-// 简单路由守卫：/users 需管理员登录；/login 已登录时跳回首页
+// 全局登录守卫：除 /login 外一律要求登录；/users 仅管理员
 router.beforeEach((to) => {
   const token = localStorage.getItem('wms_token')
   const user = JSON.parse(localStorage.getItem('wms_user') || 'null')
   if (to.path === '/login') {
     return token ? '/dashboard' : true
   }
-  if (to.meta.admin && !token) {
+  if (!token) {
     return '/login'
   }
-  if (to.meta.admin && token && user?.role !== 'admin') {
+  if (to.meta.admin && user?.role !== 'admin') {
     return '/dashboard'
   }
   return true
