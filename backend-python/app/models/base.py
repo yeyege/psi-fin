@@ -12,18 +12,42 @@ from app.database import Base
 
 
 class Product(Base):
-    """商品 SKU"""
+    """商品 SKU
+
+    - fns_ku：FBA 仓库使用的 FNSKU（Amazon 场景标识，退货换标等场景按 FNSKU 精准管理）
+    - case_qty：每箱数量（箱规），为后续「产品-箱-批次-库位」四维库存预留
+    """
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
     sku = Column(String(50), nullable=False, unique=True, index=True)
+    fns_ku = Column(String(50), nullable=True, index=True)  # FNSKU（FBA 库内标识）
+    case_qty = Column(Integer, default=1)  # 每箱数量（箱规）
     unit = Column(String(20), default="个")
     # 尺寸重量（cm / kg），领星用于计费与装箱
     width = Column(Float, default=0)
     height = Column(Float, default=0)
     length = Column(Float, default=0)
     weight = Column(Float, default=0)
+    status = Column(String(20), default="ACTIVE")  # ACTIVE / INACTIVE
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class Customer(Base):
+    """客户 — 分层管理（A/B/C），出库单/退货单归属客户
+
+    对标领星：客户分层用于运营策略与计费差异化管理。
+    """
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), nullable=False, unique=True, index=True)
+    name = Column(String(200), nullable=False)
+    tier = Column(String(10), default="C")  # A / B / C 客户分层
+    contact = Column(String(50), nullable=True)   # 联系人
+    phone = Column(String(50), nullable=True)     # 联系电话
     status = Column(String(20), default="ACTIVE")  # ACTIVE / INACTIVE
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

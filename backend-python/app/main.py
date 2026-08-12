@@ -4,15 +4,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import products, warehouses, inbound, outbound, inventory, transfers
+from app.routers import products, warehouses, inbound, outbound, inventory, transfers, customers, dashboard, returns, waves, auth
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时建表 + 初始化示例数据（仅当库为空时）。"""
     Base.metadata.create_all(bind=engine)
-    from init_data import init_data
+    from init_data import init_data, init_admin
     init_data()
+    init_admin()
     yield
 
 
@@ -34,10 +35,15 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(products.router)
+app.include_router(customers.router)
+app.include_router(auth.router)
 app.include_router(warehouses.router)
+app.include_router(dashboard.router)
 app.include_router(inventory.router)
 app.include_router(inbound.router)
 app.include_router(outbound.router)
+app.include_router(waves.router)
+app.include_router(returns.router)
 app.include_router(transfers.router)
 
 

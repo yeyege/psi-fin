@@ -5,6 +5,7 @@
 from app.schemas.base import CamelModel, ApiResponse, PageResult
 from app.schemas.base import (
     ProductCreate, ProductUpdate, ProductResponse,
+    CustomerCreate, CustomerUpdate, CustomerResponse,
     WarehouseCreate, WarehouseResponse,
     ZoneCreate, ZoneResponse,
     LocationCreate, LocationResponse,
@@ -18,13 +19,20 @@ from app.schemas.inventory import (
 from app.schemas.orders import (
     InboundItemRequest, InboundOrderCreate, InboundOrderItemResponse, InboundOrderResponse,
     OutboundItemRequest, OutboundOrderCreate, OutboundOrderItemResponse, OutboundOrderResponse,
+    ReturnItemRequest, ReturnOrderCreate, ReturnOrderItemResponse, ReturnOrderResponse,
+    WaveCreate,
     StockTransferItemRequest, StockTransferCreate, StockTransferResponse,
     StockAdjustmentItemRequest, StockAdjustmentCreate, StockAdjustmentResponse,
+)
+from app.schemas.auth import (
+    UserCreate, UserUpdate, UserResponse,
+    LoginRequest, LoginResponse,
 )
 
 __all__ = [
     "CamelModel", "ApiResponse", "PageResult",
     "ProductCreate", "ProductUpdate", "ProductResponse",
+    "CustomerCreate", "CustomerUpdate", "CustomerResponse",
     "WarehouseCreate", "WarehouseResponse",
     "ZoneCreate", "ZoneResponse",
     "LocationCreate", "LocationResponse",
@@ -36,4 +44,8 @@ __all__ = [
     "OutboundItemRequest", "OutboundOrderCreate", "OutboundOrderItemResponse", "OutboundOrderResponse",
     "StockTransferItemRequest", "StockTransferCreate", "StockTransferResponse",
     "StockAdjustmentItemRequest", "StockAdjustmentCreate", "StockAdjustmentResponse",
+    "ReturnItemRequest", "ReturnOrderCreate", "ReturnOrderItemResponse", "ReturnOrderResponse",
+    "WaveCreate",
+    "UserCreate", "UserUpdate", "UserResponse",
+    "LoginRequest", "LoginResponse",
 ]

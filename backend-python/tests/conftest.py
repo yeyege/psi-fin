@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import Product, Warehouse, Zone, Location
+from app.models import Product, Customer, Warehouse, Zone, Location
 
 
 @pytest.fixture()
@@ -27,10 +27,11 @@ def db_session():
     Session = sessionmaker(bind=engine)
 
     session = Session()
-    # 基础数据：2 商品 + 1 仓库 + 1 正品库区 + 2 库位（带优先级）
+    # 基础数据：2 商品 + 1 客户 + 1 仓库 + 1 正品库区 + 2 库位（带优先级）
     session.add_all([
         Product(id=1, name="测试商品A", sku="T-001", unit="个"),
         Product(id=2, name="测试商品B", sku="T-002", unit="个"),
+        Customer(id=1, code="CUST-T", name="测试客户", tier="A"),
         Warehouse(id=1, code="WH-T", name="测试仓"),
         Zone(id=1, warehouse_id=1, code="Z-GOODS", name="正品区", zone_type="GOODS"),
         Location(id=1, zone_id=1, warehouse_id=1, code="LOC-01", priority=5),

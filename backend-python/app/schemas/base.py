@@ -36,6 +36,8 @@ class PageResult(BaseModel):
 class ProductCreate(CamelModel):
     name: str = Field(..., min_length=1, max_length=200)
     sku: str = Field(..., min_length=1, max_length=50)
+    fns_ku: str | None = Field(default=None, max_length=50)
+    case_qty: int = Field(default=1, ge=1)
     unit: str = Field(default="个", max_length=20)
     width: float = Field(default=0, ge=0)
     height: float = Field(default=0, ge=0)
@@ -45,6 +47,8 @@ class ProductCreate(CamelModel):
 
 class ProductUpdate(CamelModel):
     name: str = Field(..., min_length=1, max_length=200)
+    fns_ku: str | None = Field(default=None, max_length=50)
+    case_qty: int | None = Field(default=None, ge=1)
     unit: str | None = Field(default=None, max_length=20)
     width: float | None = Field(default=None, ge=0)
     height: float | None = Field(default=None, ge=0)
@@ -57,11 +61,43 @@ class ProductResponse(CamelModel):
     id: int
     name: str
     sku: str
+    fns_ku: str | None = None
+    case_qty: int = 1
     unit: str
     width: float
     height: float
     length: float
     weight: float
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============ 客户（分层管理 A/B/C） ============
+
+class CustomerCreate(CamelModel):
+    code: str = Field(..., min_length=1, max_length=50)
+    name: str = Field(..., min_length=1, max_length=200)
+    tier: str = Field(default="C", pattern="^[ABC]$")
+    contact: str | None = Field(default=None, max_length=50)
+    phone: str | None = Field(default=None, max_length=50)
+
+
+class CustomerUpdate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    tier: str = Field(default="C", pattern="^[ABC]$")
+    contact: str | None = Field(default=None, max_length=50)
+    phone: str | None = Field(default=None, max_length=50)
+    status: str | None = None
+
+
+class CustomerResponse(CamelModel):
+    id: int
+    code: str
+    name: str
+    tier: str
+    contact: str | None = None
+    phone: str | None = None
     status: str
     created_at: datetime
     updated_at: datetime

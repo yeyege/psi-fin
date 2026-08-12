@@ -5,13 +5,19 @@
 - inventory.py : 库存域（批次/库存行/库存流水）
 - orders.py    : 单据域（入库/出库/移库/库存调整）
 """
-from app.models.base import Product, Warehouse, Zone, Location
+from app.models.base import Product, Customer, Warehouse, Zone, Location
 from app.models.inventory import Batch, Inventory, InventoryFlow
+from app.models.auth import User, AuthToken
 from app.models.orders import (
     InboundOrder,
     InboundOrderItem,
     OutboundOrder,
     OutboundOrderItem,
+    ReturnOrder,
+    ReturnOrderItem,
+    Wave,
+    PickingOrder,
+    PickingOrderItem,
     StockTransfer,
     StockTransferItem,
     StockAdjustment,
@@ -20,9 +26,12 @@ from app.models.orders import (
 
 __all__ = [
     "Product",
+    "Customer",
     "Warehouse",
     "Zone",
     "Location",
+    "User",
+    "AuthToken",
     "Batch",
     "Inventory",
     "InventoryFlow",
@@ -30,6 +39,11 @@ __all__ = [
     "InboundOrderItem",
     "OutboundOrder",
     "OutboundOrderItem",
+    "ReturnOrder",
+    "ReturnOrderItem",
+    "Wave",
+    "PickingOrder",
+    "PickingOrderItem",
     "StockTransfer",
     "StockTransferItem",
     "StockAdjustment",
