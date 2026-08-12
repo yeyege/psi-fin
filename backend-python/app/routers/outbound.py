@@ -1,4 +1,4 @@
-"""出库单 API — 状态机 PENDING → PICKED → SHIPPED"""
+"""出库单 API — 状态机 PENDING → PICKED → REVIEWED → SHIPPED"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -36,9 +36,20 @@ def pick_outbound_order(order_id: int, db: Session = Depends(get_db)):
             "data": outbound_service._build_order_response(order)}
 
 
+@router.post("/api/outbound-orders/{order_id}/review", status_code=200)
+def review_outbound_order(order_id: int, db: Session = Depends(get_db)):
+    """复核验货：PICKED → REVIEWED（发货前置环节）"""
+    try:
+        order = outbound_service.review_outbound_order(db, order_id)
+    except BusinessError as e:
+        _handle(e)
+    return {"code": 200, "message": "复核完成",
+            "data": outbound_service._build_order_response(order)}
+
+
 @router.post("/api/outbound-orders/{order_id}/ship", status_code=200)
 def ship_outbound_order(order_id: int, db: Session = Depends(get_db)):
-    """发货：PICKED → SHIPPED，扣减锁定库存"""
+    """发货：REVIEWED → SHIPPED，扣减锁定库存"""
     try:
         order = outbound_service.ship_outbound_order(db, order_id)
     except BusinessError as e:

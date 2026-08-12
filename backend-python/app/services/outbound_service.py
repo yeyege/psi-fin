@@ -1,12 +1,13 @@
-"""出库单服务 — 状态机：PENDING(待拣货) → PICKED(已拣货，库存锁定) → SHIPPED(已发货，扣减)
+"""出库单服务 — 状态机：PENDING(待拣货) → PICKED(已拣货，库存锁定) → REVIEWED(已复核) → SHIPPED(已发货)
 
 对标领星WMS：
 - 拣货(pick)：将 available 转为 locked（拣货暂存），原子操作防超卖；
+- 复核(review)：二次核对拣货明细数量（PICKED → REVIEWED）；
 - 发货(ship)：扣减 locked，写 OUTBOUND 流水；
 - 任一环节库存不足则整体回滚，不留半成品。
 """
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.common import generate_order_no, BusinessError
 from app.models import OutboundOrder, OutboundOrderItem, Product, Location
@@ -14,6 +15,7 @@ from app.services import inventory_service
 
 STATUS_PENDING = "PENDING"
 STATUS_PICKED = "PICKED"
+STATUS_REVIEWED = "REVIEWED"
 STATUS_SHIPPED = "SHIPPED"
 
 
@@ -131,10 +133,20 @@ def pick_outbound_order(db: Session, order_id: int) -> OutboundOrder:
     return order
 
 
-def ship_outbound_order(db: Session, order_id: int) -> OutboundOrder:
-    """发货：PICKED → SHIPPED，扣减锁定库存。"""
+def review_outbound_order(db: Session, order_id: int) -> OutboundOrder:
+    """复核验货：PICKED → REVIEWED（核对拣货数量与实物一致）。"""
     order = get_outbound_order(db, order_id)
     _require_status(order, STATUS_PICKED)
+    order.status = STATUS_REVIEWED
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def ship_outbound_order(db: Session, order_id: int) -> OutboundOrder:
+    """发货：REVIEWED → SHIPPED，扣减锁定库存。"""
+    order = get_outbound_order(db, order_id)
+    _require_status(order, STATUS_REVIEWED)
 
     aggregated: dict[tuple[int, str], int] = {}
     for item in order.items:
@@ -166,7 +178,10 @@ def ship_outbound_order(db: Session, order_id: int) -> OutboundOrder:
 
 def list_outbound_orders(db: Session, status: str | None = None,
                          page: int = 1, page_size: int = 20) -> dict:
-    query = db.query(OutboundOrder)
+    # joinedload 一次加载明细及其商品，避免拼响应时 N+1 逐行查库
+    query = db.query(OutboundOrder).options(
+        joinedload(OutboundOrder.items).joinedload(OutboundOrderItem.product),
+    )
     if status:
         query = query.filter(OutboundOrder.status == status)
     total = query.count()
