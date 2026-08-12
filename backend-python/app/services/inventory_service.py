@@ -127,7 +127,22 @@ def deduct_stock(db: Session, *, product_id: int, location_code: str, quantity: 
 
 def lock_stock(db: Session, *, product_id: int, location_code: str, quantity: int,
                order_type: str, order_no: str, remark: str | None = None) -> bool:
-    """拣货锁定：available -= q, locked += q（跨批次逐行，库存不足返回 False）。"""
+    """拣货锁定：available -= q, locked += q（跨批次逐行，库存不足返回 False）。
+
+    与 deduct_stock 语义一致：库存不足时不产生任何变更与流水。
+    """
+    total = (
+        db.query(func.sum(Inventory.available_qty))
+        .filter(
+            Inventory.product_id == product_id,
+            Inventory.location_code == location_code,
+        )
+        .scalar()
+        or 0
+    )
+    if total < quantity:
+        return False
+
     remaining = quantity
     while remaining > 0:
         row = (
@@ -159,6 +174,18 @@ def lock_stock(db: Session, *, product_id: int, location_code: str, quantity: in
 def ship_stock(db: Session, *, product_id: int, location_code: str, quantity: int,
                order_type: str, order_no: str, remark: str | None = None) -> bool:
     """出库发货：locked -= q（扣减已锁定库存），并写 OUTBOUND 流水。"""
+    total = (
+        db.query(func.sum(Inventory.locked_qty))
+        .filter(
+            Inventory.product_id == product_id,
+            Inventory.location_code == location_code,
+        )
+        .scalar()
+        or 0
+    )
+    if total < quantity:
+        return False
+
     remaining = quantity
     while remaining > 0:
         row = (

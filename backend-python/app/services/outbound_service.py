@@ -108,18 +108,22 @@ def pick_outbound_order(db: Session, order_id: int) -> OutboundOrder:
         key = (item.product_id, item.location_code)
         aggregated[key] = aggregated.get(key, 0) + item.quantity
 
-    for (pid, loc), qty in aggregated.items():
-        ok = inventory_service.lock_stock(
-            db, product_id=pid, location_code=loc, quantity=qty,
-            order_type=inventory_service.ORDER_TYPE_OUTBOUND,
-            order_no=order.order_no,
-        )
-        if not ok:
-            product = db.query(Product).filter(Product.id == pid).first()
-            raise BusinessError(
-                f"库存不足：商品「{product.name if product else pid}」在库位 {loc} 可用库存不足 {qty} 件",
-                status=409,
+    try:
+        for (pid, loc), qty in aggregated.items():
+            ok = inventory_service.lock_stock(
+                db, product_id=pid, location_code=loc, quantity=qty,
+                order_type=inventory_service.ORDER_TYPE_OUTBOUND,
+                order_no=order.order_no,
             )
+            if not ok:
+                product = db.query(Product).filter(Product.id == pid).first()
+                raise BusinessError(
+                    f"库存不足：商品「{product.name if product else pid}」在库位 {loc} 可用库存不足 {qty} 件",
+                    status=409,
+                )
+    except BusinessError:
+        db.rollback()
+        raise
 
     order.status = STATUS_PICKED
     db.commit()
@@ -137,18 +141,22 @@ def ship_outbound_order(db: Session, order_id: int) -> OutboundOrder:
         key = (item.product_id, item.location_code)
         aggregated[key] = aggregated.get(key, 0) + item.quantity
 
-    for (pid, loc), qty in aggregated.items():
-        ok = inventory_service.ship_stock(
-            db, product_id=pid, location_code=loc, quantity=qty,
-            order_type=inventory_service.ORDER_TYPE_OUTBOUND,
-            order_no=order.order_no,
-        )
-        if not ok:
-            product = db.query(Product).filter(Product.id == pid).first()
-            raise BusinessError(
-                f"锁定库存不足：商品「{product.name if product else pid}」在库位 {loc} 未锁定 {qty} 件",
-                status=409,
+    try:
+        for (pid, loc), qty in aggregated.items():
+            ok = inventory_service.ship_stock(
+                db, product_id=pid, location_code=loc, quantity=qty,
+                order_type=inventory_service.ORDER_TYPE_OUTBOUND,
+                order_no=order.order_no,
             )
+            if not ok:
+                product = db.query(Product).filter(Product.id == pid).first()
+                raise BusinessError(
+                    f"锁定库存不足：商品「{product.name if product else pid}」在库位 {loc} 未锁定 {qty} 件",
+                    status=409,
+                )
+    except BusinessError:
+        db.rollback()
+        raise
 
     order.status = STATUS_SHIPPED
     db.commit()
