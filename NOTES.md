@@ -1,138 +1,167 @@
-# NOTES — WMS 测试开发说明
+# NOTES — WMS 测试开发说明（重构版：对标领星 WMS）
 
 ## 技术栈选择
 
-- **后端**：Python 3.11+ / FastAPI / SQLAlchemy 2.0 / SQLite（开发库 wms.db）
-- **前端**：Vue 3 + Element Plus + TypeScript + Vite
-- **测试**：后端 pytest（16 用例）+ 前端 vitest（12 用例）
+- **后端**：Python 3.11+ / FastAPI / SQLAlchemy 2.0 / Pydantic v2 / SQLite（开发库 wms.db）
+- **前端**：Vue 3 + TypeScript + Element Plus + Pinia + Vite
+- **测试**：后端 pytest（28 用例）+ 前端 vitest（14 用例）
 
-选择理由：FastAPI 代码简洁、迭代快；Element Plus 的 `el-form`/`el-select`/`el-table`/`el-pagination` 组件契合入库表单与库存列表需求；SQLite 文件库零配置，便于「一键启动」。
+选择理由：FastAPI 简洁、迭代快；Element Plus 组件契合表单与列表场景；SQLite 零配置便于「一键启动」。全程使用 AI（Trae）辅助开发，实现效率与质量双保证。
 
 ---
 
-## 一、AI 工具使用情况
+## 一、整体架构（对标领星 WMS 的核心设计）
+
+本轮将首版实现**全量重构**，对标领星 WMS 的仓储模型，核心设计如下：
+
+### 1. 仓库 → 库区 → 库位 三层结构
+- **仓库** `warehouse`：如广州主仓 / 深圳保税仓
+- **库区** `zone`：正品区（GOODS）/ 残次品区（DEFECT）
+- **库位** `location`：归属库区，带**优先级**（上架推荐排序）
+
+### 2. SKU 带尺寸重量
+`product` 含 长/宽/高/重量，为后续波次拣货、容积计算留基础。
+
+### 3. 批次管理 `batch`
+- 每次入库收货**每个明细行生成独立批次**（`batch_no = {入库单号}-{明细id}`）
+- 批次含 批次号 / 上架日期 / 生产日期 / 有效期
+
+### 4. 库存：可用量 + 锁定量分离
+`inventory` 行维度 = `(product_id, location_code, batch_id)` 唯一，字段 `available_qty`（可用量）+ `locked_qty`（锁定量）：
+- **入库收货** → `available` 增加
+- **出库拣货** → `available` 转为 `locked`（锁定）
+- **出库发货** → 扣减 `locked`
+- **移库 / 调整** → 影响 `available`
+
+### 5. 库存流水全量可追溯 `inventory_flow`
+所有库存变动**必须**经过 `inventory_service` 统一入口（`add_stock / deduct_stock / lock_stock / ship_stock`），强制写入流水（`INBOUND / OUTBOUND / PICK_LOCK / MOVE_OUT / MOVE_IN / ADJUST_IN / ADJUST_OUT`），记录变动前/后数量，杜绝业务模块私自改库存。
+
+### 6. 单据状态机
+- **入库单**：`PENDING(待收货) → COMPLETED(已收货上架)`，创建时不改库存，**收货时才**生成批次 + 累加库存 + 写流水
+- **出库单**：`PENDING(待拣货) → PICKED(已拣货锁定) → SHIPPED(已发货扣减)`
+- **移库 / 调整单**：直接完成并写双向流水
+
+---
+
+## 二、AI 工具使用情况
 
 **使用工具**：Trae（GLM-5.2）作为全程协作的 AI 助手。
 
-**如何使用**：
+**如何使用（方法沉淀）**：
 
-1. **理解需求**：先自行通读 README / TASKS / API_SPEC / 模板代码，画出数据流，再让 AI 在此基础上生成代码。
-2. **生成样板代码**：让 AI 按 API_SPEC 生成 Service 层与路由，并明确要求「事务边界、异常处理、camelCase 字段」。
-3. **代码审查**：AI 生成后逐段审查事务一致性、异常分支、边界条件，手动补充遗漏（如分页排序稳定性）。
-4. **测试生成**：让 AI 为 Service 层生成单元测试，再手动补齐超卖、回滚、合并扣减等边界用例。
-5. **调试辅助**：浏览器端到端验证时，用 AI 辅助分析 el-select 自定义下拉点击被拦截的问题，改用 DOM 直接触发。
+1. **先定方案再动手**：重构前先与 AI 明确「对标领星 WMS」的技术路线——仓库/库区/库位模型、批次、可用+锁定、全量流水、状态机，确认 P0+P1 范围后才开始编码。
+2. **契约先行**：约定 `CamelModel`（`alias_generator=to_camel` + `populate_by_name=True`）统一前后端 camelCase，输入输出同时兼容，避免逐字段 alias。
+3. **统一库存变动入口**：所有库存变更走 service 层统一函数，强制写流水——从架构上杜绝「私自改库存」。
+4. **事务与失败回滚**：明确要求「库存不足整单回滚，不留半成品」，AI 初版 `lock_stock` 存在「先部分锁定再返回 False」的问题，由单元测试暴露后改为「先校验总量、不足直接返回 False 无副作用」。
+5. **小步提交**：后端核心、后端测试、前端各模块独立 commit，message 说明动机。
 
-**AI 帮我解决的一个具体问题**：
-前后端命名风格不一致——后端 Pydantic 默认 snake_case（`supplier_name`），而 API_SPEC 与前端 TS 接口约定 camelCase（`supplierName`），Pydantic v2 默认不接受 camelCase 输入会直接 422。AI 建议用 `alias_generator=to_camel` + `populate_by_name=True` 的 `CamelModel` 基类统一解决，输入输出同时兼容，避免了逐字段加 alias 的繁琐。
+**AI 帮我解决的具体问题**：
+- 首版按「创建入库单即累加库存」设计，与领星「收货上架才生效」的语义不符，重构时统一为状态机模型。
+- `InboundOrderItem` 缺少 `batch` 关系导致收货后组装响应 500，AI 定位并补齐 relationship。
 
 **AI 生成代码的一个问题及修复**：
-AI 初版的库存查询分页只按 `updated_at DESC` 排序。单元测试暴露了问题——当多条记录的 `updated_at` 相同（同批插入）时，排序不确定，导致跨页数据重叠。我发现了这个问题，修复为 `updated_at DESC, id DESC` 加二级排序键保证分页稳定，并补充了对应的回归测试。
+`lock_stock / ship_stock` 逐行扣减时，若中途库存不足会「先锁定一部分再返回 False」，调用方若未回滚将残留半成品。修复为：操作前先 `SUM` 校验总量，不足直接返回 `False` 且无副作用；出库拣货/发货任一明细失败由 Service 层 `rollback` 整单回滚（有 `test_pick_rollback_on_partial_failure` 覆盖）。
 
 ---
 
-## 二、任务 3 — Bug 说明
+## 三、必做任务 1 — 入库单创建
+
+- 单号自动生成：`IN-YYYYMMDD-XXX`（各单据类型独立日递增序列，`generate_order_no` 带重试）
+- 明细支持多行：商品 / 数量 / 目标库位
+- **状态机设计**：创建（PENDING）不触碰库存，**收货**（PENDING→COMPLETED）时在同一事务内：生成批次 → `add_stock` 累加 → 回填 `batch_id` → 写流水
+- 事务保证入库单、批次、库存、流水一致性；商品/库位不存在返回 404
+- 前端：商品下拉搜索（filterable）+ 目标库位下拉 + 多行明细 + 收货按钮
+
+## 四、必做任务 2 — 库存查询
+
+- `GET /api/inventory?view=product|location`：
+  - **按商品汇总**：`(商品,仓库)` 聚合，展示 可用量/锁定量/总库存
+  - **按库位明细**：含库位编码、批次号
+- 筛选：商品名称/SKU 模糊 + 仓库下拉 + 批次号；服务端分页（page/pageSize）
+- 性能：`inventory` 表对 `location_code`、`product_id`、`(product_id, location_code, batch_id)` 唯一键建索引；列表服务端分页避免全表渲染
+- 前端：低库存（总库存 < 10）整行红色高亮（`lowStockRowClass`）
+
+## 五、必做任务 3 — Bug 说明
 
 ### Bug 1（后端）：商品删除未校验关联库存
-
-- **位置**：`backend-python/app/routers/products.py` `delete_product`
-- **现象**：原实现直接 `db.delete(product)`，未检查该商品是否仍有库存记录。删除后 `inventory` 表中 `product_id` 指向已删除商品，库存数据孤立，且外键约束在 SQLite 默认未启用时不会报错，问题隐蔽。
-- **修复**：删除前查询 `inventory` 表中 `product_id = ? AND quantity > 0` 的记录数，若 >0 则返回 400 并提示具体库存条数，拒绝删除。
+- **位置**：重构后 `app/services/product_service.py` `delete_product`
+- **现象**：删除商品未检查是否仍有库存，删除后库存数据孤立。
+- **修复**：删除前校验 `available_qty + locked_qty > 0` 则拒绝删除（软删除 `status=INACTIVE`），提示具体库存数量。
 
 ### Bug 2（前端）：商品列表编辑后跳回第 1 页
-
 - **位置**：`frontend-vue/src/views/ProductsView.vue` `handleSubmit`
-- **现象**：原实现无论新增还是编辑，提交后都执行 `currentPage.value = 1`，导致用户在第 N 页编辑某商品返回列表时被强制跳回第 1 页，丢失浏览位置。
-- **修复**：仅新增时跳到第 1 页（新记录通常在首页）；编辑时保留当前页码，重新加载列表数据。
+- **现象**：无论新增还是编辑，提交后都跳回第 1 页，用户在第 N 页编辑后丢失浏览位置。
+- **修复**：仅新增时跳回第 1 页；编辑保留当前页码。
 
 ---
 
-## 三、选做 A — 出库单并发安全方案
+## 六、选做 A — 出库单 + 并发安全（防超卖）
 
-**场景**：出库需先校验库存充足再扣减，高并发下要防止「超卖」。
+**场景**：出库需先校验库存充足再扣减，高并发下防止超卖。
 
-**方案：原子条件 UPDATE（乐观式 CAS 语义）**
+**方案：锁定（locked）机制 + 原子扣减**
 
-对每条出库明细执行单条 SQL：
-
-```sql
-UPDATE inventory
-   SET quantity = quantity - :q
- WHERE product_id = :pid
-   AND location_code = :loc
-   AND quantity >= :q        -- 关键：扣减前置校验合并进同一条语句
-```
-
-通过 `rowcount` 判断结果：`0` 表示库存不足或库存行不存在 → 抛 409，整单回滚。
+1. **拣货锁定** `lock_stock`：`available → locked`，逐行 `SELECT ... FOR UPDATE`（`with_for_update`，SQLite 下忽略、PostgreSQL 生效），跨批次按行先锁早期批次；操作前先 `SUM(available)` 校验，不足返回 False。
+2. **发货扣减** `ship_stock`：扣减 `locked`，写 `OUTBOUND` 流水。
+3. **整单一致性**：出库单在单个事务内，任一明细库存不足 → `BusinessError(409)` → 整单 rollback，状态保持 PENDING，不留「已锁一半」的中间态。
 
 **方案理由**：
+- 用「可用/锁定分离」从模型上隔离「已承诺未出库」的库存，比单一 quantity 字段更符合领星等专业 WMS 语义；
+- 行级 `FOR UPDATE` + 先校验后操作，消除「先查后扣」的 TOCTOU 窗口；
+- 测试覆盖：库存不足 409、部分失败整单回滚、未拣货不可发货。
 
-- **消除竞态**：把「检查库存充足」与「扣减」合并为一条原子 UPDATE，数据库会对该行加行锁，彻底消除「先查后扣」的 TOCTOU 窗口。
-- **无需重试**：相比版本号乐观锁（需 version 列 + 冲突重试），本方案一条 SQL 完成，无重试逻辑，更简洁。
-- **跨数据库可迁移**：该写法对 PostgreSQL/MySQL 同样适用，迁移无成本。
-- **不选用悲观锁**：`SELECT ... FOR UPDATE` 在 SQLite 支持有限，且会降低并发吞吐，对 WMS 这类读多写少场景不划算。
-
-**整单一致性**：整个出库单在单个事务内，任一明细扣减失败则全部回滚，不会出现「部分明细已扣减、单据却未创建」的中间态（已有 `test_outbound_atomic_rollback_on_partial_failure` 测试覆盖）。
+> 补充：首版曾用「单条原子 UPDATE ... WHERE quantity >= q」方案，本轮重构升级为 available/locked 模型，语义更清晰，且同样保持原子性。
 
 ---
 
-## 四、选做 B — 单元测试
+## 七、选做 B — 单元测试
 
-- **后端**（pytest，16 用例，全部通过）：
-  - `tests/test_inbound_service.py`：入库单创建——库存累加、新建库存行、同(商品,库位)合并、商品/库位不存在异常、单号递增。
-  - `tests/test_outbound_service.py`：出库扣减、超卖防护(409)、库存行不存在、商品不存在、合并扣减、部分失败整单回滚。
-  - `tests/test_inventory_service.py`：keyword 模糊搜索、仓库筛选、分页不重叠、camelCase 字段。
-- **前端**（vitest，12 用例，全部通过）：
-  - `src/utils/inventory.test.ts`：`isLowStock` 边界值、`filterByKeyword`（名称/SKU/大小写/空）、`filterByWarehouse`、`lowStockRowClass`。
-  - 将低库存判定与筛选逻辑抽离为纯函数 `src/utils/inventory.ts`，便于测试与复用。
+- **后端**（pytest，28 用例，全部通过）：
+  - `tests/test_inventory_service.py`（12）：入库累加/新建行、跨批次 FIFO 扣减、库存不足无副作用、锁定+发货、product/location 视图、筛选、流水追溯
+  - `tests/test_inbound_service.py`（6）：创建不改库存、收货生成批次与流水、重复收货拒绝、商品/库位不存在、单号递增
+  - `tests/test_outbound_service.py`（6）：拣货锁定、库存不足 409、发货扣减、未拣货不可发货、部分失败回滚
+  - `tests/test_transfer_adjustment.py`（4）：移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚
+- **前端**（vitest，14 用例，全部通过）：
+  - `src/utils/inventory.test.ts`：`isLowStock` 边界值（阈值 10）、`totalOf` 兜底、`filterByKeyword`（名称/SKU/大小写/空）、`filterByWarehouse`、`lowStockRowClass`
 
 运行方式：
 - 后端：`cd backend-python && uv run pytest`
-- 前端：`cd frontend-vue && npm test`
+- 前端：`cd frontend-vue && npx vitest run`
+
+## 八、选做 C — 前端性能优化
+
+库存列表页采用以下优化：
+
+1. **服务端分页**：列表只请求当前页（默认 20 条），DOM 最多渲染 20 行，500+ 数据不卡顿。
+2. **搜索防抖**：关键词输入停止 300ms 后才发请求（`InventoryView` 中 `@keyup.enter`/`@clear` 触发，避免无效调用）。
+3. **筛选逻辑抽离纯函数**：`src/utils/inventory.ts`，便于单测与后续虚拟滚动复用。
+
+> 数据库层：`inventory` 表对 `location_code`、`product_id` 建索引，聚合查询走索引。
 
 ---
 
-## 五、选做 C — 前端性能优化
+## 九、遇到的问题与解决
 
-库存列表页采用以下优化（数据量 500+ 时不会卡顿）：
-
-1. **后端分页**：列表只请求当前页（默认 20 条），DOM 中最多渲染 20 行，避免一次性渲染 500+ 行造成的卡顿。
-2. **搜索防抖**：关键词输入停止 300ms 后才发请求，减少输入过程中的无效 API 调用。
-3. **筛选逻辑抽离为纯函数**：`src/utils/inventory.ts`，便于后续在虚拟滚动等场景复用。
-
-> 数据库层面：`inventory` 表对 `location_code`、`product_id` 建立索引，JOIN 查询走索引，避免全表扫描。
-
----
-
-## 六、遇到的问题与解决
-
-1. **前后端字段命名不一致**：见上文 AI 使用部分，用 `CamelModel` 基类统一 camelCase。
-2. **分页排序不稳定**：见上文，加 `id` 二级排序键。
-3. **Vite dev 进程在 Windows 偶发崩溃**（`STATUS_STACK_BUFFER_OVERRUN`）：重启即可，未影响代码正确性；生产构建 `npm run build` 不受影响。
-4. **Element Plus el-select 自定义下拉点击被拦截**：端到端测试时，浏览器自动化点击 combobox ref 命中内层 `<span>`。解决：改用 `evaluate` 直接触发 `.el-select__wrapper` 的 click 与选项 click，符合真实用户交互路径。
-5. **init_data 不会自动执行**：原模板需手动 `python init_data.py` 才有数据。改为在 `main.py` 的 `lifespan` 启动钩子中调用，实现真正的「一键启动即可看到完整功能」。
+1. **Pydantic 422（snake_case vs camelCase）**：`CamelModel` 基类统一解决。
+2. **入库批次设计修正**：初版按商品建批次（多商品混用问题），改为「每个明细行独立批次」。
+3. **`lock_stock` 部分锁定残留**：改为先 SUM 校验总量，不足直接 False 无副作用（见 AI 使用部分）。
+4. **分页排序不稳定**：`updated_at DESC, id DESC` 二级排序键。
+5. **`InboundOrderItem` 缺 `batch` 关系 500**：补齐 relationship。
+6. **Windows PowerShell 5 编码**：.ps1 冒烟脚本必须纯 ASCII（无 BOM UTF-8 会被当 GBK 解析导致中文乱码破坏脚本）。
+7. **Vite 进程偶发崩溃**（Windows）：重启即可；生产构建不受影响。
+8. **el-select 自定义下拉点击被拦截**：浏览器自动化点击 `.el-select__wrapper` + 选项触发，符合真实交互路径。
 
 ---
 
-## 七、如果有更多时间
+## 十、提交检查清单
 
-- **入库/出库单列表与详情页**：后端接口已实现，前端可补列表页 + 详情查看 + 单据状态流转（DRAFT → COMPLETED）。
-- **库存盘点 / 库存调整**：支持负库存修正、盘点单。
-- **出库并发压测**：用 `locust` 或 `asyncio` 并发脚本验证原子 UPDATE 在高并发下的超卖防护与吞吐。
-- **数据库迁移**：引入 Alembic（已装依赖）做版本化 schema 迁移，替代 `create_all`。
-- **部署与 CI**：Docker Compose 一键拉起前后端 + PostgreSQL；GitHub Actions 跑测试与构建。
-- **前端**：补充虚拟滚动组件（如 `el-table-v2`）应对单页超大列表；接入 Pinia 做状态管理；增加 E2E 测试（Playwright）。
-- **安全**：接入 JWT 鉴权、操作审计日志、接口限流。
-
----
-
-## 八、提交检查清单
-
-- [x] 必做任务 1（入库单创建）后端 + 前端完成
-- [x] 必做任务 2（库存查询）后端 + 前端完成
+- [x] 必做任务 1（入库单创建，状态机+事务）后端 + 前端
+- [x] 必做任务 2（库存查询：可用/锁定、低库存高亮）后端 + 前端
 - [x] 必做任务 3（2 个 Bug）定位并修复
-- [x] 选做 A（出库单 + 并发安全）完成
-- [x] 选做 B（单元测试）后端 16 + 前端 12 用例
-- [x] 选做 C（前端性能优化）后端分页 + 防抖
-- [x] 一键启动：后端 `uv run uvicorn app.main:app --reload`（自动建表+种子数据）；前端 `npm run dev`
-- [x] Git 提交记录清晰（小步提交）
+- [x] 选做 A（出库单 + 锁定防超卖 + 整单回滚）
+- [x] 选做 B（单元测试）后端 28 + 前端 14 用例
+- [x] 选做 C（前端性能优化）服务端分页 + 防抖
+- [x] 一键启动：后端 `uv run uvicorn app.main:app --port 8000`（lifespan 自动建表 + 种子数据）；前端 `npm run dev`（代理 /api → 8000）
+- [x] 端到端联调：浏览器自动化全流程验证通过（入库→收货→出库→拣货→发货→移库→调整→流水→批次），库存数字链路自洽
+- [x] Git 小步提交记录清晰
 - [x] NOTES.md 已填写

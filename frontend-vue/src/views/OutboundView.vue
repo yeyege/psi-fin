@@ -1,224 +1,204 @@
 <script setup lang="ts">
 /**
- * 出库管理页 — 选做 A
- *
- * 功能：客户名称 + 多行出库明细，提交后库存原子扣减。
- * 库存不足时后端返回 409，前端展示具体错误信息，单据不会被创建。
+ * 出库管理页 — 状态机：PENDING(待拣货) → PICKED(已拣货锁定) → SHIPPED(已发货扣减)
+ * 拣货时原子锁定防超卖；发货扣减锁定库存。
  */
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
-  getProducts,
-  getWarehouses,
-  getLocations,
-  createOutboundOrder,
-  type Product,
-  type Warehouse,
-  type Location,
+  createOutboundOrder, pickOutboundOrder, shipOutboundOrder, getOutboundOrders,
+  getProducts, getLocations,
+  type OutboundOrder, type OutboundItemRequest, type Product, type Location,
 } from '@/api'
 
-interface OutboundRow {
-  productId: number | undefined
-  warehouseId: number | undefined
-  locationCode: string
-  quantity: number
-  locations: Location[]
-}
+const orders = ref<OutboundOrder[]>([])
+const statusFilter = ref('')
+const loading = ref(false)
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
 
-const formRef = ref<FormInstance>()
-const form = reactive({ customerName: '' })
-const products = ref<Product[]>([])
-const warehouses = ref<Warehouse[]>([])
-const items = ref<OutboundRow[]>([])
+const dialogVisible = ref(false)
 const submitting = ref(false)
-const lastOrderNo = ref('')
+const form = reactive({
+  customerName: '',
+  remark: '',
+  items: [] as Array<OutboundItemRequest & { key: number }>,
+})
+let itemKey = 0
 
-const rules: FormRules = {
-  customerName: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
+const products = ref<Product[]>([])
+const locations = ref<Location[]>([])
+
+const STATUS_MAP: Record<string, { label: string; type: 'info' | 'warning' | 'success' }> = {
+  PENDING: { label: '待拣货', type: 'info' },
+  PICKED: { label: '已拣货', type: 'warning' },
+  SHIPPED: { label: '已发货', type: 'success' },
 }
 
-onMounted(async () => {
+const loadOrders = async () => {
+  loading.value = true
   try {
-    const [pRes, wRes] = await Promise.all([getProducts(), getWarehouses()])
-    products.value = pRes.data
-    warehouses.value = wRes.data
+    const res = await getOutboundOrders({ status: statusFilter.value || undefined, page: page.value, pageSize: pageSize.value })
+    orders.value = res.data.list
+    total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error('基础数据加载失败')
+    ElMessage.error('加载出库单失败: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    loading.value = false
   }
-})
+}
 
 const addItem = () => {
-  items.value.push({
-    productId: undefined,
-    warehouseId: undefined,
-    locationCode: '',
-    quantity: 1,
-    locations: [],
-  })
+  form.items.push({ key: ++itemKey, productId: 0, quantity: 1, locationCode: '' })
 }
 
-const removeItem = (index: number) => {
-  items.value.splice(index, 1)
+const removeItem = (key: number) => {
+  form.items = form.items.filter((i) => i.key !== key)
 }
 
-const onWarehouseChange = async (row: OutboundRow) => {
-  row.locationCode = ''
-  row.locations = []
-  if (!row.warehouseId) return
-  try {
-    const res = await getLocations(row.warehouseId)
-    row.locations = res.data
-  } catch (e: any) {
-    ElMessage.error('库位加载失败')
-  }
+const openCreate = () => {
+  form.customerName = ''
+  form.remark = ''
+  form.items = []
+  addItem()
+  dialogVisible.value = true
 }
 
-const validateItems = (): string | null => {
-  if (items.value.length === 0) return '请至少添加一条出库明细'
-  for (let i = 0; i < items.value.length; i++) {
-    const row = items.value[i]
-    if (!row.productId) return `第 ${i + 1} 行：请选择商品`
-    if (!row.warehouseId) return `第 ${i + 1} 行：请选择仓库`
-    if (!row.locationCode) return `第 ${i + 1} 行：请选择库位`
-    if (!row.quantity || row.quantity <= 0) return `第 ${i + 1} 行：数量必须大于 0`
+const submitCreate = async () => {
+  if (!form.customerName.trim()) return ElMessage.warning('请填写客户')
+  if (form.items.some((i) => !i.productId || !i.locationCode || i.quantity <= 0)) {
+    return ElMessage.warning('请完整填写商品、库位与数量')
   }
-  return null
-}
-
-const handleSubmit = async () => {
-  if (!formRef.value) return
-  try {
-    await formRef.value.validate()
-  } catch {
-    return
-  }
-
-  const err = validateItems()
-  if (err) {
-    ElMessage.warning(err)
-    return
-  }
-
   submitting.value = true
   try {
     const payload = {
       customerName: form.customerName,
-      items: items.value.map((r) => ({
-        productId: r.productId!,
-        quantity: r.quantity,
-        locationCode: r.locationCode,
-      })),
+      remark: form.remark || undefined,
+      items: form.items.map(({ productId, quantity, locationCode }) => ({ productId, quantity, locationCode })),
     }
     const res = await createOutboundOrder(payload)
-    lastOrderNo.value = res.data.orderNo
-    ElMessage.success(`出库单创建成功：${res.data.orderNo}`)
-    form.customerName = ''
-    items.value = []
+    ElMessage.success(`出库单 ${res.data.orderNo} 创建成功`)
+    dialogVisible.value = false
+    page.value = 1
+    await loadOrders()
   } catch (e: any) {
-    // 库存不足时后端返回 409 + detail，展示给用户
-    const detail = e.response?.data?.detail || e.response?.data?.message || '出库失败'
-    ElMessage.error('出库失败: ' + detail)
+    ElMessage.error(e.response?.data?.detail || '创建失败')
   } finally {
     submitting.value = false
   }
 }
+
+const pick = async (row: OutboundOrder) => {
+  try {
+    const res = await pickOutboundOrder(row.id)
+    ElMessage.success(`拣货完成：${res.data.orderNo}，库存已锁定`)
+    await loadOrders()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '拣货失败')
+  }
+}
+
+const ship = async (row: OutboundOrder) => {
+  try {
+    const res = await shipOutboundOrder(row.id)
+    ElMessage.success(`发货完成：${res.data.orderNo}，库存已扣减`)
+    await loadOrders()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '发货失败')
+  }
+}
+
+const formatTime = (t: string) => (t ? t.replace('T', ' ').split('.')[0] : '-')
+
+onMounted(async () => {
+  const [pRes, lRes] = await Promise.all([
+    getProducts({ page: 1, pageSize: 100 }),
+    getLocations({}),
+  ])
+  products.value = pRes.data.list
+  locations.value = lRes.data
+  await loadOrders()
+})
 </script>
 
 <template>
   <div>
-    <h3>出库管理</h3>
-
-    <el-alert
-      v-if="lastOrderNo"
-      :title="`最近一次出库单：${lastOrderNo}`"
-      type="success"
-      :closable="false"
-      style="margin-bottom: 16px"
-    />
-
-    <el-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      label-width="100px"
-      style="max-width: 1100px"
-    >
-      <el-form-item label="客户名称" prop="customerName">
-        <el-input v-model="form.customerName" placeholder="请输入客户名称" maxlength="200" />
-      </el-form-item>
-    </el-form>
-
-    <div style="margin-bottom: 12px">
-      <el-button type="primary" @click="addItem">+ 添加明细</el-button>
-      <span style="margin-left: 12px; color: #999; font-size: 13px">
-        共 {{ items.length }} 条明细
-      </span>
+    <div style="display: flex; gap: 12px; margin-bottom: 16px">
+      <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 160px" @change="page = 1; loadOrders()">
+        <el-option label="待拣货" value="PENDING" />
+        <el-option label="已拣货" value="PICKED" />
+        <el-option label="已发货" value="SHIPPED" />
+      </el-select>
+      <el-button type="success" @click="openCreate">新建出库单</el-button>
+      <el-button type="primary" @click="loadOrders">刷新</el-button>
     </div>
 
-    <el-table :data="items" border style="width: 100%" empty-text="请点击「添加明细」">
-      <el-table-column label="序号" type="index" width="60" align="center" />
-      <el-table-column label="商品" min-width="220">
+    <el-table :data="orders" v-loading="loading" border stripe>
+      <el-table-column prop="orderNo" label="出库单号" width="190" />
+      <el-table-column prop="customerName" label="客户" min-width="120" />
+      <el-table-column label="状态" width="110">
         <template #default="{ row }">
-          <el-select v-model="row.productId" placeholder="搜索商品名称/SKU" filterable style="width: 100%">
-            <el-option
-              v-for="p in products"
-              :key="p.id"
-              :label="`${p.name}（${p.sku}）`"
-              :value="p.id"
-            />
-          </el-select>
+          <el-tag :type="STATUS_MAP[row.status]?.type || 'info'">{{ STATUS_MAP[row.status]?.label || row.status }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="仓库" width="180">
+      <el-table-column label="明细" min-width="240">
         <template #default="{ row }">
-          <el-select
-            v-model="row.warehouseId"
-            placeholder="选择仓库"
-            style="width: 100%"
-            @change="onWarehouseChange(row)"
-          >
-            <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
-          </el-select>
+          <el-tag v-for="(it, i) in row.items" :key="i" size="small" style="margin: 2px">
+            {{ it.productName }} ×{{ it.quantity }} @ {{ it.locationCode }}
+          </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="库位" width="180">
-        <template #default="{ row }">
-          <el-select
-            v-model="row.locationCode"
-            placeholder="先选仓库"
-            :disabled="!row.warehouseId"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="loc in row.locations"
-              :key="loc.code"
-              :label="loc.code"
-              :value="loc.code"
-            />
-          </el-select>
-        </template>
+      <el-table-column label="创建时间" width="170">
+        <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="数量" width="140">
+      <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <el-input-number v-model="row.quantity" :min="1" :max="999999" controls-position="right" />
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="90" align="center">
-        <template #default="{ $index }">
-          <el-button type="danger" size="small" @click="removeItem($index)">删除</el-button>
+          <el-button v-if="row.status === 'PENDING'" size="small" type="primary" @click="pick(row)">拣货</el-button>
+          <el-button v-if="row.status === 'PICKED'" size="small" type="success" @click="ship(row)">发货</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <div style="margin-top: 20px">
-      <el-button
-        type="success"
-        :loading="submitting"
-        :disabled="items.length === 0"
-        @click="handleSubmit"
-      >
-        提交出库单
-      </el-button>
+    <div style="margin-top: 16px; text-align: right">
+      <el-pagination
+        v-model:current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next, jumper"
+        @current-change="page = $event; loadOrders()"
+      />
     </div>
+
+    <!-- 新建出库单 -->
+    <el-dialog v-model="dialogVisible" title="新建出库单" width="680px">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="客户">
+          <el-input v-model="form.customerName" placeholder="如 某某电商有限公司" />
+        </el-form-item>
+        <el-form-item label="明细">
+          <div style="width: 100%">
+            <div v-for="(item, idx) in form.items" :key="item.key" style="display: flex; gap: 8px; margin-bottom: 8px">
+              <el-select v-model="item.productId" placeholder="商品" filterable style="width: 180px">
+                <el-option v-for="p in products" :key="p.id" :label="`${p.name} (${p.sku})`" :value="p.id" />
+              </el-select>
+              <el-input-number v-model="item.quantity" :min="1" style="width: 120px" />
+              <el-select v-model="item.locationCode" placeholder="出库库位" style="width: 160px">
+                <el-option v-for="l in locations" :key="l.code" :label="l.code" :value="l.code" />
+              </el-select>
+              <el-button type="danger" :icon="'Delete'" circle @click="removeItem(item.key)" />
+              <el-button v-if="idx === form.items.length - 1" type="primary" link @click="addItem">+ 添加一行</el-button>
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="form.remark" maxlength="200" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitCreate">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

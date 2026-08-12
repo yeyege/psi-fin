@@ -1,23 +1,27 @@
 /**
- * 库存筛选逻辑单元测试 — 选做 B（前端：至少 2 个用例）
+ * 库存筛选逻辑单元测试
  */
 import { describe, it, expect } from 'vitest'
 import {
   isLowStock,
+  totalOf,
   filterByKeyword,
   filterByWarehouse,
   lowStockRowClass,
   LOW_STOCK_THRESHOLD,
 } from './inventory'
-import type { InventoryItem } from '@/api'
+import type { InventoryRow } from '@/api'
 
-const makeItem = (over: Partial<InventoryItem> = {}): InventoryItem => ({
+const makeItem = (over: Partial<InventoryRow> = {}): InventoryRow => ({
   productId: 1,
   productName: '蓝牙耳机',
   sku: 'SKU-001',
-  locationCode: 'A-01',
+  availableQty: 90,
+  lockedQty: 10,
+  totalQty: 100,
+  warehouseId: 1,
   warehouseName: '广州主仓',
-  quantity: 100,
+  locationCode: 'A-01',
   updatedAt: '2026-08-11T10:00:00',
   ...over,
 })
@@ -40,6 +44,16 @@ describe('isLowStock', () => {
 
   it('阈值为常量 10', () => {
     expect(LOW_STOCK_THRESHOLD).toBe(10)
+  })
+})
+
+describe('totalOf', () => {
+  it('优先使用 totalQty', () => {
+    expect(totalOf(makeItem())).toBe(100)
+  })
+
+  it('缺少 totalQty 时由 可用+锁定 兜底', () => {
+    expect(totalOf(makeItem({ totalQty: undefined, availableQty: 30, lockedQty: 20 }))).toBe(50)
   })
 })
 
@@ -92,10 +106,10 @@ describe('filterByWarehouse', () => {
 
 describe('lowStockRowClass', () => {
   it('低库存行返回 low-stock-row class', () => {
-    expect(lowStockRowClass({ row: makeItem({ quantity: 5 }) })).toBe('low-stock-row')
+    expect(lowStockRowClass({ row: makeItem({ totalQty: 5 }) })).toBe('low-stock-row')
   })
 
   it('正常库存行返回空字符串', () => {
-    expect(lowStockRowClass({ row: makeItem({ quantity: 50 }) })).toBe('')
+    expect(lowStockRowClass({ row: makeItem({ totalQty: 50 }) })).toBe('')
   })
 })

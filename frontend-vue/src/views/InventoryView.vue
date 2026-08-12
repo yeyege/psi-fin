@@ -1,43 +1,35 @@
 <script setup lang="ts">
 /**
- * 库存查询页 — 任务2 实现
+ * 库存查询页（对标领星WMS：可用量 available + 锁定量 locked）
  *
- * 功能：
- * 1. 搜索栏：商品名称/SKU 模糊搜索（防抖 300ms）+ 仓库下拉筛选
- * 2. 表格：商品名称、SKU、库位编码、仓库、库存数量、更新时间
- * 3. 库存数量 < 10 的行整行高亮为红色
- * 4. 后端分页（避免大数据量一次性加载，对应选做 C）
+ * - 视图切换：按商品(product)汇总 / 按库位(location)明细（含批次）
+ * - 过滤：商品名称/SKU 模糊搜索 + 仓库下拉 + 批次号
+ * - 低库存（总量 < 10）整行高亮
  */
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getInventory, getWarehouses, type InventoryItem, type Warehouse } from '@/api'
+import { getInventory, getWarehouses, type InventoryRow, type Warehouse } from '@/api'
 import { LOW_STOCK_THRESHOLD, lowStockRowClass } from '@/utils/inventory'
 
+const view = ref<'product' | 'location'>('product')
 const keyword = ref('')
-const warehouseId = ref<number | undefined>()
+const warehouseId = ref<number>()
+const batchNo = ref('')
 const warehouses = ref<Warehouse[]>([])
 const loading = ref(false)
-const inventoryList = ref<InventoryItem[]>([])
+const inventoryList = ref<InventoryRow[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-
-// 防抖：关键词输入停止 300ms 后再查询，减少无效请求
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-const onKeywordInput = () => {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    page.value = 1
-    loadInventory()
-  }, 300)
-}
 
 const loadInventory = async () => {
   loading.value = true
   try {
     const res = await getInventory({
+      view: view.value,
       keyword: keyword.value || undefined,
       warehouseId: warehouseId.value,
+      batchNo: batchNo.value || undefined,
       page: page.value,
       pageSize: pageSize.value,
     })
@@ -50,105 +42,88 @@ const loadInventory = async () => {
   }
 }
 
-// 仓库变更：重置到第 1 页再查询
-const onWarehouseChange = () => {
+const onViewChange = () => {
   page.value = 1
   loadInventory()
 }
 
-// 分页变更
-const onPageChange = (p: number) => {
-  page.value = p
+const onSearch = () => {
+  page.value = 1
   loadInventory()
 }
 
-// 低库存行高亮 class 来自 @/utils/inventory（已抽离为纯函数，便于测试）
-
-const formatTime = (t: string) => {
-  if (!t) return '-'
-  return t.replace('T', ' ').split('.')[0]
+const onReset = () => {
+  keyword.value = ''
+  warehouseId.value = undefined
+  batchNo.value = ''
+  page.value = 1
+  loadInventory()
 }
+
+const formatTime = (t: string) => (t ? t.replace('T', ' ').split('.')[0] : '-')
 
 onMounted(async () => {
   try {
     const wRes = await getWarehouses()
     warehouses.value = wRes.data
-  } catch (e: any) {
+  } catch {
     ElMessage.error('仓库加载失败')
   }
   await loadInventory()
-})
-
-onBeforeUnmount(() => {
-  if (debounceTimer) clearTimeout(debounceTimer)
 })
 </script>
 
 <template>
   <div>
-    <h3>库存查询</h3>
-
     <!-- 搜索栏 -->
-    <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center">
-      <el-input
-        v-model="keyword"
-        placeholder="搜索商品名称/SKU..."
-        style="width: 300px"
-        clearable
-        @input="onKeywordInput"
-        @clear="onKeywordInput"
-        @keyup.enter="loadInventory"
-      />
-      <el-select
-        v-model="warehouseId"
-        placeholder="全部仓库"
-        clearable
-        style="width: 200px"
-        @change="onWarehouseChange"
-      >
-        <el-option
-          v-for="w in warehouses"
-          :key="w.id"
-          :label="w.name"
-          :value="w.id"
-        />
+    <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap">
+      <el-radio-group v-model="view" @change="onViewChange">
+        <el-radio-button value="product">按商品汇总</el-radio-button>
+        <el-radio-button value="location">按库位明细</el-radio-button>
+      </el-radio-group>
+      <el-input v-model="keyword" placeholder="搜索商品名称/SKU..." style="width: 240px" clearable @clear="onSearch" @keyup.enter="onSearch" />
+      <el-select v-model="warehouseId" placeholder="全部仓库" clearable style="width: 180px" @change="onSearch">
+        <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
       </el-select>
-      <el-button type="primary" @click="loadInventory">查询</el-button>
-      <el-button @click="keyword = ''; warehouseId = undefined; onWarehouseChange()">重置</el-button>
+      <el-input v-if="view === 'location'" v-model="batchNo" placeholder="批次号" style="width: 180px" clearable
+        @clear="onSearch" @keyup.enter="onSearch" />
+      <el-button type="primary" @click="onSearch">查询</el-button>
+      <el-button @click="onReset">重置</el-button>
     </div>
 
-    <!-- 表格 -->
-    <el-table
-      :data="inventoryList"
-      v-loading="loading"
-      border
-      stripe
-      :row-class-name="lowStockRowClass"
-    >
-      <el-table-column prop="productName" label="商品名称" min-width="160" />
-      <el-table-column prop="sku" label="SKU" width="140" />
-      <el-table-column prop="locationCode" label="库位编码" width="140" />
+    <el-table :data="inventoryList" v-loading="loading" border stripe :row-class-name="lowStockRowClass">
+      <el-table-column prop="productName" label="商品名称" min-width="150" />
+      <el-table-column prop="sku" label="SKU" width="130" />
       <el-table-column prop="warehouseName" label="仓库" width="120" />
-      <el-table-column prop="quantity" label="库存数量" width="110" align="right">
+      <el-table-column v-if="view === 'location'" prop="locationCode" label="库位编码" width="130" />
+      <el-table-column v-if="view === 'location'" prop="batchNo" label="批次号" width="180" />
+      <el-table-column label="可用量" width="100" align="right">
+        <template #default="{ row }">{{ row.availableQty }}</template>
+      </el-table-column>
+      <el-table-column label="锁定量" width="100" align="right">
         <template #default="{ row }">
-          <span :style="{ color: row.quantity < LOW_STOCK_THRESHOLD ? '#f56c6c' : '', fontWeight: row.quantity < LOW_STOCK_THRESHOLD ? 700 : 400 }">
-            {{ row.quantity }}
+          <span :style="{ color: row.lockedQty > 0 ? '#e6a23c' : '' }">{{ row.lockedQty }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="总库存" width="110" align="right">
+        <template #default="{ row }">
+          <span :style="{ color: row.totalQty < LOW_STOCK_THRESHOLD ? '#f56c6c' : '', fontWeight: 700 }">
+            {{ row.totalQty }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" width="180">
+      <el-table-column label="更新时间" width="170">
         <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
     <div style="margin-top: 16px; text-align: right">
       <el-pagination
         v-model:current-page="page"
         :page-size="pageSize"
         :total="total"
         layout="total, prev, pager, next, jumper"
-        @current-change="onPageChange"
+        @current-change="page = $event; loadInventory()"
       />
     </div>
 

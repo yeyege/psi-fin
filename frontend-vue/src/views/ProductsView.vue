@@ -1,120 +1,130 @@
 <script setup lang="ts">
 /**
- * 商品管理页 — 参考实现
- *
- * 展示了：
- * - 列表 + 搜索
- * - 新增 / 编辑弹窗
- * - 删除确认
- * - 分页（前端分页，简单示例）
- *
- * ️ BUG 预埋点：编辑后返回列表时页码会重置为第1页
- *   候选人需要在任务3中修复此问题
+ * 商品管理页（SKU）
+ * 服务端分页 + 新增/编辑弹窗（含尺寸重量）+ 删除（有库存禁止删除，后端校验）
  */
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getProducts, createProduct, updateProduct, deleteProduct, type Product } from '@/api'
+import {
+  getProducts, createProduct, updateProduct, deleteProduct,
+  type Product,
+} from '@/api'
 
 const products = ref<Product[]>([])
 const keyword = ref('')
 const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增商品')
-const form = ref({ id: 0, name: '', sku: '', unit: '个' })
-const currentPage = ref(1)
+const form = ref({
+  id: 0, name: '', sku: '', unit: '个',
+  width: 0, height: 0, length: 0, weight: 0,
+})
+const page = ref(1)
 const pageSize = ref(10)
+const total = ref(0)
 
-// 搜索
 const loadProducts = async () => {
   loading.value = true
   try {
-    const res = await getProducts(keyword.value || undefined)
-    products.value = res.data
+    const res = await getProducts({
+      keyword: keyword.value || undefined,
+      page: page.value,
+      pageSize: pageSize.value,
+    })
+    products.value = res.data.list
+    total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error('加载失败: ' + (e.response?.data?.message || e.message))
+    ElMessage.error('加载失败: ' + (e.response?.data?.detail || e.message))
   } finally {
     loading.value = false
   }
 }
 
-// 分页后的数据
-const pagedProducts = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return products.value.slice(start, start + pageSize.value)
-})
+const resetForm = () => {
+  form.value = { id: 0, name: '', sku: '', unit: '个', width: 0, height: 0, length: 0, weight: 0 }
+}
 
-import { computed } from 'vue'
-
-onMounted(loadProducts)
-
-// 新增
 const handleAdd = () => {
   dialogTitle.value = '新增商品'
-  form.value = { id: 0, name: '', sku: '', unit: '个' }
+  resetForm()
   dialogVisible.value = true
 }
 
-// 编辑
 const handleEdit = (product: Product) => {
   dialogTitle.value = '编辑商品'
-  form.value = { id: product.id, name: product.name, sku: product.sku, unit: product.unit }
+  form.value = {
+    id: product.id, name: product.name, sku: product.sku, unit: product.unit,
+    width: product.width, height: product.height, length: product.length, weight: product.weight,
+  }
   dialogVisible.value = true
 }
 
-// 提交
 const handleSubmit = async () => {
   try {
     const isEdit = !!form.value.id
     if (isEdit) {
-      await updateProduct(form.value.id, { name: form.value.name, unit: form.value.unit })
+      await updateProduct(form.value.id, {
+        name: form.value.name, unit: form.value.unit,
+        width: form.value.width, height: form.value.height,
+        length: form.value.length, weight: form.value.weight,
+      })
       ElMessage.success('更新成功')
     } else {
-      await createProduct({ name: form.value.name, sku: form.value.sku, unit: form.value.unit })
+      await createProduct({ ...form.value })
       ElMessage.success('创建成功')
+      // 仅新增后跳回第 1 页；编辑保留当前页码
+      page.value = 1
     }
     dialogVisible.value = false
-    // 【任务3 Bug 修复】原实现无论新增/编辑都把 currentPage 重置为 1，
-    // 导致编辑后返回列表时跳回第 1 页。修复：编辑时保留当前页码；
-    // 仅新增时跳到第 1 页（新记录通常出现在列表首页）。
-    if (!isEdit) {
-      currentPage.value = 1
-    }
     await loadProducts()
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
+    ElMessage.error(e.response?.data?.detail || '操作失败')
   }
 }
 
-// 删除
 const handleDelete = async (id: number) => {
   try {
-    await ElMessageBox.confirm('确定删除该商品吗？', '确认删除', { type: 'warning' })
+    await ElMessageBox.confirm('确定删除该商品吗？有关联库存的商品将无法删除。', '确认删除', { type: 'warning' })
     await deleteProduct(id)
     ElMessage.success('删除成功')
     await loadProducts()
-  } catch {
-    // 取消
+  } catch (e: any) {
+    if (e?.response?.data?.detail) ElMessage.error(e.response.data.detail)
   }
 }
+
+const onPageChange = (p: number) => {
+  page.value = p
+  loadProducts()
+}
+
+onMounted(loadProducts)
 </script>
 
 <template>
   <div>
-    <!-- 搜索栏 -->
     <div style="display: flex; gap: 12px; margin-bottom: 16px">
       <el-input v-model="keyword" placeholder="搜索商品名称/SKU..." style="width: 300px" clearable
-        @keyup.enter="loadProducts" @clear="loadProducts" />
-      <el-button type="primary" @click="loadProducts">搜索</el-button>
+        @keyup.enter="page = 1; loadProducts()" @clear="page = 1; loadProducts()" />
+      <el-button type="primary" @click="page = 1; loadProducts()">搜索</el-button>
       <el-button type="success" @click="handleAdd">新增商品</el-button>
     </div>
 
-    <!-- 表格 -->
-    <el-table :data="pagedProducts" v-loading="loading" border stripe>
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="商品名称" />
-      <el-table-column prop="sku" label="SKU" width="150" />
+    <el-table :data="products" v-loading="loading" border stripe>
+      <el-table-column prop="id" label="ID" width="70" />
+      <el-table-column prop="name" label="商品名称" min-width="140" />
+      <el-table-column prop="sku" label="SKU" width="130" />
       <el-table-column prop="unit" label="单位" width="80" />
-      <el-table-column label="操作" width="180">
+      <el-table-column label="尺寸(cm)" width="180">
+        <template #default="{ row }">{{ row.length }}×{{ row.width }}×{{ row.height }}</template>
+      </el-table-column>
+      <el-table-column prop="weight" label="重量(kg)" width="100" />
+      <el-table-column label="状态" width="90">
+        <template #default="{ row }">
+          <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
@@ -122,27 +132,36 @@ const handleDelete = async (id: number) => {
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
     <div style="margin-top: 16px; text-align: right">
       <el-pagination
-        v-model:current-page="currentPage"
+        v-model:current-page="page"
         :page-size="pageSize"
-        :total="products.length"
-        layout="total, prev, pager, next"
+        :total="total"
+        layout="total, prev, pager, next, jumper"
+        @current-change="onPageChange"
       />
     </div>
 
-    <!-- 新增/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
-      <el-form :model="form" label-width="80px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">
+      <el-form :model="form" label-width="90px">
         <el-form-item label="商品名称">
           <el-input v-model="form.name" maxlength="200" />
         </el-form-item>
         <el-form-item label="SKU" v-if="!form.id">
-          <el-input v-model="form.sku" maxlength="50" />
+          <el-input v-model="form.sku" maxlength="50" placeholder="如 SKU-006" />
         </el-form-item>
         <el-form-item label="单位">
           <el-input v-model="form.unit" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="长/宽/高(cm)">
+          <div style="display: flex; gap: 8px">
+            <el-input-number v-model="form.length" :min="0" placeholder="长" />
+            <el-input-number v-model="form.width" :min="0" placeholder="宽" />
+            <el-input-number v-model="form.height" :min="0" placeholder="高" />
+          </div>
+        </el-form-item>
+        <el-form-item label="重量(kg)">
+          <el-input-number v-model="form.weight" :min="0" />
         </el-form-item>
       </el-form>
       <template #footer>
