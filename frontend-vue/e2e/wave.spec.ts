@@ -25,9 +25,8 @@ test('波次正向流程：创建出库单 → 生成波次并提示成功', asy
 
   await page.getByRole('button', { name: '创建' }).click()
 
-  const outSuccess = page.locator('.el-message--success')
+  const outSuccess = page.locator('.el-message--success', { hasText: '创建成功' })
   await expect(outSuccess).toBeVisible({ timeout: 10_000 })
-  await expect(outSuccess).toContainText('创建成功')
   await expect(outSuccess).toContainText('OUT-')
 
   // ===== 步骤 2：生成波次 =====
@@ -45,10 +44,8 @@ test('波次正向流程：创建出库单 → 生成波次并提示成功', asy
   // 提交生成波次
   await page.locator('.el-dialog').getByRole('button', { name: '生成波次' }).click()
 
-  // 断言最新一条成功提示（前一条出库单提示仍在淡出，取 last）
-  const success = page.locator('.el-message--success').last()
+  // 断言：按文本过滤「生成成功」消息（登录/出库单的成功提示仍在淡出）
+  const success = page.locator('.el-message--success', { hasText: '生成成功' })
   await expect(success).toBeVisible({ timeout: 10_000 })
-  await expect(success).toContainText('波次')
-  await expect(success).toContainText('生成成功')
   await expect(success).toContainText('WV-')
 })

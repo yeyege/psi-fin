@@ -22,6 +22,10 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         // 使用系统已安装的 Chrome，避免下载 Playwright 自带浏览器（国内网络常下载失败）
         channel: 'chrome',
+        // 沙箱/CI 环境禁用 GPU 与 shader cache，避免访问 NVIDIA/Intel 缓存目录受限
+        launchOptions: {
+          args: ['--no-sandbox', '--disable-gpu', '--disable-shader-cache'],
+        },
       },
     },
   ],

@@ -30,9 +30,8 @@ test('退货正向流程：创建退货单并提示成功', async ({ page }) => 
   // 4. 提交创建
   await page.getByRole('button', { name: '创建' }).click()
 
-  // 5. 断言：出现「成功」提示且包含单号
-  const success = page.locator('.el-message--success')
+  // 5. 断言：出现「创建成功」提示且包含单号（按文本过滤，避免匹配登录欢迎消息）
+  const success = page.locator('.el-message--success', { hasText: '创建成功' })
   await expect(success).toBeVisible({ timeout: 10_000 })
-  await expect(success).toContainText('创建成功')
   await expect(success).toContainText('RT-')
 })
