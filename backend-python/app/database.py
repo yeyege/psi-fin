@@ -6,6 +6,8 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 # - 默认 SQLite（本地开发零配置，wms.db）
 # - 设置 DATABASE_URL 环境变量可无缝切换 MySQL/PostgreSQL
 #   例如 Docker 编排：mysql+pymysql://wms:wms@mysql:3306/wms?charset=utf8mb4
+# 生产环境可替换为 MySQL/PostgreSQL
+# DATABASE_URL = "mysql+pymysql://user:pass@localhost:3306/wms"
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:

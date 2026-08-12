@@ -1,0 +1,14 @@
+{
+  "name": "wms-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WMS 全栈测试项目：根目录一键启动脚本（Python FastAPI + Vue 3）",
+  "scripts": {
+    "start:backend": "cd backend-python && uv run uvicorn app.main:app --port 8000",
+    "start:frontend": "cd frontend-vue && npm run dev",
+    "start": "concurrently -k -n backend,frontend -c blue,green \"npm run start:backend\" \"npm run start:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
