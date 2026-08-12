@@ -7,7 +7,7 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const userStore = useUserStore()
 
-const form = reactive({ username: 'admin', password: '' })
+const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 
 const submit = async () => {
@@ -31,7 +31,6 @@ const submit = async () => {
   <div class="login-wrap">
     <el-card class="login-card">
       <div class="login-title">WMS 仓储管理系统</div>
-      <div class="login-sub">登录后可使用用户权限管理</div>
       <el-form :model="form" label-width="0" @submit.prevent="submit">
         <el-form-item>
           <el-input v-model="form.username" placeholder="用户名" size="large" clearable />
@@ -42,7 +41,6 @@ const submit = async () => {
         <el-button type="primary" size="large" style="width: 100%" :loading="loading" @click="submit">
           登 录
         </el-button>
-        <div class="login-hint">默认管理员：admin / admin123</div>
       </el-form>
     </el-card>
   </div>
@@ -54,28 +52,18 @@ const submit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #001529 0%, #1f3a5f 100%);
+  background: linear-gradient(135deg, #0f2440 0%, #1f3a5f 100%);
 }
 .login-card {
   width: 380px;
   padding: 12px 8px;
+  border-radius: 10px;
 }
 .login-title {
   font-size: 20px;
   font-weight: 700;
   text-align: center;
-  margin-bottom: 6px;
-}
-.login-sub {
-  text-align: center;
-  color: #909399;
-  font-size: 13px;
-  margin-bottom: 24px;
-}
-.login-hint {
-  margin-top: 16px;
-  text-align: center;
-  color: #c0c4cc;
-  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 28px;
 }
 </style>

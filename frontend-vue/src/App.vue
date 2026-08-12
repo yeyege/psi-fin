@@ -12,6 +12,8 @@ const activeMenu = computed(() => {
   // 高亮一级菜单；子路由也归到对应一级菜单（本应用为扁平路由）
   return route.path
 })
+// 登录页全屏展示，不渲染侧边栏布局
+const isLoginPage = computed(() => route.path === '/login')
 const displayName = computed(() => userStore.user?.username || '未登录')
 const roleLabel = computed(() => (userStore.user?.role === 'admin' ? '管理员' : '操作员'))
 
@@ -25,7 +27,7 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <el-container style="min-height: 100vh">
+  <el-container v-if="!isLoginPage" style="min-height: 100vh">
     <el-aside width="220px" style="background: #001529; color: #fff">
       <div class="logo">WMS 仓储管理系统</div>
       <el-menu
@@ -98,6 +100,7 @@ const handleLogout = async () => {
       </el-main>
     </el-container>
   </el-container>
+  <router-view v-else />
 </template>
 
 <style>
