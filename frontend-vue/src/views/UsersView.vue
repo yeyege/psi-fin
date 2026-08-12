@@ -3,7 +3,7 @@
  * 用户管理页（仅 admin）— 账号 CRUD / 重置密码 / 停用启用
  * 对标领星WMS：权限分层，操作员只能执行业务单据，管理员管理系统用户。
  */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUsers, createUser, updateUser, deleteUser, type UserInfo } from '@/api'
 
@@ -19,6 +19,11 @@ const form = reactive({ username: '', password: '', role: 'operator' as 'admin' 
 
 const resetPwdId = ref<number | null>(null)
 const pwdForm = reactive({ password: '' })
+// v-model 需可赋值表达式，用 computed 包装布尔判断
+const resetPwdVisible = computed({
+  get: () => resetPwdId.value !== null,
+  set: (v: boolean) => { if (!v) resetPwdId.value = null },
+})
 
 const loadUsers = async () => {
   loading.value = true
@@ -177,7 +182,7 @@ onMounted(loadUsers)
     </el-dialog>
 
     <!-- 重置密码 -->
-    <el-dialog v-model="resetPwdId !== null" title="重置密码" width="380px">
+    <el-dialog v-model="resetPwdVisible" title="重置密码" width="380px">
       <el-form label-width="80px">
         <el-form-item label="新密码">
           <el-input v-model="pwdForm.password" type="password" placeholder="至少 6 位" show-password />
