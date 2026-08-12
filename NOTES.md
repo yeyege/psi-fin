@@ -4,7 +4,7 @@
 
 - **后端**：Python 3.11+ / FastAPI / SQLAlchemy 2.0 / Pydantic v2 / SQLite（开发库 wms.db）
 - **前端**：Vue 3 + TypeScript + Element Plus + Pinia + Vite
-- **测试**：后端 pytest（28 用例）+ 前端 vitest（14 用例）
+- **测试**：后端 pytest（72 用例）+ 前端 vitest（14 用例）
 
 选择理由：FastAPI 简洁、迭代快；Element Plus 组件契合表单与列表场景；SQLite 零配置便于「一键启动」。全程使用 AI（Trae）辅助开发，实现效率与质量双保证。
 
@@ -34,11 +34,13 @@
 - **移库 / 调整** → 影响 `available`
 
 ### 5. 库存流水全量可追溯 `inventory_flow`
-所有库存变动**必须**经过 `inventory_service` 统一入口（`add_stock / deduct_stock / lock_stock / ship_stock`），强制写入流水（`INBOUND / OUTBOUND / PICK_LOCK / MOVE_OUT / MOVE_IN / ADJUST_IN / ADJUST_OUT`），记录变动前/后数量，杜绝业务模块私自改库存。
+所有库存变动**必须**经过 `inventory_service` 统一入口（`add_stock / deduct_stock / lock_stock / ship_stock`），强制写入流水（`INBOUND / OUTBOUND / PICK_LOCK / MOVE_OUT / MOVE_IN / ADJUST_IN / ADJUST_OUT / RETURN_IN`），记录变动前/后数量，杜绝业务模块私自改库存。
 
 ### 6. 单据状态机
 - **入库单**：`PENDING(待收货) → COMPLETED(已收货上架)`，创建时不改库存，**收货时才**生成批次 + 累加库存 + 写流水
-- **出库单**：`PENDING(待拣货) → PICKED(已拣货锁定) → SHIPPED(已发货扣减)`
+- **出库单**：`PENDING(待拣货) → PICKED(已拣货锁定) → REVIEWED(已复核) → SHIPPED(已发货扣减)`，复核验货是发货前置环节
+- **波次 / 拣货单**：波次 `CREATED → PICKING → COMPLETED`（随拣货进度自动推进）；拣货单 `CREATED → PICKED`，拣货时锁定库存
+- **退货单**：`PENDING(待收货) → RECEIVED(已收货) → DONE(已完成)`，收货时按处置方式（RESELL 转正品 / RELABEL 换标 / SCRAP 报废）决定是否回补库存
 - **移库 / 调整单**：直接完成并写双向流水
 
 ---
@@ -101,14 +103,15 @@
 
 **方案：锁定（locked）机制 + 原子扣减**
 
-1. **拣货锁定** `lock_stock`：`available → locked`，逐行 `SELECT ... FOR UPDATE`（`with_for_update`，SQLite 下忽略、PostgreSQL 生效），跨批次按行先锁早期批次；操作前先 `SUM(available)` 校验，不足返回 False。
+1. **拣货锁定** `lock_stock`：`available → locked`，跨批次按行先锁早期批次；操作前先 `SUM(available)` 校验，不足返回 False。
 2. **发货扣减** `ship_stock`：扣减 `locked`，写 `OUTBOUND` 流水。
-3. **整单一致性**：出库单在单个事务内，任一明细库存不足 → `BusinessError(409)` → 整单 rollback，状态保持 PENDING，不留「已锁一半」的中间态。
+3. **防超卖双保险**：除 `SELECT ... FOR UPDATE`（SQLite 下忽略、PostgreSQL 生效）外，逐行写入采用**条件 UPDATE（`WHERE available_qty >= take`，未生效则重读重试）**——并发下陈旧读无法覆盖他人已提交的扣减，SQLite 无行锁时同样不超卖。
+4. **整单一致性**：出库单在单个事务内，任一明细库存不足 → `BusinessError(409)` → 整单 rollback，状态保持 PENDING，不留「已锁一半」的中间态。
 
 **方案理由**：
 - 用「可用/锁定分离」从模型上隔离「已承诺未出库」的库存，比单一 quantity 字段更符合领星等专业 WMS 语义；
-- 行级 `FOR UPDATE` + 先校验后操作，消除「先查后扣」的 TOCTOU 窗口；
-- 测试覆盖：库存不足 409、部分失败整单回滚、未拣货不可发货。
+- 行级 `FOR UPDATE` + 条件 UPDATE 双保险 + 先校验后操作，消除「先查后扣」的 TOCTOU 窗口；
+- 测试覆盖：库存不足 409、部分失败整单回滚、未拣货不可发货、**并发双线程拣货不超卖**（`test_concurrent_pick_no_oversell`，10 件两单各 6 件至多一单成功）。
 
 > 补充：首版曾用「单条原子 UPDATE ... WHERE quantity >= q」方案，本轮重构升级为 available/locked 模型，语义更清晰，且同样保持原子性。
 
@@ -116,10 +119,10 @@
 
 ## 七、选做 B — 单元测试
 
-- **后端**（pytest，28 用例，全部通过）：
+- **后端**（pytest，30 用例，全部通过）：
   - `tests/test_inventory_service.py`（12）：入库累加/新建行、跨批次 FIFO 扣减、库存不足无副作用、锁定+发货、product/location 视图、筛选、流水追溯
   - `tests/test_inbound_service.py`（6）：创建不改库存、收货生成批次与流水、重复收货拒绝、商品/库位不存在、单号递增
-  - `tests/test_outbound_service.py`（6）：拣货锁定、库存不足 409、发货扣减、未拣货不可发货、部分失败回滚
+  - `tests/test_outbound_service.py`（8）：拣货锁定、库存不足 409、发货扣减、未拣货不可发货、部分失败回滚、发货后 locked 归零对账、并发双线程防超卖
   - `tests/test_transfer_adjustment.py`（4）：移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚
 - **前端**（vitest，14 用例，全部通过）：
   - `src/utils/inventory.test.ts`：`isLowStock` 边界值（阈值 10）、`totalOf` 兜底、`filterByKeyword`（名称/SKU/大小写/空）、`filterByWarehouse`、`lowStockRowClass`
@@ -137,6 +140,7 @@
 3. **筛选逻辑抽离纯函数**：`src/utils/inventory.ts`，便于单测与后续虚拟滚动复用。
 
 > 数据库层：`inventory` 表对 `location_code`、`product_id` 建索引，聚合查询走索引。
+> 后端侧：列表类接口（入库/出库单、流水、批次）用 `joinedload` 一次性加载明细及其商品/批次，消除拼响应时的 N+1 查询。
 
 ---
 
@@ -184,12 +188,52 @@
 - [x] 必做任务 2（库存查询：可用/锁定、低库存高亮）后端 + 前端
 - [x] 必做任务 3（2 个 Bug）定位并修复
 - [x] 选做 A（出库单 + 锁定防超卖 + 整单回滚）
-- [x] 选做 B（单元测试）后端 28 + 前端 14 用例
+- [x] 选做 B（单元测试）后端 72 + 前端 14 用例
 - [x] 选做 C（前端性能优化）服务端分页 + 防抖
-- [x] 一键启动：后端 `uv run uvicorn app.main:app --port 8000`（lifespan 自动建表 + 种子数据）；前端 `npm run dev`（代理 /api → 8000）
+- [x] MVP M1-M7 扩展：客户管理 / 商品 FNSKU+箱规 / 数据看板 / 退货管理 / 波次拣货 / 复核验货 / 用户权限（见「十二」）
+- [x] 一键启动：后端 `uv run uvicorn app.main:app --port 8000`（lifespan 自动建表 + 种子数据 + 默认 admin/admin123）；前端 `npm run dev`（代理 /api → 8000）
 - [x] 端到端联调：浏览器自动化全流程验证通过（入库→收货→出库→拣货→发货→移库→调整→流水→批次），库存数字链路自洽
 - [x] Git 小步提交记录清晰
 - [x] NOTES.md 已填写
 - [x] 工程化：Docker Compose 一键启动（mysql + backend + frontend，前端 nginx 反代 /api）
 - [x] 工程化：Playwright E2E 覆盖入库核心正向流程（本机实测通过）
 - [x] 工程化：GitHub Actions CI（pytest + 前端 build/vitest + docker build 校验，不推送）
+
+---
+
+## 十二、MVP 扩展模块（M1-M7 对标领星 WMS）
+
+按 `docs/MVP_DESIGN.md` 路线图分里程碑交付，全部完成并测试通过：
+
+### M1 客户管理
+- `Customer` 模型（`code` 唯一、`tier` A/B/C 分层、联系人/电话/状态），CRUD + 软删除；
+- 出库单 / 退货单归属客户；种子数据 3 家客户（大客户/跨境/个体）。
+
+### M2 商品字段扩展
+- `Product` 新增 `fns_ku`（FNSKU，index）与 `case_qty`（每箱数量）——对标领星 FNSKU 级管理，为箱级库存预留。
+
+### M3 数据看板
+- `dashboard_service.dashboard_summary` 聚合：今日入库/出库单数、待处理单据、库存总量、低库存商品数（<10）、在售商品数、合作客户数；
+- 前端 8 张统计卡片 + 系统公告。
+
+### M4 退货管理
+- `ReturnOrder` 状态机 `PENDING → RECEIVED → DONE`；来源 FBA 退件 / 买家退件 / 服务商退件；
+- 明细按 FNSKU 级管理，处置方式 `RESELL(转正品) / RELABEL(换标) / SCRAP(报废)`；
+- 收货时：RESELL/RELABEL 生成批次 + `add_stock` 回补可用库存 + `RETURN_IN` 流水；SCRAP 只登记不补库存。
+
+### M5 波次拣货
+- 出库单聚合生成波次（`wave_no=WV-YYYYMMDD-XXX`），每个波次下生成拣货单（`picking_no=PK-...`）；
+- 拣货明细按「商品,库位」聚合、按库位优先级降序排序——模拟 PDA 推荐库位路径；
+- 拣货 `lock_stock` 锁定库存（防超卖），库存不足整单回滚；波次 `CREATED → PICKING → COMPLETED` 随拣货进度自动推进；
+- `generate_order_no` 扩展 `no_col` 参数支持 wave_no / picking_no 独立序列。
+
+### M6 复核验货
+- 出库单状态机扩展为 `PENDING → PICKED → REVIEWED → SHIPPED`；复核接口 `POST /outbound-orders/{id}/review`；
+- 发货前强制复核（`test_ship_without_review_rejected` 覆盖），复核不改变库存。
+
+### M7 用户权限
+- `User`（admin / operator）+ `AuthToken` 随机 token 入库（7 天有效期、可撤销）；
+- 密码 PBKDF2-SHA256（标准库，100k 轮 + 随机盐），不落明文；
+- 接口：登录 / 登出 / me / 用户 CRUD（仅 admin），未登录 401、非管理员 403、重复用户名 409；
+- 前端：登录页 + Pinia store + axios 拦截器自动带 token + 路由守卫（`/users` 仅 admin）+ 顶栏登录态；默认账号 `admin / admin123`（`init_admin` 保证存在）。
+

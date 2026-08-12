@@ -15,7 +15,16 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // 使用系统已安装的 Chrome，避免下载 Playwright 自带浏览器（国内网络常下载失败）
+        channel: 'chrome',
+      },
+    },
+  ],
   webServer: [
     {
       command: 'uv run uvicorn app.main:app --port 8000',

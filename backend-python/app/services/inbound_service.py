@@ -4,7 +4,7 @@
 收货上架时才生成批次、累加可用库存并写流水。
 """
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.common import generate_order_no, BusinessError
 from app.models import InboundOrder, InboundOrderItem, Product, Location, Batch
@@ -131,7 +131,11 @@ def receive_inbound_order(db: Session, order_id: int) -> InboundOrder:
 
 def list_inbound_orders(db: Session, status: str | None = None,
                         page: int = 1, page_size: int = 20) -> dict:
-    query = db.query(InboundOrder)
+    # joinedload 一次加载明细及其商品/批次，避免拼响应时 N+1 逐行查库
+    query = db.query(InboundOrder).options(
+        joinedload(InboundOrder.items).joinedload(InboundOrderItem.product),
+        joinedload(InboundOrder.items).joinedload(InboundOrderItem.batch),
+    )
     if status:
         query = query.filter(InboundOrder.status == status)
     total = query.count()
