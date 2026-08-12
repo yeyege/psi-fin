@@ -15,13 +15,7 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
   },
-  projects: [
-    {
-      name: 'chromium',
-      // channel: 'chromium' 使用完整 Chrome for Testing（headless 也走完整内核，无需 headless-shell）
-      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
-    },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
       command: 'uv run uvicorn app.main:app --port 8000',
