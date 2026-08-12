@@ -1,146 +1,145 @@
-"""入库单服务 — 任务1 核心实现
+"""入库单服务 — 状态机：PENDING(待收货) → COMPLETED(已收货上架)
 
-职责：
-1. 生成入库单号 IN-YYYYMMDD-XXX（按日递增）
-2. 校验商品 / 库位是否存在
-3. 在单个数据库事务内：创建入库单 + 明细，并累加对应库位库存
-4. 异常时整体回滚，保证入库单与库存的一致性
+对标领星WMS：创建入库单（到货通知）时不改变库存；
+收货上架时才生成批次、累加可用库存并写流水。
 """
-from datetime import datetime
-
-from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import InboundOrder, InboundOrderItem, Inventory, Product, Location
-from app.schemas import InboundOrderCreate
+from app.common import generate_order_no, BusinessError
+from app.models import InboundOrder, InboundOrderItem, Product, Location, Batch
+from app.services import inventory_service
+
+ORDER_STATUS_PENDING = "PENDING"
+ORDER_STATUS_COMPLETED = "COMPLETED"
 
 
-class InboundError(Exception):
-    """入库业务异常"""
-
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.status = status
-
-
-def _generate_order_no(db: Session, prefix: str = "IN") -> str:
-    """生成单号：{prefix}-YYYYMMDD-XXX，XXX 为当日递增序号。
-
-    通过查询当日最大序号 +1 生成。并发下若发生唯一约束冲突，
-    由调用方在事务中捕获 IntegrityError 并重试。
-    """
-    today = datetime.now().strftime("%Y%m%d")
-    like = f"{prefix}-{today}-%"
-    last = (
-        db.query(InboundOrder)
-        .filter(InboundOrder.order_no.like(like))
-        .order_by(InboundOrder.order_no.desc())
-        .first()
-    )
-    seq = int(last.order_no[-3:]) + 1 if last else 1
-    return f"{prefix}-{today}-{seq:03d}"
+def _build_order_response(order: InboundOrder) -> dict:
+    return {
+        "id": order.id,
+        "orderNo": order.order_no,
+        "supplierName": order.supplier_name,
+        "status": order.status,
+        "remark": order.remark,
+        "items": [
+            {
+                "productId": it.product_id,
+                "productName": it.product.name if it.product else "",
+                "quantity": it.quantity,
+                "locationCode": it.location_code,
+                "batchNo": it.batch.batch_no if it.batch else None,
+            }
+            for it in order.items
+        ],
+        "createdAt": order.created_at,
+    }
 
 
-def create_inbound_order(db: Session, req: InboundOrderCreate) -> InboundOrder:
-    """创建入库单（事务性）。
-
-    - 校验所有商品、库位存在
-    - 同一单据内同一 (商品, 库位) 出现多次时合并累加
-    - 库存行存在则增加，不存在则新建（upsert 语义）
-    - 单号冲突时自动重试，最多 5 次
-    """
-    # 1. 预加载商品，避免 N+1 查询并校验存在性
-    product_ids = {item.product_id for item in req.items}
+def create_inbound_order(db: Session, data) -> InboundOrder:
+    """创建入库单（PENDING，库存不变化）。校验商品与库位存在。"""
+    product_ids = {i.product_id for i in data.items}
     products = {
         p.id: p for p in db.query(Product).filter(Product.id.in_(product_ids)).all()
     }
-    missing_products = product_ids - products.keys()
-    if missing_products:
-        raise InboundError(f"商品不存在: {sorted(missing_products)}", status=404)
+    missing = product_ids - products.keys()
+    if missing:
+        raise BusinessError(f"商品不存在: {sorted(missing)}", 404)
 
-    # 2. 预加载库位，校验存在性
-    location_codes = {item.location_code for item in req.items}
-    locations = {
-        loc.code: loc
-        for loc in db.query(Location).filter(Location.code.in_(location_codes)).all()
+    loc_codes = {i.location_code for i in data.items}
+    locs = {
+        l.code: l for l in db.query(Location).filter(Location.code.in_(loc_codes)).all()
     }
-    missing_locs = location_codes - locations.keys()
+    missing_locs = loc_codes - locs.keys()
     if missing_locs:
-        raise InboundError(f"库位不存在: {sorted(missing_locs)}", status=404)
+        raise BusinessError(f"库位不存在: {sorted(missing_locs)}", 404)
 
-    # 3. 事务内创建入库单 + 累加库存（单号冲突则重试）
     for attempt in range(5):
-        order_no = _generate_order_no(db)
+        order_no = generate_order_no(db, InboundOrder, "IN")
         try:
             order = InboundOrder(
                 order_no=order_no,
-                supplier_name=req.supplier_name,
-                status="COMPLETED",
+                supplier_name=data.supplier_name,
+                status=ORDER_STATUS_PENDING,
+                remark=data.remark,
             )
             db.add(order)
-            db.flush()  # 拿到 order.id，但不提交
-
-            # 聚合明细：同一 (商品, 库位) 合并，避免重复锁同一行
-            aggregated: dict[tuple[int, str], int] = {}
-            for item in req.items:
-                aggregated[(item.product_id, item.location_code)] = (
-                    aggregated.get((item.product_id, item.location_code), 0) + item.quantity
-                )
-
-            for (pid, loc_code), qty in aggregated.items():
+            db.flush()
+            for item in data.items:
                 db.add(InboundOrderItem(
                     order_id=order.id,
-                    product_id=pid,
-                    quantity=qty,
-                    location_code=loc_code,
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    location_code=item.location_code,
                 ))
-                # upsert 库存
-                inv = (
-                    db.query(Inventory)
-                    .filter(
-                        Inventory.product_id == pid,
-                        Inventory.location_code == loc_code,
-                    )
-                    .first()
-                )
-                if inv:
-                    inv.quantity += qty
-                else:
-                    db.add(Inventory(product_id=pid, location_code=loc_code, quantity=qty))
-
             db.commit()
             db.refresh(order)
             return order
-        except IntegrityError as e:
+        except IntegrityError:
             db.rollback()
-            # 单号重复 → 重试；其它唯一约束冲突直接报错
-            if attempt < 4 and "order_no" in str(e.orig).lower():
+            if attempt < 4:
                 continue
-            raise InboundError("入库单创建失败：数据冲突", status=409)
-        except Exception:
-            db.rollback()
-            raise
-
-    raise InboundError("入库单创建失败：单号生成重试耗尽", status=500)
+            raise BusinessError("入库单创建失败：单号冲突", 409)
+    raise BusinessError("入库单创建失败", 500)
 
 
-def list_inbound_orders(db: Session, page: int = 1, page_size: int = 20) -> dict:
-    """入库单列表（分页）"""
-    total = db.query(InboundOrder).count()
-    orders = (
-        db.query(InboundOrder)
-        .order_by(InboundOrder.created_at.desc())
+def get_inbound_order(db: Session, order_id: int) -> InboundOrder:
+    order = db.query(InboundOrder).filter(InboundOrder.id == order_id).first()
+    if not order:
+        raise BusinessError("入库单不存在", 404)
+    return order
+
+
+def receive_inbound_order(db: Session, order_id: int) -> InboundOrder:
+    """收货上架：PENDING → COMPLETED。
+
+    生成一个批次（批次号=单号），累加各明细库存，回填批次，写流水。
+    整个流程在一个事务内，任一步失败全部回滚。
+    """
+    order = get_inbound_order(db, order_id)
+    if order.status == ORDER_STATUS_COMPLETED:
+        raise BusinessError("该入库单已完成收货，不能重复操作")
+    if order.status != ORDER_STATUS_PENDING:
+        raise BusinessError(f"当前状态 {order.status} 不允许收货")
+
+    from datetime import datetime
+    # 每个明细行一个批次（批次号 = 单号-明细id），支持有效期/追溯
+    for item in order.items:
+        batch = Batch(
+            batch_no=f"{order.order_no}-{item.id}",
+            product_id=item.product_id,
+            inbound_date=datetime.now(),
+        )
+        db.add(batch)
+        db.flush()
+        item.batch_id = batch.id
+        inventory_service.add_stock(
+            db,
+            product_id=item.product_id,
+            location_code=item.location_code,
+            batch_id=batch.id,
+            quantity=item.quantity,
+            flow_type=inventory_service.FLOW_TYPE_INBOUND,
+            order_type=inventory_service.ORDER_TYPE_INBOUND,
+            order_no=order.order_no,
+        )
+
+    order.status = ORDER_STATUS_COMPLETED
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def list_inbound_orders(db: Session, status: str | None = None,
+                        page: int = 1, page_size: int = 20) -> dict:
+    query = db.query(InboundOrder)
+    if status:
+        query = query.filter(InboundOrder.status == status)
+    total = query.count()
+    rows = (
+        query.order_by(InboundOrder.created_at.desc(), InboundOrder.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
-    return {"list": orders, "total": total, "page": page, "page_size": page_size}
-
-
-def get_inbound_order(db: Session, order_id: int) -> InboundOrder:
-    """入库单详情（含明细）"""
-    order = db.query(InboundOrder).filter(InboundOrder.id == order_id).first()
-    if not order:
-        raise InboundError("入库单不存在", status=404)
-    return order
+    return {"list": [_build_order_response(o) for o in rows], "total": total,
+            "page": page, "pageSize": page_size}

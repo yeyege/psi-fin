@@ -1,93 +1,58 @@
-"""
-商品管理 API — 参考实现
-
-展示了：FastAPI 路由、Pydantic 校验、异常处理、CRUD 操作
-"""
-from fastapi import APIRouter, Depends, HTTPException
+"""商品 SKU API"""
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.common.errors import BusinessError
 from app.database import get_db
-from app.models import Product, Inventory
-from app.schemas import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas import ProductCreate, ProductUpdate
+from app.services import product_service
 
 router = APIRouter(prefix="/api/products", tags=["商品管理"])
 
 
 @router.get("")
-def list_products(keyword: str | None = None, db: Session = Depends(get_db)):
-    """商品列表 — 支持模糊搜索"""
-    query = db.query(Product)
-    if keyword:
-        query = query.filter(
-            (Product.name.contains(keyword)) | (Product.sku.contains(keyword))
-        )
-    products = query.all()
-    return {"code": 200, "message": "success", "data": products}
+def list_products(
+    keyword: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    db: Session = Depends(get_db),
+):
+    result = product_service.list_products(db, keyword=keyword, page=page, page_size=page_size)
+    return {"code": 200, "message": "success", "data": result}
 
 
 @router.get("/{product_id}")
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    """商品详情"""
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
-    return {"code": 200, "message": "success", "data": product}
+    try:
+        p = product_service.get_product(db, product_id)
+    except BusinessError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
+    return {"code": 200, "message": "success", "data": p}
 
 
 @router.post("", status_code=201)
 def create_product(req: ProductCreate, db: Session = Depends(get_db)):
-    """创建商品"""
-    # 检查 SKU 是否已存在
-    existing = db.query(Product).filter(Product.sku == req.sku).first()
-    if existing:
-        raise HTTPException(status_code=400, detail=f"SKU已存在: {req.sku}")
-
-    product = Product(name=req.name, sku=req.sku, unit=req.unit)
-    db.add(product)
-    db.commit()
-    db.refresh(product)
-    return {"code": 201, "message": "创建成功", "data": product}
+    try:
+        p = product_service.create_product(db, req)
+    except BusinessError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
+    return {"code": 201, "message": "创建成功", "data": p}
 
 
 @router.put("/{product_id}")
 def update_product(product_id: int, req: ProductUpdate, db: Session = Depends(get_db)):
-    """更新商品"""
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
-
-    product.name = req.name
-    if req.unit is not None:
-        product.unit = req.unit
-    db.commit()
-    db.refresh(product)
-    return {"code": 200, "message": "更新成功", "data": product}
+    try:
+        p = product_service.update_product(db, product_id, req)
+    except BusinessError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
+    return {"code": 200, "message": "更新成功", "data": p}
 
 
 @router.delete("/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    """删除商品
-
-    【任务3 Bug 修复】原实现未校验该商品是否有关联库存，直接删除会导致
-    inventory 表中 product_id 指向已删除商品，库存数据孤立。
-    修复：删除前校验是否存在关联库存（quantity > 0），存在则拒绝删除。
-    """
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
-
-    # 校验关联库存：存在库存记录则禁止删除，避免库存数据孤立
-    stock_count = (
-        db.query(Inventory)
-        .filter(Inventory.product_id == product_id, Inventory.quantity > 0)
-        .count()
-    )
-    if stock_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"商品「{product.name}」仍有 {stock_count} 条库存记录，无法删除",
-        )
-
-    db.delete(product)
-    db.commit()
+    """删除商品（校验关联库存，有库存则拒绝）"""
+    try:
+        product_service.delete_product(db, product_id)
+    except BusinessError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
     return {"code": 200, "message": "删除成功", "data": None}

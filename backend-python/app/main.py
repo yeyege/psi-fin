@@ -4,14 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import products, warehouses, inventory, outbound
+from app.routers import products, warehouses, inbound, outbound, inventory, transfers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时建表 + 初始化示例数据（仅当库为空时）。"""
     Base.metadata.create_all(bind=engine)
-    # 自动初始化示例数据，保证「一键启动」即可看到完整功能
     from init_data import init_data
     init_data()
     yield
@@ -19,8 +18,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="WMS API",
-    description="仓储管理系统 API",
-    version="1.0.0",
+    description="仓储管理系统 API（对标领星WMS：批次库存 / 可用+锁定 / 全量流水 / 单据状态机）",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -37,7 +36,9 @@ app.add_middleware(
 app.include_router(products.router)
 app.include_router(warehouses.router)
 app.include_router(inventory.router)
+app.include_router(inbound.router)
 app.include_router(outbound.router)
+app.include_router(transfers.router)
 
 
 @app.get("/")

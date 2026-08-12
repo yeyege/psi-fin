@@ -1,85 +1,68 @@
-"""出库 API — 选做 A
-
-- POST /api/outbound-orders   创建出库单（并发安全扣减库存）
-- GET  /api/outbound-orders   出库单列表
-- GET  /api/outbound-orders/{id}  出库单详情
-"""
+"""出库单 API — 状态机 PENDING → PICKED → SHIPPED"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.common.errors import BusinessError
 from app.database import get_db
-from app.models import OutboundOrder
 from app.schemas import OutboundOrderCreate
 from app.services import outbound_service
 
 router = APIRouter(tags=["出库"])
 
 
-def _to_outbound_order_dict(order) -> dict:
-    return {
-        "id": order.id,
-        "orderNo": order.order_no,
-        "customerName": order.customer_name,
-        "status": order.status,
-        "items": [
-            {
-                "productId": it.product_id,
-                "productName": it.product.name if it.product else "",
-                "quantity": it.quantity,
-                "locationCode": it.location_code,
-            }
-            for it in order.items
-        ],
-        "createdAt": order.created_at,
-    }
+def _handle(e: BusinessError):
+    raise HTTPException(status_code=e.status, detail=e.message)
 
 
 @router.post("/api/outbound-orders", status_code=201)
 def create_outbound_order(req: OutboundOrderCreate, db: Session = Depends(get_db)):
-    """创建出库单 —— 选做 A
-
-    库存不足时返回 409，单据不会被创建。
-    """
+    """创建出库单（PENDING，库存未变化）"""
     try:
         order = outbound_service.create_outbound_order(db, req)
-    except outbound_service.OutboundError as e:
-        raise HTTPException(status_code=e.status, detail=str(e))
-    return {
-        "code": 201,
-        "message": "出库单创建成功",
-        "data": _to_outbound_order_dict(order),
-    }
+    except BusinessError as e:
+        _handle(e)
+    return {"code": 201, "message": "出库单创建成功",
+            "data": outbound_service._build_order_response(order)}
+
+
+@router.post("/api/outbound-orders/{order_id}/pick", status_code=200)
+def pick_outbound_order(order_id: int, db: Session = Depends(get_db)):
+    """拣货：PENDING → PICKED，锁定库存（防超卖）"""
+    try:
+        order = outbound_service.pick_outbound_order(db, order_id)
+    except BusinessError as e:
+        _handle(e)
+    return {"code": 200, "message": "拣货完成",
+            "data": outbound_service._build_order_response(order)}
+
+
+@router.post("/api/outbound-orders/{order_id}/ship", status_code=200)
+def ship_outbound_order(order_id: int, db: Session = Depends(get_db)):
+    """发货：PICKED → SHIPPED，扣减锁定库存"""
+    try:
+        order = outbound_service.ship_outbound_order(db, order_id)
+    except BusinessError as e:
+        _handle(e)
+    return {"code": 200, "message": "发货完成",
+            "data": outbound_service._build_order_response(order)}
 
 
 @router.get("/api/outbound-orders")
 def list_outbound_orders(
+    status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
     db: Session = Depends(get_db),
 ):
-    total = db.query(OutboundOrder).count()
-    orders = (
-        db.query(OutboundOrder)
-        .order_by(OutboundOrder.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
-    return {
-        "code": 200,
-        "message": "success",
-        "data": {
-            "list": [_to_outbound_order_dict(o) for o in orders],
-            "total": total,
-            "page": page,
-            "pageSize": page_size,
-        },
-    }
+    result = outbound_service.list_outbound_orders(db, status=status, page=page, page_size=page_size)
+    return {"code": 200, "message": "success", "data": result}
 
 
 @router.get("/api/outbound-orders/{order_id}")
 def get_outbound_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.query(OutboundOrder).filter(OutboundOrder.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="出库单不存在")
-    return {"code": 200, "message": "success", "data": _to_outbound_order_dict(order)}
+    try:
+        order = outbound_service.get_outbound_order(db, order_id)
+    except BusinessError as e:
+        _handle(e)
+    return {"code": 200, "message": "success",
+            "data": outbound_service._build_order_response(order)}
