@@ -3,7 +3,8 @@
  * 数据看板（首页）— 可视化大屏风格
  * 美化统计卡片 + ECharts 图表 + Mock 数据
  */
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import {
@@ -19,6 +20,10 @@ import {
   PieChart,
   Histogram,
   Rank,
+  Switch,
+  EditPen,
+  DataBoard,
+  RefreshLeft,
 } from '@element-plus/icons-vue'
 import { getDashboardSummary, type DashboardSummary } from '@/api'
 
@@ -80,6 +85,54 @@ const mockOrderStatusPie = [
   { name: '已取消', value: 18 },
 ]
 
+// ============ 核心 KPI 指标卡 Mock 数据 ============
+// 库存周转率 / 库容使用率 / 今日订单量 / 作业效率（计划 vs 完成）
+const mockKpi = {
+  turnoverRate: 4.2, // 次/月
+  turnoverTrend: 8.5,
+  capacityUsed: 78, // %
+  capacityTotal: 75000, // 件
+  capacityUsedQty: 58420, // 件
+  todayOrderCount: 1284, // 单
+  todayOrderTrend: 12.5,
+  inboundPlan: 150,
+  inboundDone: 138,
+  outboundPlan: 120,
+  outboundDone: 104,
+}
+
+// 仓库热力图：行=库区，列=货架列，值=繁忙程度 0-100
+const mockHeatmap = {
+  zones: ['A 区', 'B 区', 'C 区', 'D 区', 'E 区'],
+  cols: ['1 列', '2 列', '3 列', '4 列', '5 列', '6 列', '7 列', '8 列'],
+  // data: [colIndex, zoneIndex, value]
+  data: [
+    [0, 0, 88], [1, 0, 95], [2, 0, 72], [3, 0, 45], [4, 0, 30], [5, 0, 62], [6, 0, 80], [7, 0, 92],
+    [0, 1, 60], [1, 1, 78], [2, 1, 90], [3, 1, 85], [4, 1, 55], [5, 1, 40], [6, 1, 68], [7, 1, 75],
+    [0, 2, 35], [1, 2, 50], [2, 2, 65], [3, 2, 82], [4, 2, 95], [5, 2, 88], [6, 2, 70], [7, 2, 48],
+    [0, 3, 92], [1, 3, 86], [2, 3, 70], [3, 3, 52], [4, 3, 38], [5, 3, 65], [6, 3, 78], [7, 3, 84],
+    [0, 4, 42], [1, 4, 58], [2, 4, 72], [3, 4, 80], [4, 4, 68], [5, 4, 50], [6, 4, 36], [7, 4, 62],
+  ],
+}
+
+// 库存预警列表（低库存 + 临期商品）
+const mockStockAlerts = [
+  { type: '低库存', productName: 'iPhone 15 Pro Max 256G', sku: 'IP15PM-256', warehouse: '上海仓', qty: 5, threshold: 20, level: 'danger' },
+  { type: '低库存', productName: 'AirPods Pro 2代', sku: 'APP-2', warehouse: '广州仓', qty: 8, threshold: 30, level: 'danger' },
+  { type: '临期', productName: 'SK-II神仙水 230ml', sku: 'SK2-230', warehouse: '北京仓', qty: 42, threshold: 0, expireDays: 15, level: 'warning' },
+  { type: '低库存', productName: '戴森吹风机 HD15', sku: 'DY-HD15', warehouse: '成都仓', qty: 3, threshold: 15, level: 'danger' },
+  { type: '临期', productName: '雅诗兰黛小棕瓶 50ml', sku: 'EL-EB50', warehouse: '上海仓', qty: 28, threshold: 0, expireDays: 7, level: 'warning' },
+]
+
+// 待办事项与消息列表
+const mockTodos = [
+  { title: '3 张入库单待审核', desc: '上海仓 · 供应商：华为科技', tag: '入库审核', type: 'warning', time: '10 分钟前' },
+  { title: '5 张出库单待发货', desc: '广州仓 · 客户：京东自营', tag: '出库发货', type: 'danger', time: '32 分钟前' },
+  { title: '2 个波次待拣货', desc: '波次号 WAVE-20260812-01', tag: '波次拣货', type: 'info', time: '1 小时前' },
+  { title: '月末盘点任务待执行', desc: '全部仓库 · 计划 08-31 执行', tag: '盘点', type: 'primary', time: '2 小时前' },
+  { title: '系统升级公告待确认', desc: 'v1.2.0 将于本周六凌晨停机维护', tag: '公告', type: 'success', time: '昨天' },
+]
+
 // ============ 数据层 ============
 const summary = ref<DashboardSummary>(mockSummary)
 const loading = ref(false)
@@ -109,7 +162,7 @@ onMounted(async () => {
   setTimeout(handleResize, 300)
   // 监听图表容器尺寸变化（如 CSS 改动、侧边栏伸缩），自动同步 resize
   resizeObserver = new ResizeObserver(() => handleResize())
-  ;[trendChartRef.value, categoryChartRef.value, warehouseChartRef.value, topSalesChartRef.value, orderStatusChartRef.value].forEach((el) => {
+  ;[trendChartRef.value, categoryChartRef.value, warehouseChartRef.value, topSalesChartRef.value, orderStatusChartRef.value, heatmapChartRef.value].forEach((el) => {
     if (el) resizeObserver!.observe(el)
   })
 })
@@ -208,18 +261,44 @@ const cards: CardConfig[] = [
 
 const formatNumber = (n: number) => n.toLocaleString('zh-CN')
 
+// ============ 快捷操作入口 ============
+const router = useRouter()
+const quickActions = [
+  { label: '新建入库单', icon: Download, path: '/inbound', color: '#5470c6' },
+  { label: '新建出库单', icon: Upload, path: '/outbound', color: '#91cc75' },
+  { label: '波次拣货', icon: Box, path: '/waves', color: '#fac858' },
+  { label: '库内移库', icon: Switch, path: '/transfers', color: '#73c0de' },
+  { label: '库存调整', icon: EditPen, path: '/adjustments', color: '#ee6666' },
+  { label: '快速盘点', icon: DataBoard, path: '/inventory', color: '#9a60b4' },
+  { label: '批次管理', icon: Van, path: '/batches', color: '#fc8452' },
+  { label: '退货管理', icon: RefreshLeft, path: '/returns', color: '#ea7ccc' },
+]
+const goAction = (path: string) => {
+  router.push(path)
+}
+
+// 作业效率：入库 / 出库 完成率
+const inboundEfficiency = computed(() =>
+  mockKpi.inboundPlan === 0 ? 0 : Math.round((mockKpi.inboundDone / mockKpi.inboundPlan) * 100),
+)
+const outboundEfficiency = computed(() =>
+  mockKpi.outboundPlan === 0 ? 0 : Math.round((mockKpi.outboundDone / mockKpi.outboundPlan) * 100),
+)
+
 // ============ ECharts 图表 ============
 const trendChartRef = ref<HTMLDivElement | null>(null)
 const categoryChartRef = ref<HTMLDivElement | null>(null)
 const warehouseChartRef = ref<HTMLDivElement | null>(null)
 const topSalesChartRef = ref<HTMLDivElement | null>(null)
 const orderStatusChartRef = ref<HTMLDivElement | null>(null)
+const heatmapChartRef = ref<HTMLDivElement | null>(null)
 
 let trendChart: echarts.ECharts | null = null
 let categoryChart: echarts.ECharts | null = null
 let warehouseChart: echarts.ECharts | null = null
 let topSalesChart: echarts.ECharts | null = null
 let orderStatusChart: echarts.ECharts | null = null
+let heatmapChart: echarts.ECharts | null = null
 
 const palette = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
 
@@ -546,12 +625,68 @@ const initOrderStatusChart = () => {
   orderStatusChart.setOption(option)
 }
 
+const initHeatmapChart = () => {
+  if (!heatmapChartRef.value) return
+  heatmapChart = echarts.init(heatmapChartRef.value)
+  const zoneLabels = mockHeatmap.zones
+  const colLabels = mockHeatmap.cols
+  const option: echarts.EChartsOption = {
+    tooltip: {
+      position: 'top',
+      formatter: (p: any) =>
+        `${zoneLabels[p.value[1]]} · ${colLabels[p.value[0]]}<br/>繁忙程度：<b>${p.value[2]}</b>`,
+      backgroundColor: 'rgba(255,255,255,0.95)',
+      textStyle: { color: '#333' },
+    },
+    grid: { left: 50, right: 20, top: 30, bottom: 60, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: colLabels,
+      splitArea: { show: true },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      axisLabel: { color: '#6b7280' },
+    },
+    yAxis: {
+      type: 'category',
+      data: zoneLabels,
+      splitArea: { show: true },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      axisLabel: { color: '#6b7280' },
+    },
+    visualMap: {
+      min: 0,
+      max: 100,
+      calculable: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 0,
+      textStyle: { color: '#6b7280' },
+      inRange: {
+        color: ['#e0f2fe', '#7dd3fc', '#38bdf8', '#0284c7', '#075985'],
+      },
+    },
+    series: [
+      {
+        name: '繁忙程度',
+        type: 'heatmap',
+        data: mockHeatmap.data,
+        label: { show: true, color: '#1f2937', fontSize: 11, fontWeight: 600 },
+        emphasis: {
+          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' },
+        },
+      },
+    ],
+  }
+  heatmapChart.setOption(option)
+}
+
 const initCharts = () => {
   initTrendChart()
   initCategoryChart()
   initWarehouseChart()
   initTopSalesChart()
   initOrderStatusChart()
+  initHeatmapChart()
 }
 
 const disposeCharts = () => {
@@ -560,6 +695,7 @@ const disposeCharts = () => {
   warehouseChart?.dispose()
   topSalesChart?.dispose()
   orderStatusChart?.dispose()
+  heatmapChart?.dispose()
 }
 
 const handleResize = () => {
@@ -568,11 +704,101 @@ const handleResize = () => {
   warehouseChart?.resize()
   topSalesChart?.resize()
   orderStatusChart?.resize()
+  heatmapChart?.resize()
 }
 </script>
 
 <template>
   <div class="dashboard-wrap">
+    <!-- ========== 核心 KPI 指标卡 ========== -->
+    <div class="kpi-grid">
+      <!-- 库存周转率 -->
+      <div class="kpi-card kpi-turnover">
+        <div class="kpi-head">
+          <span class="kpi-label">库存周转率</span>
+          <el-icon :size="18" color="#5470c6"><TrendCharts /></el-icon>
+        </div>
+        <div class="kpi-value">
+          {{ mockKpi.turnoverRate }} <span class="kpi-unit">次/月</span>
+        </div>
+        <div class="kpi-trend up">
+          <el-icon :size="12"><Top /></el-icon>
+          <span>{{ mockKpi.turnoverTrend }}%</span>
+          <span class="kpi-trend-label">较上月</span>
+        </div>
+      </div>
+
+      <!-- 库容使用率 -->
+      <div class="kpi-card kpi-capacity">
+        <div class="kpi-head">
+          <span class="kpi-label">库容使用率</span>
+          <el-icon :size="18" color="#3a9ec0"><DataBoard /></el-icon>
+        </div>
+        <div class="kpi-value">
+          {{ mockKpi.capacityUsed }}<span class="kpi-unit">%</span>
+        </div>
+        <el-progress
+          :percentage="mockKpi.capacityUsed"
+          :stroke-width="8"
+          :show-text="false"
+          color="#3a9ec0"
+          class="kpi-progress"
+        />
+        <div class="kpi-sub">
+          {{ formatNumber(mockKpi.capacityUsedQty) }} / {{ formatNumber(mockKpi.capacityTotal) }} 件
+        </div>
+      </div>
+
+      <!-- 今日订单量 -->
+      <div class="kpi-card kpi-order">
+        <div class="kpi-head">
+          <span class="kpi-label">今日订单量</span>
+          <el-icon :size="18" color="#6ba84f"><ShoppingCart /></el-icon>
+        </div>
+        <div class="kpi-value">
+          {{ formatNumber(mockKpi.todayOrderCount) }} <span class="kpi-unit">单</span>
+        </div>
+        <div class="kpi-trend up">
+          <el-icon :size="12"><Top /></el-icon>
+          <span>{{ mockKpi.todayOrderTrend }}%</span>
+          <span class="kpi-trend-label">较昨日</span>
+        </div>
+      </div>
+
+      <!-- 作业效率 -->
+      <div class="kpi-card kpi-efficiency">
+        <div class="kpi-head">
+          <span class="kpi-label">作业效率</span>
+          <el-icon :size="18" color="#c98a1e"><Histogram /></el-icon>
+        </div>
+        <div class="efficiency-row">
+          <div class="efficiency-item">
+            <span class="eff-label">入库</span>
+            <el-progress
+              :percentage="inboundEfficiency"
+              :stroke-width="8"
+              :show-text="false"
+              color="#5470c6"
+              class="eff-progress"
+            />
+            <span class="eff-num">{{ mockKpi.inboundDone }}/{{ mockKpi.inboundPlan }}</span>
+          </div>
+          <div class="efficiency-item">
+            <span class="eff-label">出库</span>
+            <el-progress
+              :percentage="outboundEfficiency"
+              :stroke-width="8"
+              :show-text="false"
+              color="#91cc75"
+              class="eff-progress"
+            />
+            <span class="eff-num">{{ mockKpi.outboundDone }}/{{ mockKpi.outboundPlan }}</span>
+          </div>
+        </div>
+        <div class="kpi-sub">完成量 / 计划量</div>
+      </div>
+    </div>
+
     <!-- ========== 统计卡片区域 ========== -->
     <div class="stat-grid">
       <div
@@ -712,12 +938,347 @@ const handleResize = () => {
         </div>
       </el-col>
     </el-row>
+
+    <!-- ========== 仓库热力图 + 预警与待办中心 ========== -->
+    <el-row :gutter="16" class="chart-row">
+      <el-col :xs="24" :lg="13">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <el-icon color="#0284c7"><DataBoard /></el-icon>
+              <span>仓库热力图</span>
+            </div>
+            <div class="panel-sub">WAREHOUSE HEATMAP</div>
+          </div>
+          <div ref="heatmapChartRef" class="chart-box chart-md"></div>
+        </div>
+      </el-col>
+      <el-col :xs="24" :lg="11">
+        <div class="panel alert-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <el-icon color="#ee6666"><Warning /></el-icon>
+              <span>库存预警</span>
+            </div>
+            <div class="panel-sub">STOCK ALERTS</div>
+          </div>
+          <div class="alert-list">
+            <div v-for="(a, i) in mockStockAlerts" :key="i" class="alert-item">
+              <el-tag :type="a.level as any" size="small" effect="dark" class="alert-tag">{{ a.type }}</el-tag>
+              <div class="alert-body">
+                <div class="alert-title">
+                  {{ a.productName }}
+                  <span class="alert-sku">{{ a.sku }}</span>
+                </div>
+                <div class="alert-desc">
+                  <span>{{ a.warehouse }}</span>
+                  <template v-if="a.type === '低库存'">
+                    · 当前 <b class="alert-danger">{{ a.qty }}</b> / 阈值 {{ a.threshold }}
+                  </template>
+                  <template v-else>
+                    · 剩余 <b class="alert-warning">{{ a.expireDays }}</b> 天到期
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- ========== 待办事项与消息 ========== -->
+    <el-row :gutter="16" class="chart-row">
+      <el-col :span="24">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <el-icon color="#5470c6"><List /></el-icon>
+              <span>待办事项与消息</span>
+            </div>
+            <div class="panel-sub">TODO &amp; MESSAGES</div>
+          </div>
+          <div class="todo-grid">
+            <div v-for="(t, i) in mockTodos" :key="i" class="todo-card">
+              <el-tag :type="t.type as any" size="small" effect="plain" class="todo-tag">{{ t.tag }}</el-tag>
+              <div class="todo-title">{{ t.title }}</div>
+              <div class="todo-desc">{{ t.desc }}</div>
+              <div class="todo-time">{{ t.time }}</div>
+            </div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- ========== 快捷操作与入口 ========== -->
+    <el-row :gutter="16" class="chart-row">
+      <el-col :span="24">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <el-icon color="#91cc75"><Grid /></el-icon>
+              <span>快捷操作</span>
+            </div>
+            <div class="panel-sub">QUICK ACTIONS</div>
+          </div>
+          <div class="quick-grid">
+            <div
+              v-for="a in quickActions"
+              :key="a.path"
+              class="quick-item"
+              @click="goAction(a.path)"
+            >
+              <div class="quick-icon" :style="{ background: a.color + '1a', color: a.color }">
+                <el-icon :size="22"><component :is="a.icon" /></el-icon>
+              </div>
+              <span class="quick-label">{{ a.label }}</span>
+            </div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <style scoped>
 .dashboard-wrap {
   padding: 4px 0 24px;
+}
+
+/* ============ 核心 KPI 指标卡 ============ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f1f5f9;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+.kpi-turnover::before { background: #5470c6; }
+.kpi-capacity::before { background: #3a9ec0; }
+.kpi-order::before { background: #6ba84f; }
+.kpi-efficiency::before { background: #c98a1e; }
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.09);
+}
+.kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.kpi-label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+.kpi-value {
+  font-size: 30px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+  font-family: 'DIN', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.kpi-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-left: 4px;
+}
+.kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.kpi-trend.up {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.1);
+}
+.kpi-trend.down {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.1);
+}
+.kpi-trend-label {
+  color: #9ca3af;
+  margin-left: 2px;
+}
+.kpi-progress {
+  margin-top: 10px;
+}
+.kpi-sub {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 6px;
+}
+.efficiency-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.efficiency-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eff-label {
+  font-size: 12px;
+  color: #6b7280;
+  width: 32px;
+  flex-shrink: 0;
+}
+.eff-progress {
+  flex: 1;
+}
+.eff-num {
+  font-size: 12px;
+  color: #374151;
+  font-weight: 600;
+  width: 56px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ============ 库存预警 ============ */
+.alert-panel .chart-box {
+  flex: none;
+}
+.alert-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.alert-item:last-child {
+  border-bottom: none;
+}
+.alert-tag {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.alert-body {
+  flex: 1;
+  min-width: 0;
+}
+.alert-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+.alert-sku {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 400;
+  margin-left: 6px;
+}
+.alert-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+.alert-danger {
+  color: #f56c6c;
+}
+.alert-warning {
+  color: #e6a23c;
+}
+
+/* ============ 待办事项与消息 ============ */
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.todo-card {
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  padding: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.todo-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
+}
+.todo-tag {
+  margin-bottom: 8px;
+}
+.todo-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+.todo-desc {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.todo-time {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ============ 快捷操作 ============ */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 16px;
+}
+.quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.quick-item:hover {
+  background: #f5f7fa;
+  transform: translateY(-2px);
+}
+.quick-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.quick-label {
+  font-size: 12px;
+  color: #374151;
+  text-align: center;
+  white-space: nowrap;
 }
 
 /* ============ 统计卡片 ============ */
@@ -949,10 +1510,22 @@ const handleResize = () => {
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .quick-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 @media (max-width: 768px) {
   .stat-grid {
     grid-template-columns: 1fr;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .quick-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
   .stat-card {
     height: 60px;
@@ -966,6 +1539,9 @@ const handleResize = () => {
   }
   .stat-value {
     font-size: 18px;
+  }
+  .kpi-value {
+    font-size: 24px;
   }
   .chart-lg,
   .chart-md,

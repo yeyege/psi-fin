@@ -5,10 +5,20 @@
  */
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { User, Medal, UserFilled, Plus } from '@element-plus/icons-vue'
 import {
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
   type Customer,
 } from '@/api'
+import SummaryCards, { GRADIENTS } from '@/components/SummaryCards.vue'
+
+// ============ 多维度汇总（Mock） ============
+const summaryCards = [
+  { label: '客户总数', value: 84, unit: '个', icon: User, gradient: GRADIENTS.orange },
+  { label: 'A 层战略客户', value: 12, unit: '个', icon: Medal, gradient: GRADIENTS.red },
+  { label: 'B 层成长客户', value: 26, unit: '个', icon: UserFilled, gradient: GRADIENTS.blue },
+  { label: '本月新增', value: 8, unit: '个', icon: Plus, gradient: GRADIENTS.green },
+]
 
 const customers = ref<Customer[]>([])
 const keyword = ref('')
@@ -106,6 +116,9 @@ onMounted(loadCustomers)
 
 <template>
   <div>
+    <!-- 多维度汇总 KPI（Mock） -->
+    <SummaryCards :cards="summaryCards" />
+
     <div style="display: flex; gap: 12px; margin-bottom: 16px">
       <el-input v-model="keyword" placeholder="搜索客户名称/编码..." style="width: 300px" clearable
         @keyup.enter="page = 1; loadCustomers()" @clear="page = 1; loadCustomers()" />

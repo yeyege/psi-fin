@@ -5,7 +5,9 @@
  */
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { List, Download, Upload, TrendCharts } from '@element-plus/icons-vue'
 import { getFlows, type FlowRow } from '@/api'
+import SummaryCards, { GRADIENTS } from '@/components/SummaryCards.vue'
 
 const FLOW_TYPE_OPTIONS = [
   { value: 'INBOUND', label: '入库收货' },
@@ -15,6 +17,14 @@ const FLOW_TYPE_OPTIONS = [
   { value: 'MOVE_IN', label: '移库入' },
   { value: 'ADJUST_IN', label: '调整盘盈' },
   { value: 'ADJUST_OUT', label: '调整盘亏' },
+]
+
+// ============ 多维度汇总（Mock） ============
+const summaryCards = [
+  { label: '今日流水数', value: 1284, unit: '笔', icon: List, gradient: GRADIENTS.cyan },
+  { label: '入库累计', value: 8640, unit: '件', icon: Download, gradient: GRADIENTS.indigo },
+  { label: '出库累计', value: 7120, unit: '件', icon: Upload, gradient: GRADIENTS.green },
+  { label: '本月流水总量', value: 38560, unit: '笔', icon: TrendCharts, gradient: GRADIENTS.purple },
 ]
 
 const flows = ref<FlowRow[]>([])
@@ -57,6 +67,9 @@ onMounted(loadFlows)
 
 <template>
   <div>
+    <!-- 多维度汇总 KPI（Mock） -->
+    <SummaryCards :cards="summaryCards" />
+
     <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap">
       <el-input v-model="orderNo" placeholder="单号" style="width: 220px" clearable @clear="onSearch" @keyup.enter="onSearch" />
       <el-select v-model="flowType" placeholder="流水类型" clearable style="width: 180px" @change="onSearch">

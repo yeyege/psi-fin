@@ -2,11 +2,20 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ChatDotRound, Service } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+
+// 仅展示用：消息反馈 / AI 智能客服（暂无实际功能）
+const handleFeedback = () => {
+  ElMessage.info('消息反馈功能开发中，敬请期待')
+}
+const handleAiService = () => {
+  ElMessage.info('AI 智能客服功能开发中，敬请期待')
+}
 
 const activeMenu = computed(() => {
   // 高亮一级菜单；子路由也归到对应一级菜单（本应用为扁平路由）
@@ -88,6 +97,8 @@ const handleLogout = async () => {
         <span class="page-title">{{ route.meta?.title || 'WMS' }}</span>
         <div class="header-right">
           <template v-if="userStore.isLoggedIn">
+            <el-button v-if="userStore.isAdmin" size="small" :icon="ChatDotRound" round @click="handleFeedback">消息反馈</el-button>
+            <el-button v-if="userStore.isAdmin" size="small" type="success" :icon="Service" round @click="handleAiService">AI智能客服</el-button>
             <el-tag size="small" :type="userStore.isAdmin ? 'danger' : 'info'">{{ roleLabel }}</el-tag>
             <span class="user-name">{{ displayName }}</span>
             <el-button size="small" @click="handleLogout">退出</el-button>

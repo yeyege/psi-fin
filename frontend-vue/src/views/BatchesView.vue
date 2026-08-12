@@ -4,7 +4,17 @@
  */
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Box, Warning, Download, Goods } from '@element-plus/icons-vue'
 import { getBatches, type BatchRow } from '@/api'
+import SummaryCards, { GRADIENTS } from '@/components/SummaryCards.vue'
+
+// ============ 多维度汇总（Mock） ============
+const summaryCards = [
+  { label: '活跃批次数', value: 486, unit: '个', icon: Box, gradient: GRADIENTS.cyan },
+  { label: '临期批次', value: 18, unit: '个', icon: Warning, gradient: GRADIENTS.red },
+  { label: '本月入库批次', value: 92, unit: '个', icon: Download, gradient: GRADIENTS.indigo },
+  { label: '批次总数量', value: 24580, unit: '件', icon: Goods, gradient: GRADIENTS.blue },
+]
 
 const batches = ref<BatchRow[]>([])
 const keyword = ref('')
@@ -38,6 +48,9 @@ onMounted(loadBatches)
 
 <template>
   <div>
+    <!-- 多维度汇总 KPI（Mock） -->
+    <SummaryCards :cards="summaryCards" />
+
     <div style="display: flex; gap: 12px; margin-bottom: 16px">
       <el-input v-model="keyword" placeholder="批次号 / 商品名称 / SKU" style="width: 300px" clearable
         @clear="onSearch" @keyup.enter="onSearch" />

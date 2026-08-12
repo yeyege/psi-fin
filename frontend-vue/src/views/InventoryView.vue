@@ -8,8 +8,19 @@
  */
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Goods, Box, Warning, Lock } from '@element-plus/icons-vue'
 import { getInventory, getWarehouses, type InventoryRow, type Warehouse } from '@/api'
 import { LOW_STOCK_THRESHOLD, lowStockRowClass } from '@/utils/inventory'
+import SummaryCards, { GRADIENTS } from '@/components/SummaryCards.vue'
+
+// ============ 多维度汇总（Mock，全局口径，非分页数据） ============
+const summaryCards = [
+  { label: '总库存量', value: 58420, unit: '件', icon: Goods, gradient: GRADIENTS.cyan },
+  { label: '在售 SKU 数', value: 326, unit: '个', icon: Box, gradient: GRADIENTS.purple },
+  { label: '低库存商品', value: 12, unit: '个', icon: Warning, gradient: GRADIENTS.red },
+  { label: '锁定占比', value: 6.8, unit: '%', icon: Lock, gradient: GRADIENTS.blue },
+]
+const formatNumber = (n: number) => n.toLocaleString('zh-CN')
 
 const view = ref<'product' | 'location'>('product')
 const keyword = ref('')
@@ -84,6 +95,9 @@ onMounted(async () => {
 
 <template>
   <div>
+    <!-- 多维度汇总 KPI（Mock） -->
+    <SummaryCards :cards="summaryCards" />
+
     <!-- 搜索栏 -->
     <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap">
       <el-radio-group v-model="view" @change="onViewChange">

@@ -5,10 +5,20 @@
  */
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Goods, ShoppingCart, Warning, Files } from '@element-plus/icons-vue'
 import {
   getProducts, createProduct, updateProduct, deleteProduct,
   type Product,
 } from '@/api'
+import SummaryCards, { GRADIENTS } from '@/components/SummaryCards.vue'
+
+// ============ 多维度汇总（Mock） ============
+const summaryCards = [
+  { label: '商品总数', value: 326, unit: '个', icon: Goods, gradient: GRADIENTS.cyan },
+  { label: '在售商品', value: 298, unit: '个', icon: ShoppingCart, gradient: GRADIENTS.green },
+  { label: '低库存商品', value: 12, unit: '个', icon: Warning, gradient: GRADIENTS.red },
+  { label: '商品分类数', value: 8, unit: '类', icon: Files, gradient: GRADIENTS.purple },
+]
 
 const products = ref<Product[]>([])
 const keyword = ref('')
@@ -105,6 +115,9 @@ onMounted(loadProducts)
 
 <template>
   <div>
+    <!-- 多维度汇总 KPI（Mock） -->
+    <SummaryCards :cards="summaryCards" />
+
     <div style="display: flex; gap: 12px; margin-bottom: 16px">
       <el-input v-model="keyword" placeholder="搜索商品名称/SKU..." style="width: 300px" clearable
         @keyup.enter="page = 1; loadProducts()" @clear="page = 1; loadProducts()" />
