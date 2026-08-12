@@ -43,13 +43,14 @@ wms-test/
 ├── README.md                 # 本文件
 ├── TASKS.md                  # 任务清单（你需要完成的内容）
 ├── AI_USAGE_GUIDE.md         # AI 辅助开发指南
+├── NOTES.md                  # 开发说明（AI 使用 / Bug / 方案 / 测试）
 ├── docs/
-│   └── API_SPEC.md           # API 接口规范
-├── backend-java/             # Java / Spring Boot 模板
-├── backend-python/           # Python / FastAPI 模板
-├── frontend-vue/             # Vue 3 模板
-└── frontend-react/           # React 18 模板
+│   └── API_SPEC.md           # API 接口规范（已按最终实现更新）
+├── backend-python/           # Python / FastAPI（已选技术栈）
+└── frontend-vue/             # Vue 3 / Element Plus（已选技术栈）
 ```
+
+> 本实现选择 **Python + FastAPI** 与 **Vue 3 + Element Plus**（Java / React 模板未使用，已移除）。
 
 ---
 
@@ -60,36 +61,19 @@ wms-test/
 ```bash
 cd backend-python
 uv sync                              # 安装依赖
-uv run uvicorn app.main:app --reload # 启动服务 http://localhost:8000
-uv run pytest                        # 运行测试
+uv run uvicorn app.main:app --port 8000  # 启动服务 http://localhost:8000（自动建表 + 示例数据）
+uv run pytest                        # 运行测试（28 用例）
 ```
 
 API 文档自动生成：http://localhost:8000/docs
-
-### 后端（Java / Spring Boot）
-
-```bash
-cd backend-java
-./mvnw spring-boot:run               # 启动服务 http://localhost:8080
-./mvnw test                          # 运行测试
-```
-
-API 文档：http://localhost:8080/swagger-ui.html
 
 ### 前端（Vue 3）
 
 ```bash
 cd frontend-vue
 npm install
-npm run dev                          # 启动 http://localhost:5173
-```
-
-### 前端（React 18）
-
-```bash
-cd frontend-react
-npm install
-npm run dev                          # 启动 http://localhost:5173
+npm run dev                          # 启动 http://localhost:5173（/api 代理到 8000）
+npm test                             # 运行单元测试（14 用例）
 ```
 
 ---

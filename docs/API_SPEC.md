@@ -1,8 +1,9 @@
-# API 接口规范
+# API 接口规范（最终实现版）
 
-> 本文档定义了前后端接口约定。你可以在 AI 辅助下按此规范实现。
+> 本文档为最终实现对应的接口约定（对标领星 WMS 重构后）。
+> 统一约定：请求/响应字段均为 **camelCase**（`supplierName`、`availableQty`），后端通过 `CamelModel` 基类自动转换。
 
-Base URL: `http://localhost:{port}/api`
+Base URL: `http://localhost:8000/api`
 
 ---
 
@@ -19,264 +20,199 @@ Base URL: `http://localhost:{port}/api`
 }
 ```
 
-- 错误响应：
-
-```json
-{
-  "code": 400,
-  "message": "商品不存在",
-  "data": null
-}
-```
-
+- 业务错误：HTTP 状态码（400 参数/业务错误、404 不存在、409 库存不足），`detail` 为中文提示。
 - 分页响应：
 
 ```json
 {
   "code": 200,
   "message": "success",
-  "data": {
-    "list": [],
-    "total": 100,
-    "page": 1,
-    "pageSize": 20
-  }
+  "data": { "list": [], "total": 100, "page": 1, "pageSize": 20 }
 }
 ```
 
+- 单号格式：`IN-YYYYMMDD-XXX`（入库）、`OUT-YYYYMMDD-XXX`（出库）、`MV-YYYYMMDD-XXX`（移库）、`ADJ-YYYYMMDD-XXX`（调整），各类型独立日递增序列。
+
 ---
 
-## 1. 商品（已实现，作为参考）
+## 1. 商品 SKU
 
 | 方法 | URL | 说明 |
 |------|-----|------|
-| GET | `/api/products` | 商品列表（支持 ?keyword=&page=&pageSize=） |
+| GET | `/api/products` | 商品列表（?keyword=&page=&pageSize=） |
 | GET | `/api/products/{id}` | 商品详情 |
 | POST | `/api/products` | 新增商品 |
 | PUT | `/api/products/{id}` | 更新商品 |
-| DELETE | `/api/products/{id}` | 删除商品 |
+| DELETE | `/api/products/{id}` | 删除商品（有库存则 400 拒绝） |
 
----
+商品字段：`name`、`sku`、`unit`、`width`、`height`、`length`、`weight`、`status(ACTIVE/INACTIVE)`。
 
-## 2. 仓库 & 库位（已实现，作为参考）
+## 2. 仓库 / 库区 / 库位
 
 | 方法 | URL | 说明 |
 |------|-----|------|
-| GET | `/api/warehouses` | 仓库列表 |
-| GET | `/api/warehouses/{id}/locations` | 某仓库下的库位列表 |
+| GET/POST | `/api/warehouses` | 仓库列表 / 新增（code、name） |
+| GET/POST | `/api/zones` | 库区列表（?warehouseId=）/ 新增（warehouseId、code、name、zoneType: GOODS/DEFECT） |
+| GET/POST | `/api/locations` | 库位列表（?warehouseId=&zoneId=）/ 新增（zoneId、warehouseId、code、priority） |
 
----
+> 层级：仓库 → 库区（正品/残次）→ 库位（带优先级，越大越优先推荐上架）。
 
-## 3. 入库单（待实现 — 任务 1）
+## 3. 入库单（状态机：PENDING → COMPLETED）
 
-### 3.1 创建入库单
+### 3.1 创建入库单（PENDING，不改变库存）
 
 ```
 POST /api/inbound-orders
 ```
 
-**Request Body:**
-
 ```json
 {
   "supplierName": "供应商A",
+  "remark": "可选",
   "items": [
-    {
-      "productId": 1,
-      "quantity": 100,
-      "locationCode": "WH-A-01-01"
-    },
-    {
-      "productId": 2,
-      "quantity": 50,
-      "locationCode": "WH-A-01-02"
-    }
+    { "productId": 1, "quantity": 100, "locationCode": "A-01-01" },
+    { "productId": 2, "quantity": 50, "locationCode": "A-01-02" }
   ]
 }
 ```
 
-**Response (201):**
-
-```json
-{
-  "code": 201,
-  "message": "入库单创建成功",
-  "data": {
-    "id": 1,
-    "orderNo": "IN-20260508-001",
-    "supplierName": "供应商A",
-    "status": "COMPLETED",
-    "items": [
-      {
-        "productId": 1,
-        "productName": "商品A",
-        "quantity": 100,
-        "locationCode": "WH-A-01-01"
-      }
-    ],
-    "createdAt": "2026-05-08T10:00:00"
-  }
-}
-```
-
-### 3.2 入库单列表
+### 3.2 收货上架（PENDING → COMPLETED）
 
 ```
-GET /api/inbound-orders?page=1&pageSize=20
+POST /api/inbound-orders/{id}/receive
 ```
 
-### 3.3 入库单详情
+> 收货时在同一事务内：为每个明细行生成批次（`batchNo = {单号}-{明细id}`）→ 累加库存（available）→ 写 INBOUND 流水 → 回填明细 batchId。
+
+### 3.3 列表 / 详情
 
 ```
+GET /api/inbound-orders?status=&page=&pageSize=
 GET /api/inbound-orders/{id}
 ```
 
----
+响应 data.items 含 `batchNo`（收货后回填）。
 
-## 4. 库存查询（待实现 — 任务 2）
+## 4. 库存查询（可用量 available + 锁定量 locked）
 
 ```
-GET /api/inventory?keyword=&warehouseId=&page=1&pageSize=20
+GET /api/inventory?view=product|location&keyword=&warehouseId=&batchNo=&page=&pageSize=
 ```
 
-**查询参数：**
+| 参数 | 说明 |
+|------|------|
+| view | `product`（默认，按 商品+仓库 汇总） / `location`（按库位批次明细） |
+| keyword | 商品名称或 SKU 模糊搜索 |
+| warehouseId / batchNo | 仓库 / 批次筛选 |
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| keyword | string | 否 | 商品名称或 SKU 模糊搜索 |
-| warehouseId | int | 否 | 仓库 ID 筛选 |
-| page | int | 否 | 页码，默认 1 |
-| pageSize | int | 否 | 每页条数，默认 20，最大 100 |
+product 视图行：`productId, productName, sku, availableQty, lockedQty, totalQty, warehouseId, warehouseName, updatedAt`
+location 视图行：额外含 `locationCode, batchNo`。
 
-**Response:**
+> 低库存（totalQty < 10）由前端高亮。
 
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "list": [
-      {
-        "productId": 1,
-        "productName": "蓝牙耳机",
-        "sku": "SKU-001",
-        "locationCode": "WH-A-01-01",
-        "warehouseName": "广州主仓",
-        "quantity": 100,
-        "updatedAt": "2026-05-08T09:30:00"
-      }
-    ],
-    "total": 50,
-    "page": 1,
-    "pageSize": 20
-  }
-}
+## 5. 库存流水（全量可追溯）
+
+```
+GET /api/inventory/flows?orderNo=&flowType=&locationCode=&page=&pageSize=
 ```
 
----
+流水类型 `flowType`：`INBOUND` 入库收货 / `OUTBOUND` 出库发货 / `PICK_LOCK` 拣货锁定 / `MOVE_OUT` 移库出 / `MOVE_IN` 移库入 / `ADJUST_IN` 调整盘盈 / `ADJUST_OUT` 调整盘亏。
 
-## 5. 出库单（选做 A）
+行字段：`flowType, orderType, orderNo, productId, productName, sku, locationCode, batchNo, quantity, beforeQty, afterQty, remark, createdAt`。
+
+## 6. 批次
+
+```
+GET /api/inventory/batches?keyword=&page=&pageSize=
+```
+
+行字段：`batchNo, productId, productName, sku, inboundDate, manufactureDate, expiryDate`。
+
+## 7. 出库单（状态机：PENDING → PICKED → SHIPPED）
+
+### 7.1 创建（PENDING，不改变库存）
 
 ```
 POST /api/outbound-orders
 ```
 
-**Request Body:**
-
 ```json
 {
   "customerName": "客户X",
+  "remark": "可选",
   "items": [
-    {
-      "productId": 1,
-      "quantity": 10,
-      "locationCode": "WH-A-01-01"
-    }
+    { "productId": 1, "quantity": 10, "locationCode": "A-01-01" }
   ]
 }
 ```
 
-> 注意：出库涉及库存扣减，需处理并发安全问题。
+### 7.2 拣货（PENDING → PICKED，原子锁定防超卖）
+
+```
+POST /api/outbound-orders/{id}/pick
+```
+
+> available → locked 逐行原子锁定；任一明细库存不足 → 409，整单回滚，状态保持 PENDING。
+
+### 7.3 发货（PICKED → SHIPPED，扣减锁定）
+
+```
+POST /api/outbound-orders/{id}/ship
+```
+
+### 7.4 列表
+
+```
+GET /api/outbound-orders?status=&page=&pageSize=
+```
+
+## 8. 库内作业
+
+### 8.1 移库（立即完成）
+
+```
+POST /api/transfers
+GET  /api/transfers?page=&pageSize=
+```
+
+```json
+{
+  "remark": "可选",
+  "items": [
+    { "productId": 1, "quantity": 10, "fromLocationCode": "A-01-01", "toLocationCode": "A-02-01" }
+  ]
+}
+```
+
+> 源库位扣减（MOVE_OUT）→ 目标库位增加（MOVE_IN），双向流水；库存不足 409 整单回滚。
+
+### 8.2 库存调整（立即完成）
+
+```
+POST /api/adjustments
+GET  /api/adjustments?page=&pageSize=
+```
+
+```json
+{
+  "remark": "可选",
+  "items": [
+    { "productId": 1, "locationCode": "A-01-01", "changeQty": 5 }
+  ]
+}
+```
+
+> `changeQty > 0` 盘盈（ADJUST_IN）/ `< 0` 盘亏（ADJUST_OUT）；盘亏不足 409 整单回滚。
 
 ---
 
-## 数据库表结构（参考）
+## 数据库核心表（重构后）
 
-```sql
--- 商品表
-CREATE TABLE products (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(200) NOT NULL,
-    sku VARCHAR(50) NOT NULL UNIQUE,
-    unit VARCHAR(20) DEFAULT '个',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- 仓库表
-CREATE TABLE warehouses (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    code VARCHAR(50) NOT NULL UNIQUE,
-    name VARCHAR(200) NOT NULL
-);
-
--- 库位表
-CREATE TABLE locations (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    warehouse_id BIGINT NOT NULL,
-    code VARCHAR(50) NOT NULL UNIQUE,
-    status VARCHAR(20) DEFAULT 'FREE',
-    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
-);
-
--- 库存表
-CREATE TABLE inventory (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    product_id BIGINT NOT NULL,
-    location_code VARCHAR(50) NOT NULL,
-    quantity INT NOT NULL DEFAULT 0,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES products(id),
-    UNIQUE KEY uk_product_location (product_id, location_code)
-);
-
--- 入库单主表
-CREATE TABLE inbound_orders (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_no VARCHAR(50) NOT NULL UNIQUE,
-    supplier_name VARCHAR(200),
-    status VARCHAR(20) DEFAULT 'DRAFT',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 入库单明细表
-CREATE TABLE inbound_order_items (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_id BIGINT NOT NULL,
-    product_id BIGINT NOT NULL,
-    quantity INT NOT NULL,
-    location_code VARCHAR(50) NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES inbound_orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
-
--- 出库单主表
-CREATE TABLE outbound_orders (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_no VARCHAR(50) NOT NULL UNIQUE,
-    customer_name VARCHAR(200),
-    status VARCHAR(20) DEFAULT 'DRAFT',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 出库单明细表
-CREATE TABLE outbound_order_items (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_id BIGINT NOT NULL,
-    product_id BIGINT NOT NULL,
-    quantity INT NOT NULL,
-    location_code VARCHAR(50) NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES outbound_orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
-```
+- `warehouse`（code, name）/ `zone`（warehouse_id, zone_type: GOODS/DEFECT）/ `location`（zone_id, warehouse_id, code, priority）
+- `product`（name, sku, unit, width, height, length, weight, status）
+- `batch`（batch_no, product_id, inbound_date, manufacture_date, expiry_date）
+- `inventory`：唯一键 `uk_product_location_batch (product_id, location_code, batch_id)`，字段 `available_qty` + `locked_qty`，索引 `location_code`、`product_id`
+- `inventory_flow`（flow_type, order_type, order_no, product_id, location_code, batch_id, quantity, before_qty, after_qty, remark）
+- `inbound_orders` / `inbound_order_items`（含 batch_id 回填）
+- `outbound_orders` / `outbound_order_items`
+- `stock_transfers` / `stock_adjustments`
