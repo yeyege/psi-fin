@@ -16,8 +16,8 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增商品')
 const form = ref({
-  id: 0, name: '', sku: '', unit: '个',
-  width: 0, height: 0, length: 0, weight: 0,
+  id: 0, name: '', sku: '', fnsKu: '', caseQty: 1,
+  unit: '个', width: 0, height: 0, length: 0, weight: 0,
 })
 const page = ref(1)
 const pageSize = ref(10)
@@ -41,7 +41,7 @@ const loadProducts = async () => {
 }
 
 const resetForm = () => {
-  form.value = { id: 0, name: '', sku: '', unit: '个', width: 0, height: 0, length: 0, weight: 0 }
+  form.value = { id: 0, name: '', sku: '', fnsKu: '', caseQty: 1, unit: '个', width: 0, height: 0, length: 0, weight: 0 }
 }
 
 const handleAdd = () => {
@@ -53,7 +53,8 @@ const handleAdd = () => {
 const handleEdit = (product: Product) => {
   dialogTitle.value = '编辑商品'
   form.value = {
-    id: product.id, name: product.name, sku: product.sku, unit: product.unit,
+    id: product.id, name: product.name, sku: product.sku, fnsKu: product.fnsKu || '',
+    caseQty: product.caseQty, unit: product.unit,
     width: product.width, height: product.height, length: product.length, weight: product.weight,
   }
   dialogVisible.value = true
@@ -64,7 +65,8 @@ const handleSubmit = async () => {
     const isEdit = !!form.value.id
     if (isEdit) {
       await updateProduct(form.value.id, {
-        name: form.value.name, unit: form.value.unit,
+        name: form.value.name, fnsKu: form.value.fnsKu || null, caseQty: form.value.caseQty,
+        unit: form.value.unit,
         width: form.value.width, height: form.value.height,
         length: form.value.length, weight: form.value.weight,
       })
@@ -113,7 +115,13 @@ onMounted(loadProducts)
     <el-table :data="products" v-loading="loading" border stripe>
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="name" label="商品名称" min-width="140" />
-      <el-table-column prop="sku" label="SKU" width="130" />
+      <el-table-column prop="sku" label="SKU" width="110" />
+      <el-table-column prop="fnsKu" label="FNSKU" width="130">
+        <template #default="{ row }">{{ row.fnsKu || '-' }}</template>
+      </el-table-column>
+      <el-table-column prop="caseQty" label="箱规" width="80">
+        <template #default="{ row }">{{ row.caseQty }} 个/箱</template>
+      </el-table-column>
       <el-table-column prop="unit" label="单位" width="80" />
       <el-table-column label="尺寸(cm)" width="180">
         <template #default="{ row }">{{ row.length }}×{{ row.width }}×{{ row.height }}</template>
@@ -149,6 +157,12 @@ onMounted(loadProducts)
         </el-form-item>
         <el-form-item label="SKU" v-if="!form.id">
           <el-input v-model="form.sku" maxlength="50" placeholder="如 SKU-006" />
+        </el-form-item>
+        <el-form-item label="FNSKU">
+          <el-input v-model="form.fnsKu" maxlength="50" placeholder="FBA 库内标识，如 X0007EL2Q1" clearable />
+        </el-form-item>
+        <el-form-item label="箱规(个/箱)">
+          <el-input-number v-model="form.caseQty" :min="1" />
         </el-form-item>
         <el-form-item label="单位">
           <el-input v-model="form.unit" maxlength="20" />

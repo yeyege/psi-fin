@@ -13,6 +13,8 @@ export interface Product {
   id: number
   name: string
   sku: string
+  fnsKu: string | null
+  caseQty: number
   unit: string
   width: number
   height: number
@@ -26,6 +28,8 @@ export interface Product {
 export interface ProductPayload {
   name: string
   sku: string
+  fnsKu?: string | null
+  caseQty?: number
   unit?: string
   width?: number
   height?: number
@@ -46,6 +50,60 @@ export const updateProduct = (id: number, data: Partial<ProductPayload> & { stat
   api.put<any, { code: number; data: Product }>(`/products/${id}`, data)
 
 export const deleteProduct = (id: number) => api.delete(`/products/${id}`)
+
+
+// ============ 客户（分层 A/B/C） ============
+
+export interface Customer {
+  id: number
+  code: string
+  name: string
+  tier: string
+  contact: string | null
+  phone: string | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CustomerPayload {
+  code: string
+  name: string
+  tier?: string
+  contact?: string | null
+  phone?: string | null
+}
+
+export const getCustomers = (params: { keyword?: string; page?: number; pageSize?: number }) =>
+  api.get<any, { code: number; data: PageData<Customer> }>('/customers', { params })
+
+export const getCustomer = (id: number) =>
+  api.get<any, { code: number; data: Customer }>(`/customers/${id}`)
+
+export const createCustomer = (data: CustomerPayload) =>
+  api.post<any, { code: number; data: Customer }>('/customers', data)
+
+export const updateCustomer = (id: number, data: Partial<CustomerPayload> & { status?: string }) =>
+  api.put<any, { code: number; data: Customer }>(`/customers/${id}`, data)
+
+export const deleteCustomer = (id: number) => api.delete(`/customers/${id}`)
+
+
+// ============ 数据看板 ============
+
+export interface DashboardSummary {
+  todayInboundCount: number
+  todayOutboundCount: number
+  pendingInboundCount: number
+  pendingOutboundCount: number
+  totalInventoryQty: number
+  lowStockProductCount: number
+  activeProductCount: number
+  activeCustomerCount: number
+}
+
+export const getDashboardSummary = () =>
+  api.get<any, { code: number; data: DashboardSummary }>('/dashboard/summary')
 
 
 // ============ 仓库 / 库区 / 库位 ============
@@ -232,11 +290,99 @@ export const createOutboundOrder = (data: { customerName: string; items: Outboun
 export const pickOutboundOrder = (id: number) =>
   api.post<any, { code: number; data: OutboundOrder }>(`/outbound-orders/${id}/pick`)
 
+export const reviewOutboundOrder = (id: number) =>
+  api.post<any, { code: number; data: OutboundOrder }>(`/outbound-orders/${id}/review`)
+
 export const shipOutboundOrder = (id: number) =>
   api.post<any, { code: number; data: OutboundOrder }>(`/outbound-orders/${id}/ship`)
 
 export const getOutboundOrders = (params: { status?: string; page?: number; pageSize?: number }) =>
   api.get<any, { code: number; data: PageData<OutboundOrder> }>('/outbound-orders', { params })
+
+
+// ============ 退货管理（FBA / 买家 / 服务商） ============
+
+export interface ReturnItemRequest {
+  productId: number
+  quantity: number
+  locationCode: string
+  disposition: string
+}
+
+export interface ReturnOrderItem {
+  productId: number
+  productName: string
+  quantity: number
+  locationCode: string
+  disposition: string
+  batchNo?: string | null
+}
+
+export interface ReturnOrder {
+  id: number
+  orderNo: string
+  customerId: number
+  customerName: string
+  source: string
+  status: string
+  remark?: string | null
+  items: ReturnOrderItem[]
+  createdAt: string
+}
+
+export const createReturnOrder = (data: { customerId: number; source: string; items: ReturnItemRequest[]; remark?: string }) =>
+  api.post<any, { code: number; data: ReturnOrder }>('/returns', data)
+
+export const receiveReturnOrder = (id: number) =>
+  api.post<any, { code: number; data: ReturnOrder }>(`/returns/${id}/receive`)
+
+export const finishReturnOrder = (id: number) =>
+  api.post<any, { code: number; data: ReturnOrder }>(`/returns/${id}/finish`)
+
+export const getReturnOrders = (params: { status?: string; page?: number; pageSize?: number }) =>
+  api.get<any, { code: number; data: PageData<ReturnOrder> }>('/returns', { params })
+
+
+// ============ 波次拣货（智能波次策略） ============
+
+export interface PickingOrderItem {
+  productId: number
+  productName: string
+  quantity: number
+  locationCode: string
+}
+
+export interface PickingOrderRow {
+  id: number
+  pickingNo: string
+  waveId: number
+  outboundOrderId: number
+  outboundOrderNo: string
+  status: string
+  createdAt: string
+  items: PickingOrderItem[]
+}
+
+export interface Wave {
+  id: number
+  waveNo: string
+  status: string
+  remark?: string | null
+  createdAt: string
+  pickingOrders: PickingOrderRow[]
+}
+
+export const createWave = (data: { outboundOrderIds: number[]; remark?: string }) =>
+  api.post<any, { code: number; data: Wave }>('/waves', data)
+
+export const getWaves = (params: { status?: string; page?: number; pageSize?: number }) =>
+  api.get<any, { code: number; data: PageData<Wave> }>('/waves', { params })
+
+export const getPickingOrders = (params: { waveId?: number; status?: string; page?: number; pageSize?: number }) =>
+  api.get<any, { code: number; data: PageData<PickingOrderRow> }>('/waves/picking-orders', { params })
+
+export const pickPickingOrder = (id: number) =>
+  api.post<any, { code: number; data: PickingOrderRow }>(`/waves/picking-orders/${id}/pick`)
 
 
 // ============ 库内作业：移库 / 库存调整 ============
@@ -298,3 +444,35 @@ export const createAdjustment = (data: { items: AdjustmentItemRequest[]; remark?
 
 export const getAdjustments = (params: { page?: number; pageSize?: number }) =>
   api.get<any, { code: number; data: PageData<AdjustmentOrder> }>('/adjustments', { params })
+
+
+// ============ 用户与鉴权 ============
+
+export interface UserInfo {
+  id: number
+  username: string
+  role: 'admin' | 'operator'
+  status: string
+  createdAt: string
+}
+
+export const login = (data: { username: string; password: string }) =>
+  api.post<any, { code: number; message: string; data: { token: string; user: UserInfo } }>('/auth/login', data)
+
+export const logout = () =>
+  api.post<any, { code: number; message: string }>('/auth/logout')
+
+export const getMe = () =>
+  api.get<any, { code: number; data: UserInfo }>('/auth/me')
+
+export const getUsers = (params: { page?: number; pageSize?: number }) =>
+  api.get<any, { code: number; data: PageData<UserInfo> }>('/users', { params })
+
+export const createUser = (data: { username: string; password: string; role: 'admin' | 'operator' }) =>
+  api.post<any, { code: number; data: UserInfo }>('/users', data)
+
+export const updateUser = (id: number, data: { password?: string; role?: 'admin' | 'operator'; status?: string }) =>
+  api.put<any, { code: number; data: UserInfo }>(`/users/${id}`, data)
+
+export const deleteUser = (id: number) =>
+  api.delete<any, { code: number }>(`/users/${id}`)
