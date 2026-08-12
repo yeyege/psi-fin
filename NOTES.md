@@ -4,7 +4,7 @@
 
 - **后端**：Python 3.11+ / FastAPI / SQLAlchemy 2.0 / Pydantic v2 / SQLite（开发库 wms.db）
 - **前端**：Vue 3 + TypeScript + Element Plus + Pinia + Vite
-- **测试**：后端 pytest（72 用例）+ 前端 vitest（14 用例）
+- **测试**：后端 pytest（76 用例）+ 前端 vitest（14 用例）
 
 选择理由：FastAPI 简洁、迭代快；Element Plus 组件契合表单与列表场景；SQLite 零配置便于「一键启动」。全程使用 AI（Trae）辅助开发，实现效率与质量双保证。
 
@@ -119,11 +119,17 @@
 
 ## 七、选做 B — 单元测试
 
-- **后端**（pytest，30 用例，全部通过）：
-  - `tests/test_inventory_service.py`（12）：入库累加/新建行、跨批次 FIFO 扣减、库存不足无副作用、锁定+发货、product/location 视图、筛选、流水追溯
+- **后端**（pytest，76 用例，全部通过）：
+  - `tests/test_inventory_service.py`（10）：入库累加/新建行、跨批次 FIFO 扣减、库存不足无副作用、锁定+发货、product/location 视图、筛选、流水追溯
   - `tests/test_inbound_service.py`（6）：创建不改库存、收货生成批次与流水、重复收货拒绝、商品/库位不存在、单号递增
-  - `tests/test_outbound_service.py`（8）：拣货锁定、库存不足 409、发货扣减、未拣货不可发货、部分失败回滚、发货后 locked 归零对账、并发双线程防超卖
-  - `tests/test_transfer_adjustment.py`（4）：移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚
+  - `tests/test_outbound_service.py`（11）：拣货锁定、库存不足 409、发货扣减、未拣货/未复核不可发货、部分失败回滚、发货后 locked 归零对账、并发双线程防超卖
+  - `tests/test_transfer_adjustment.py`（5）：移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚
+  - `tests/test_auth_service.py`（14）：密码哈希与校验、登录/登出、token 校验与过期、用户 CRUD 权限、最后 admin 保护
+  - `tests/test_api_auth.py`（4）：未登录 401、无效 token、登录态访问、operator 不可管理用户
+  - `tests/test_customer_product.py`（9）：客户 CRUD/软删除、商品 FNSKU+箱规、camelCase 映射
+  - `tests/test_dashboard.py`（3）：看板聚合（今日单量/库存总量/低库存）
+  - `tests/test_return_service.py`（8）：退货收货回补/报废不补、重复收货拒绝、单号递增
+  - `tests/test_wave_service.py`（6）：波次生成拣货单、按库位优先级排序、拣货锁定推进、库存不足回滚
 - **前端**（vitest，14 用例，全部通过）：
   - `src/utils/inventory.test.ts`：`isLowStock` 边界值（阈值 10）、`totalOf` 兜底、`filterByKeyword`（名称/SKU/大小写/空）、`filterByWarehouse`、`lowStockRowClass`
 
@@ -184,11 +190,13 @@
 
 ## 十一、提交检查清单
 
+> 交付验证明细（测试实测结果 / 一键启动 / Docker / E2E / 任务完成度对照）见 [docs/VERIFICATION.md](./docs/VERIFICATION.md)。
+
 - [x] 必做任务 1（入库单创建，状态机+事务）后端 + 前端
 - [x] 必做任务 2（库存查询：可用/锁定、低库存高亮）后端 + 前端
 - [x] 必做任务 3（2 个 Bug）定位并修复
 - [x] 选做 A（出库单 + 锁定防超卖 + 整单回滚）
-- [x] 选做 B（单元测试）后端 72 + 前端 14 用例
+- [x] 选做 B（单元测试）后端 76 + 前端 14 用例
 - [x] 选做 C（前端性能优化）服务端分页 + 防抖
 - [x] MVP M1-M7 扩展：客户管理 / 商品 FNSKU+箱规 / 数据看板 / 退货管理 / 波次拣货 / 复核验货 / 用户权限（见「十二」）
 - [x] 一键启动：后端 `uv run uvicorn app.main:app --port 8000`（lifespan 自动建表 + 种子数据 + 默认 admin/admin123）；前端 `npm run dev`（代理 /api → 8000）
