@@ -1,7 +1,7 @@
 """单据域 Schema"""
 from datetime import datetime
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.schemas.base import CamelModel
 
@@ -69,6 +69,51 @@ class OutboundOrderResponse(CamelModel):
     created_at: datetime
 
 
+# ============ 退货单（FBA / 买家 / 服务商） ============
+
+class ReturnItemRequest(CamelModel):
+    product_id: int = Field(..., gt=0)
+    quantity: int = Field(..., gt=0)
+    location_code: str = Field(..., min_length=1, max_length=50, description="目标库位")
+    disposition: str = Field(default="RESELL", pattern="^(RESELL|RELABEL|SCRAP)$",
+                             description="RESELL 转正品 / RELABEL 换标 / SCRAP 报废")
+
+
+class ReturnOrderCreate(CamelModel):
+    customer_id: int = Field(..., gt=0)
+    source: str = Field(default="FBA", pattern="^(FBA|SELLER|CARRIER)$")
+    items: list[ReturnItemRequest] = Field(..., min_length=1)
+    remark: str | None = Field(default=None, max_length=200)
+
+
+class ReturnOrderItemResponse(CamelModel):
+    product_id: int
+    product_name: str
+    quantity: int
+    location_code: str
+    disposition: str
+    batch_no: str | None = None
+
+
+class ReturnOrderResponse(CamelModel):
+    id: int
+    order_no: str
+    customer_id: int
+    customer_name: str
+    source: str
+    status: str
+    remark: str | None = None
+    items: list[ReturnOrderItemResponse] = []
+    created_at: datetime
+
+
+# ============ 波次拣货 ============
+
+class WaveCreate(CamelModel):
+    outbound_order_ids: list[int] = Field(..., min_length=1, description="待聚合的 PENDING 出库单 ID")
+    remark: str | None = Field(default=None, max_length=200)
+
+
 # ============ 移库单 ============
 
 class StockTransferItemRequest(CamelModel):
@@ -106,6 +151,13 @@ class StockAdjustmentItemRequest(CamelModel):
     product_id: int = Field(..., gt=0)
     location_code: str = Field(..., min_length=1, max_length=50)
     change_qty: int = Field(..., description="正=盘盈(+)，负=盘亏(-)")
+
+    @field_validator("change_qty")
+    @classmethod
+    def change_qty_not_zero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("调整数量不可为 0")
+        return v
 
 
 class StockAdjustmentCreate(CamelModel):

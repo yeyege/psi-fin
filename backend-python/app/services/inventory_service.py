@@ -8,8 +8,8 @@
 
 注意：调用方必须处于数据库事务中（db.commit 由上层单据服务负责）。
 """
-from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, update
+from sqlalchemy.orm import Session, joinedload
 
 from app.common.errors import BusinessError
 from app.models import Batch, Inventory, InventoryFlow, Location, Product, Warehouse
@@ -21,11 +21,13 @@ FLOW_TYPE_MOVE_OUT = "MOVE_OUT"      # 移库出（-available）
 FLOW_TYPE_MOVE_IN = "MOVE_IN"        # 移库入（+available）
 FLOW_TYPE_ADJUST_IN = "ADJUST_IN"    # 调整盘盈（+available）
 FLOW_TYPE_ADJUST_OUT = "ADJUST_OUT"  # 调整盘亏（-available）
+FLOW_TYPE_RETURN_IN = "RETURN_IN"    # 退货收货（+available）
 
 ORDER_TYPE_INBOUND = "INBOUND"
 ORDER_TYPE_OUTBOUND = "OUTBOUND"
 ORDER_TYPE_TRANSFER = "TRANSFER"
 ORDER_TYPE_ADJUSTMENT = "ADJUSTMENT"
+ORDER_TYPE_RETURN = "RETURN"
 
 
 def _get_or_create_inventory(db: Session, product_id: int, location_code: str,
@@ -129,7 +131,10 @@ def lock_stock(db: Session, *, product_id: int, location_code: str, quantity: in
                order_type: str, order_no: str, remark: str | None = None) -> bool:
     """拣货锁定：available -= q, locked += q（跨批次逐行，库存不足返回 False）。
 
-    与 deduct_stock 语义一致：库存不足时不产生任何变更与流水。
+    防超卖双保险：
+    1. 先 SUM 校验总量，不足直接返回 False 且无副作用（调用方可整体回滚）；
+    2. 逐行用「条件 UPDATE（available >= take 才生效）」写入，并发下陈旧读无法
+       覆盖他人已提交的扣减（SQLite 无行锁时尤为关键，PostgreSQL 另有 FOR UPDATE 行锁）。
     """
     total = (
         db.query(func.sum(Inventory.available_qty))
@@ -159,13 +164,22 @@ def lock_stock(db: Session, *, product_id: int, location_code: str, quantity: in
         if row is None:
             return False
         take = min(row.available_qty, remaining)
-        row.available_qty -= take
-        row.locked_qty += take
+        before = row.available_qty
+        result = db.execute(
+            update(Inventory)
+            .where(Inventory.id == row.id, Inventory.available_qty >= take)
+            .values(
+                available_qty=Inventory.available_qty - take,
+                locked_qty=Inventory.locked_qty + take,
+            )
+        )
+        if result.rowcount == 0:
+            continue  # 该行已被并发修改，重读最新状态再扣
         remaining -= take
         _add_flow(
             db, flow_type=FLOW_TYPE_PICK_LOCK, order_type=order_type, order_no=order_no,
             product_id=product_id, location_code=location_code, batch_id=row.batch_id,
-            quantity=take, before_qty=row.available_qty + take, after_qty=row.available_qty,
+            quantity=take, before_qty=before, after_qty=before - take,
             remark=remark,
         )
     return True
@@ -202,12 +216,19 @@ def ship_stock(db: Session, *, product_id: int, location_code: str, quantity: in
         if row is None:
             return False
         take = min(row.locked_qty, remaining)
-        row.locked_qty -= take
+        before = row.locked_qty
+        result = db.execute(
+            update(Inventory)
+            .where(Inventory.id == row.id, Inventory.locked_qty >= take)
+            .values(locked_qty=Inventory.locked_qty - take)
+        )
+        if result.rowcount == 0:
+            continue  # 该行已被并发修改，重读最新状态再扣
         remaining -= take
         _add_flow(
             db, flow_type=FLOW_TYPE_OUTBOUND, order_type=order_type, order_no=order_no,
             product_id=product_id, location_code=location_code, batch_id=row.batch_id,
-            quantity=-take, before_qty=row.locked_qty + take, after_qty=row.locked_qty,
+            quantity=-take, before_qty=before, after_qty=before - take,
             remark=remark,
         )
     return True
@@ -317,9 +338,14 @@ def query_flows(
     page_size: int = 20,
 ) -> dict:
     """库存流水查询（分页 + 过滤）。"""
+    # joinedload 一次加载商品/批次，避免拼响应时 N+1 逐行查库
     query = (
         db.query(InventoryFlow)
         .join(Product, Product.id == InventoryFlow.product_id)
+        .options(
+            joinedload(InventoryFlow.product),
+            joinedload(InventoryFlow.batch),
+        )
     )
     if order_no:
         query = query.filter(InventoryFlow.order_no.like(f"%{order_no}%"))
@@ -361,7 +387,8 @@ def query_flows(
 def query_batches(db: Session, keyword: str | None = None,
                   page: int = 1, page_size: int = 20) -> dict:
     """批次列表。"""
-    query = db.query(Batch)
+    # joinedload 一次加载商品，避免拼响应时 N+1 逐行查库
+    query = db.query(Batch).options(joinedload(Batch.product))
     if keyword:
         like = f"%{keyword}%"
         query = query.filter(
