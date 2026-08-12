@@ -6,7 +6,7 @@
  * - 过滤：商品名称/SKU 模糊搜索 + 仓库下拉 + 批次号
  * - 低库存（总量 < 10）整行高亮
  */
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getInventory, getWarehouses, type InventoryRow, type Warehouse } from '@/api'
 import { LOW_STOCK_THRESHOLD, lowStockRowClass } from '@/utils/inventory'
@@ -52,6 +52,15 @@ const onSearch = () => {
   loadInventory()
 }
 
+// 搜索防抖：关键词停止输入 300ms 后才发起查询，避免每次击键都请求后端
+let searchTimer: number | undefined
+const onKeywordInput = () => {
+  window.clearTimeout(searchTimer)
+  searchTimer = window.setTimeout(onSearch, 300)
+}
+
+onBeforeUnmount(() => window.clearTimeout(searchTimer))
+
 const onReset = () => {
   keyword.value = ''
   warehouseId.value = undefined
@@ -81,7 +90,7 @@ onMounted(async () => {
         <el-radio-button value="product">按商品汇总</el-radio-button>
         <el-radio-button value="location">按库位明细</el-radio-button>
       </el-radio-group>
-      <el-input v-model="keyword" placeholder="搜索商品名称/SKU..." style="width: 240px" clearable @clear="onSearch" @keyup.enter="onSearch" />
+      <el-input v-model="keyword" placeholder="搜索商品名称/SKU..." style="width: 240px" clearable @input="onKeywordInput" @clear="onSearch" @keyup.enter="onSearch" />
       <el-select v-model="warehouseId" placeholder="全部仓库" clearable style="width: 180px" @change="onSearch">
         <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
       </el-select>
