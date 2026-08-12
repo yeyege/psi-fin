@@ -27,8 +27,8 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <el-container v-if="!isLoginPage" style="min-height: 100vh">
-    <el-aside width="220px" style="background: #001529; color: #fff">
+  <el-container v-if="!isLoginPage" class="app-layout">
+    <el-aside width="220px" class="app-aside">
       <div class="logo">WMS 仓储管理系统</div>
       <el-menu
         :default-active="activeMenu"
@@ -83,7 +83,7 @@ const handleLogout = async () => {
       </el-menu>
     </el-aside>
 
-    <el-container>
+    <el-container class="app-main-container">
       <el-header class="app-header">
         <span class="page-title">{{ route.meta?.title || 'WMS' }}</span>
         <div class="header-right">
@@ -95,7 +95,7 @@ const handleLogout = async () => {
           <el-button v-else size="small" type="primary" @click="handleLogin">登录</el-button>
         </div>
       </el-header>
-      <el-main style="padding: 20px; background: #f5f7fa">
+      <el-main class="app-main">
         <router-view />
       </el-main>
     </el-container>
@@ -108,6 +108,33 @@ body {
   margin: 0;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
 }
+
+/* 整体布局：固定视口高度，禁止页面级滚动 */
+.app-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 侧边栏：独立滚动 */
+.app-aside {
+  background: #001529;
+  color: #fff;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* 侧边栏滚动条美化 */
+.app-aside::-webkit-scrollbar {
+  width: 6px;
+}
+.app-aside::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+.app-aside::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .logo {
   height: 56px;
   line-height: 56px;
@@ -116,14 +143,35 @@ body {
   font-weight: 700;
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
+
+/* 右侧主容器：flex 列布局，高度撑满 */
+.app-main-container {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .app-header {
   background: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #e4e7ed;
+  flex-shrink: 0;
 }
+
+/* 主内容区：独立滚动 */
+.app-main {
+  padding: 20px;
+  background: #f5f7fa;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .page-title {
   font-size: 16px;
   font-weight: 600;
