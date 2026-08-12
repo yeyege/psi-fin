@@ -177,7 +177,7 @@ routers(接口) → services(业务/事务/状态机) → models(ORM) → SQLite
 
 | 项 | 目标 | 当前状态 |
 |---|---|---|
-| Docker 一键启动 | 根目录 `docker-compose.yml`（后端+前端），`docker-compose up -d` 后浏览器可访问前端 | ✅ 已有，提交前跑一次 `docker-compose up --build` 验证 |
+| Docker 一键启动 | 根目录 `docker-compose.yml`（后端+前端+MySQL），`docker-compose up -d` 后浏览器可访问前端 | ✅ **已验证**：`docker compose up -d --build` 全绿（mysql healthy + backend/frontend 运行，登录接口返回 token，前端 HTTP 200） |
 | Playwright E2E 冒烟 | 核心链路「创建入库单→成功提示」等，`npx playwright test` 绿条 | ✅ 已有 inbound / returns / wave 3 条，3/3 通过 |
 | CI/CD（GitHub Actions） | push 触发，仅执行 `pytest` + 前端 `build`/`vitest`，不推镜像 | ✅ 已有 `.github/workflows/ci.yml` |
 
