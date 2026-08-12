@@ -16,12 +16,13 @@
 | 基础数据 | 商品（SKU/尺寸重量）、仓库→库区→库位（优先级） | ✅ 已交付 |
 | 入库 | 手动创建（`IN-YYYYMMDD-XXX`）、收货上架、批次生成、事务+流水、状态机 `PENDING→COMPLETED` | ✅ |
 | 库存 | `(product, location, batch)` 三维 + 可用/锁定分离、全量流水、服务端分页+索引、低库存高亮 | ✅ |
-| 出库 | 手工出库、拣货锁定防超卖、发货扣减、状态机 `PENDING→PICKED→SHIPPED`、整单回滚 | ✅ |
+| 出库 | 手工出库、拣货锁定防超卖、复核验货、发货扣减、状态机 `PENDING→PICKED→REVIEWED→SHIPPED`、整单回滚 | ✅ |
 | 库内作业 | 移库、库存调整（盘盈/盘亏）、批次、流水 | ✅ |
-| 工程化 | Docker Compose、Playwright E2E、GitHub Actions CI | ✅ |
-| 测试 | pytest 28 例 + vitest 14 例 | ✅ |
+| M1-M7 扩展 | 客户管理、商品 FNSKU/箱规、数据看板、退货管理（RETURN_IN 流水）、波次拣货、复核验货、用户权限（User/Role+登录+鉴权） | ✅ |
+| 工程化 | Docker Compose、Playwright E2E（inbound/returns/wave 3 条）、GitHub Actions CI | ✅ |
+| 测试 | pytest 72 例 + vitest 14 例 | ✅ |
 
-**API 面**：27 个接口（products / warehouses / zones / locations / inventory / flows / batches / inbound / outbound / transfers / adjustments）
+**API 面**：基础 27 个接口 + M1-M7 新增（客户/看板/退货/波次/复核/鉴权/用户管理）合计 40+ 个接口
 
 ---
 
@@ -153,9 +154,47 @@ routers(接口) → services(业务/事务/状态机) → models(ORM) → SQLite
 
 ---
 
-## 六、下一步规划
+## 六、提交前检查清单（交付前必读）
 
-1. **立即**：按路线图从 ① M1+M2 开始执行（客户管理 + 商品字段扩展），每步小 commit。
-2. **中途检查点**：每 2 个里程碑后跑全量 `pytest` + `vitest`，保证回归不破坏已交付能力。
-3. **收尾**：更新 `NOTES.md`（新增模块说明、遇到的问题），同步 `API_SPEC.md`，补充 Playwright E2E 覆盖退货核心正向流程。
-4. **提交**：完成 P0 后执行 fork → push → 发邮件（zhangjiahui@gzyouliu.cn，抄送 jiangziqi、dengsuiming）。
+> 这些是拉开「作业」与「工程交付物」差距的关键项。已按优先级分类：
+> 🔴 必须达标（否则可能被拒）｜🟠 强烈推荐（加分项）｜🟡 锦上添花（量力而行）。
+
+### 🔴 第一优先级：硬性指标（必须 100% 完成）
+
+1. **全量测试通过（最关键）**
+   - 后端：`uv run pytest` → **72 例全绿**（不能有 F 或 s）
+   - 前端：`npx vitest run` → **14 例全绿**
+   - 注意：跑测试前确保 8000 端口未被占用；pytest 使用独立临时库（不依赖 wms.db），但 `wms.db` 需可由 lifespan 自动建表
+2. **NOTES.md 必须完整（评审最看重）**
+   - 用了哪些 AI 工具、如何组织提示词（子代理分工/角色设定）
+   - 1-2 个典型 Bug 及解决（如「库存并发扣减防超卖」：SUM 校验 + 条件 UPDATE + 回滚）
+   - 如果多两天会优化什么（权限管理增强、消息队列/异步作业）
+3. **Git 提交历史干净且有意义**
+   - 小步提交：`feat(backend): …` / `fix: …` / `test: …` 风格，一个模块一个 commit
+   - 严禁只有一个「finish all」大提交（当前 15 个小 commit 已满足）
+
+### 🟠 第二优先级：强烈推荐（加分项，做「最小可用集」）
+
+| 项 | 目标 | 当前状态 |
+|---|---|---|
+| Docker 一键启动 | 根目录 `docker-compose.yml`（后端+前端），`docker-compose up -d` 后浏览器可访问前端 | ✅ 已有，提交前跑一次 `docker-compose up --build` 验证 |
+| Playwright E2E 冒烟 | 核心链路「创建入库单→成功提示」等，`npx playwright test` 绿条 | ✅ 已有 inbound / returns / wave 3 条，3/3 通过 |
+| CI/CD（GitHub Actions） | push 触发，仅执行 `pytest` + 前端 `build`/`vitest`，不推镜像 | ✅ 已有 `.github/workflows/ci.yml` |
+
+### 🟡 第三优先级：锦上添花（时间不够可提一句）
+
+- 关键复杂逻辑简短注释（库存加减 / 防超卖已注释）
+- 1920×1080 下美观即可，无需移动端适配
+- 性能：服务端分页已做，测试数据量小无需虚拟列表
+
+### 📩 发送前「最终自检清单」（逐项打钩）
+
+1. **「新鲜克隆」测试（最重要）**
+   - 将当前项目目录移走 → 在另一目录 `git clone <仓库地址>`（或解压 ZIP）
+   - 严格按 README 快速启动：`cd backend-python && uv sync && uv run uvicorn app.main:app`；`cd frontend-vue && npm install && npm run dev`
+   - 一旦卡住立即修复，否则评审第一步就跑不起来
+2. **检查无用大文件**：根目录无 `.venv` / `node_modules` / `__pycache__` / `.pytest_cache`（仓库提交时 .gitignore 已忽略；ZIP 打包必须删除）
+3. **邮件正文与收件人**：
+   - 主送 `zhangjiahui@gzyouliu.cn`，抄送 `jiangziqi@gzyouliu.cn`、`dengsuiming@gzyouliu.cn`
+   - 标题建议「【WMS测试】你的姓名 - 全栈开发 - 已完成」
+   - 附 GitHub 公开仓库地址（省权限麻烦）；若私有则添加对方为 Collaborator 或附 ZIP 链接
