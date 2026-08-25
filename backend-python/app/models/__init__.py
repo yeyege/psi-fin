@@ -22,6 +22,8 @@ from app.models.orders import (
     StockTransferItem,
     StockAdjustment,
     StockAdjustmentItem,
+    CycleCount,
+    CycleCountItem,
 )
 
 __all__ = [
@@ -48,4 +50,6 @@ __all__ = [
     "StockTransferItem",
     "StockAdjustment",
     "StockAdjustmentItem",
+    "CycleCount",
+    "CycleCountItem",
 ]

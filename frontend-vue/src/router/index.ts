@@ -18,6 +18,7 @@ const router = createRouter({
     { path: '/returns', name: 'Returns', component: () => import('@/views/ReturnsView.vue') },
     { path: '/transfers', name: 'Transfers', component: () => import('@/views/TransfersView.vue') },
     { path: '/adjustments', name: 'Adjustments', component: () => import('@/views/AdjustmentsView.vue') },
+    { path: '/counts', name: 'Counts', component: () => import('@/views/CountsView.vue') },
     { path: '/users', name: 'Users', component: () => import('@/views/UsersView.vue'), meta: { admin: true } },
   ],
 })

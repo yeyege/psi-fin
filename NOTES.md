@@ -119,14 +119,15 @@
 
 ## 七、选做 B — 单元测试
 
-- **后端**（pytest，80 用例，全部通过）：
+- **后端**（pytest，99 用例，全部通过）：
   - `tests/test_inventory_service.py`（10）：入库累加/新建行、跨批次 FIFO 扣减、库存不足无副作用、锁定+发货、product/location 视图、筛选、流水追溯
   - `tests/test_inbound_service.py`（6）：创建不改库存、收货生成批次与流水、重复收货拒绝、商品/库位不存在、单号递增
   - `tests/test_outbound_service.py`（11）：拣货锁定、库存不足 409、发货扣减、未拣货/未复核不可发货、部分失败回滚、发货后 locked 归零对账、并发双线程防超卖
   - `tests/test_transfer_adjustment.py`（5）：移库双向流水、移库不足回滚、调整盘盈/盘亏、盘亏不足回滚
+  - `tests/test_count_service.py`（18）：盘点单按 库位/库区/商品/全部 快照、多批次聚合、录入实盘可覆盖、完成自动生成盘盈/盘亏调整单与流水、盘亏不足整单回滚、未录完禁止完成、重复完成拒绝、库存准确率/库位准确率统计
   - `tests/test_auth_service.py`（14）：密码哈希与校验、登录/登出、token 校验与过期、用户 CRUD 权限、最后 admin 保护
   - `tests/test_api_auth.py`（4）：未登录 401、无效 token、登录态访问、operator 不可管理用户
-  - `tests/test_api_contract.py`（4）：camelCase 契约（products/customers 返回 fnsKu/caseQty/createdAt，无 snake_case）、编辑商品 fnsKu 不被置空、全局异常处理器返回 JSON body
+  - `tests/test_api_contract.py`（5）：camelCase 契约（products/customers/counts 返回 fnsKu/caseQty/countNo，无 snake_case）、编辑商品 fnsKu 不被置空、全局异常处理器返回 JSON body
   - `tests/test_customer_product.py`（9）：客户 CRUD/软删除、商品 FNSKU+箱规、camelCase 映射
   - `tests/test_dashboard.py`（3）：看板聚合（今日单量/库存总量/低库存）
   - `tests/test_return_service.py`（8）：退货收货回补/报废不补、重复收货拒绝、单号递增
@@ -170,7 +171,12 @@
 
 ### P0 — 正确性与数据可信
 
-1. **盘点闭环（Cycle Count）**：新增盘点单（按库位/库区/商品）→ 差异自动生成盘盈/盘亏调整单 → 库存流水留痕。让「库存准确率 = 盘点准确 SKU / 盘点总 SKU」「账物相符率」「库位准确率」可量化、可闭环，这是 WMS 最核心的信任指标。
+1. **盘点闭环（Cycle Count）** ✅ 已完成
+   - 新增盘点单（`CycleCount`，单号 `CC-YYYYMMDD-XXX`，状态机 `PENDING → COMPLETED`），按 **库位 / 库区 / 商品 / 全部** 四种范围创建，创建时快照账面库存（可用+锁定合计）生成盘点明细；
+   - 录入实盘数量（可多次覆盖，完成后锁定）→ 完成盘点时差异行**自动生成盘盈/盘亏调整单**（`ADJUST_IN / ADJUST_OUT` 流水，remark 含盘点单号，`StockAdjustment.count_id` 溯源）→ 盘亏不足整单回滚，盘点单保持 PENDING；
+   - 完成即产出信任指标：**库存准确率 = 账实相符 SKU×库位行 / 总盘点行**、**库位准确率**、差异总量，让「账物相符率」「库位准确率」可量化、可闭环；
+   - 前端盘点管理页（列表 + 创建对话框 + 详情抽屉逐行录入 + 准确率指标卡片）；
+   - 测试：`tests/test_count_service.py`（18 用例）+ API 契约 1 用例，共 19 用例。
 2. **严格批次 FIFO + 效期管理**：扣减顺序由 `Inventory.id`（≈建批顺序）改为「按生产日期 / 有效期升序」先出先出；批次到期、长库龄（呆滞）预警 → 降「长库龄物料占比」、控「效期风险」。
 3. **复核扫码验货**：出库复核支持扫码枪 / PDA 逐件校验 SKU+批次+数量，防错发 → 提「拣货准确率」、降「错发率」。
 4. **PostgreSQL 行锁 + 实时对账**：生产库启用 `SELECT ... FOR UPDATE` 行锁（当前 SQLite 下忽略）；新增定时对账任务（逐单核对 流水 ↔ 库存 ↔ 单据状态，输出差异报表），机制化兜住数据一致性。
@@ -232,7 +238,8 @@
 - [x] 必做任务 2（库存查询：可用/锁定、低库存高亮）后端 + 前端
 - [x] 必做任务 3（2 个 Bug）定位并修复
 - [x] 选做 A（出库单 + 锁定防超卖 + 整单回滚）
-- [x] 选做 B（单元测试）后端 76 + 前端 14 用例
+- [x] 选做 B（单元测试）后端 99 + 前端 14 用例
+- [x] P0-1（盘点闭环）：盘点单（库位/库区/商品/全部）→ 录入实盘 → 完成自动生成盘盈/盘亏调整单 + 流水留痕 + 准确率指标（后端 18 + 契约 1 用例）
 - [x] 选做 C（前端性能优化）服务端分页 + 防抖
 - [x] MVP M1-M7 扩展：客户管理 / 商品 FNSKU+箱规 / 数据看板 / 退货管理 / 波次拣货 / 复核验货 / 用户权限（见「十三」）
 - [x] 一键启动：后端 `uv run uvicorn app.main:app --port 8000`（lifespan 自动建表 + 种子数据 + 默认 admin/admin123）；前端 `npm run dev`（代理 /api → 8000）

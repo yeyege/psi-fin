@@ -5,11 +5,14 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 # 修复 Docker overlayfs 下 esbuild postinstall ETXTBSY：改用 optional 平台包二进制
-# （官方 ESBUILD_BINARY_PATH 机制跳过 install.js 的「写入后立即执行」校验）
 ENV ESBUILD_BINARY_PATH=/app/node_modules/@esbuild/linux-x64/bin/esbuild
-# 国内网络使用 npm 镜像（容器内网络不走 Docker daemon 代理）
-RUN npm config set registry https://registry.npmmirror.com
-RUN npm ci --no-audit --no-fund
+# 网络容错：加大超时/重试，使用备用 npm 镜像（npmmirror + 腾讯云镜像二选一）
+RUN npm config set registry https://mirrors.cloud.tencent.com/npm/ \
+ && npm config set fetch-retries 10 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-timeout 120000 \
+ # npm ci 严格匹配 lockfile，失败时自动 fallback 到 npm install（网络不稳时更鲁棒）
+ && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund --legacy-peer-deps)
 COPY . .
 RUN npm run build
 

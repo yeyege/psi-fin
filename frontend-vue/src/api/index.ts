@@ -476,3 +476,61 @@ export const updateUser = (id: number, data: { password?: string; role?: 'admin'
 
 export const deleteUser = (id: number) =>
   api.delete<any, { code: number }>(`/users/${id}`)
+
+
+// ============ 盘点管理（库存准确率闭环） ============
+
+export interface CountItem {
+  id: number
+  productId: number
+  productName: string
+  sku: string
+  locationCode: string
+  systemQty: number
+  countedQty: number | null
+  diffQty: number | null
+}
+
+export interface CountStats {
+  totalItems: number
+  accurateItems: number
+  accuracyRate: number | null
+  locationCount: number
+  accurateLocationCount: number
+  locationAccuracyRate: number | null
+  totalDiffQty: number
+}
+
+export interface CountOrder {
+  id: number
+  countNo: string
+  scopeType: string
+  scopeValue: string | null
+  status: string
+  remark: string | null
+  items: CountItem[]
+  stats: CountStats | null
+  createdAt: string
+}
+
+export const SCOPE_TYPE_LABELS: Record<string, string> = {
+  LOCATION: '按库位',
+  ZONE: '按库区',
+  PRODUCT: '按商品',
+  ALL: '全部库存',
+}
+
+export const createCount = (data: { scopeType: string; scopeValue?: string | null; remark?: string }) =>
+  api.post<any, { code: number; data: CountOrder }>('/counts', data)
+
+export const getCounts = (params: { status?: string; page?: number; pageSize?: number }) =>
+  api.get<any, { code: number; data: PageData<CountOrder> }>('/counts', { params })
+
+export const getCount = (id: number) =>
+  api.get<any, { code: number; data: CountOrder }>(`/counts/${id}`)
+
+export const submitCount = (id: number, items: Array<{ itemId: number; countedQty: number }>) =>
+  api.post<any, { code: number; data: CountOrder }>(`/counts/${id}/submit`, { items })
+
+export const completeCount = (id: number) =>
+  api.post<any, { code: number; data: CountOrder }>(`/counts/${id}/complete`)

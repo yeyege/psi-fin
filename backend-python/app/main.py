@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.common.errors import BusinessError
 from app.database import engine, Base
-from app.routers import products, warehouses, inbound, outbound, inventory, transfers, customers, dashboard, returns, waves, auth
+from app.routers import products, warehouses, inbound, outbound, inventory, transfers, customers, dashboard, returns, waves, auth, counts
 
 
 @asynccontextmanager
@@ -57,6 +57,7 @@ app.include_router(outbound.router)
 app.include_router(waves.router)
 app.include_router(returns.router)
 app.include_router(transfers.router)
+app.include_router(counts.router)
 
 
 @app.get("/")

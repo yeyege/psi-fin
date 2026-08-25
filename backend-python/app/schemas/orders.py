@@ -176,6 +176,59 @@ class StockAdjustmentResponse(CamelModel):
     id: int
     order_no: str
     status: str
+    count_id: int | None = None  # 由盘点单自动生成时回填
     remark: str | None = None
     items: list[StockAdjustmentItemResponse] = []
+    created_at: datetime
+
+
+# ============ 盘点单（库存准确率闭环） ============
+
+class CountCreate(CamelModel):
+    scope_type: str = Field(..., pattern="^(LOCATION|ZONE|PRODUCT|ALL)$",
+                            description="LOCATION 库位 / ZONE 库区 / PRODUCT 商品 / ALL 全部")
+    scope_value: str | None = Field(default=None, max_length=50,
+                                    description="范围值：库位编码 / 库区ID / 商品ID（ALL 时省略）")
+    remark: str | None = Field(default=None, max_length=200)
+
+
+class CountSubmitItem(CamelModel):
+    item_id: int = Field(..., gt=0)
+    counted_qty: int = Field(..., ge=0, description="实盘数量")
+
+
+class CountSubmit(CamelModel):
+    items: list[CountSubmitItem] = Field(..., min_length=1)
+
+
+class CountItemResponse(CamelModel):
+    id: int
+    product_id: int
+    product_name: str
+    sku: str
+    location_code: str
+    system_qty: int
+    counted_qty: int | None = None
+    diff_qty: int | None = None  # counted_qty - system_qty（未录入时为 None）
+
+
+class CountStatsResponse(CamelModel):
+    total_items: int = 0
+    accurate_items: int = 0
+    accuracy_rate: float | None = None   # 库存准确率（账实相符 SKU×库位 / 总盘点行）
+    location_count: int = 0
+    accurate_location_count: int = 0
+    location_accuracy_rate: float | None = None  # 库位准确率
+    total_diff_qty: int = 0  # 差异总量（Σ|diff|）
+
+
+class CountResponse(CamelModel):
+    id: int
+    count_no: str
+    scope_type: str
+    scope_value: str | None = None
+    status: str
+    remark: str | None = None
+    items: list[CountItemResponse] = []
+    stats: CountStatsResponse | None = None
     created_at: datetime

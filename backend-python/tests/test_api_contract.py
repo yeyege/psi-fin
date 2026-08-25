@@ -85,3 +85,64 @@ def test_business_error_returns_json_body(client):
     assert "detail" in body and "message" in body
     assert body["data"] is None
     assert body["message"] == "商品不存在"
+
+
+def test_counts_camelcase_and_complete_flow(client):
+    """盘点单 API：camelCase 契约 + 创建→提交→完成自动生成调整单全流程。"""
+    from datetime import datetime
+
+    from app.models import Batch, Inventory, Location, Product, Warehouse, Zone
+    from app.services import inventory_service
+
+    c, Session = client
+    s = Session()
+    s.add_all([
+        Warehouse(id=1, code="WH-API", name="API仓"),
+        Zone(id=1, warehouse_id=1, code="Z-GOODS", name="正品区"),
+        Location(id=1, zone_id=1, warehouse_id=1, code="LOC-01", priority=5),
+        Product(id=9, name="盘点商品", sku="CT-CNT-1", unit="个"),
+    ])
+    b = Batch(batch_no="CNT-B-1", product_id=9, inbound_date=datetime.now())
+    s.add(b)
+    s.flush()
+    inventory_service.add_stock(
+        s, product_id=9, location_code="LOC-01", batch_id=b.id, quantity=50,
+        flow_type=inventory_service.FLOW_TYPE_INBOUND,
+        order_type=inventory_service.ORDER_TYPE_INBOUND, order_no="API-SEED")
+    s.commit()
+    s.close()
+
+    h = _auth(c)
+
+    # 创建盘点单（按库位）
+    r = c.post("/api/counts", json={"scopeType": "LOCATION", "scopeValue": "LOC-01",
+                                    "remark": "API盘点"}, headers=h)
+    assert r.status_code == 201
+    count = r.json()["data"]
+    assert "countNo" in count and count["countNo"].startswith("CC-")
+    assert "scopeType" in count and "systemQty" in count["items"][0]
+    assert "system_qty" not in count["items"][0]
+    assert count["items"][0]["systemQty"] == 50
+    count_id = count["id"]
+    item_id = count["items"][0]["id"]
+
+    # 录入实盘数量（差异 +10 → 自动盘盈）
+    r = c.post(f"/api/counts/{count_id}/submit",
+               json={"items": [{"itemId": item_id, "countedQty": 60}]}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["data"]["items"][0]["countedQty"] == 60
+
+    # 完成盘点 → 自动生成调整单 + 流水
+    r = c.post(f"/api/counts/{count_id}/complete", headers=h)
+    assert r.status_code == 200
+    body = r.json()["data"]
+    assert body["status"] == "COMPLETED"
+    assert body["stats"]["accuracyRate"] == 0.0
+    assert body["items"][0]["diffQty"] == 10
+
+    s2 = Session()
+    try:
+        rows = s2.query(Inventory).filter_by(product_id=9, location_code="LOC-01").all()
+        assert sum(x.available_qty for x in rows) == 60
+    finally:
+        s2.close()

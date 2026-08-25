@@ -77,6 +77,9 @@ const handleLogout = async () => {
         <el-menu-item index="/adjustments">
           <el-icon><EditPen /></el-icon><span>库存调整</span>
         </el-menu-item>
+        <el-menu-item index="/counts">
+          <el-icon><Checked /></el-icon><span>盘点管理</span>
+        </el-menu-item>
         <el-menu-item index="/products">
           <el-icon><Goods /></el-icon><span>商品管理</span>
         </el-menu-item>

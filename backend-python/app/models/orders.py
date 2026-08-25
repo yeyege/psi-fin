@@ -216,13 +216,17 @@ class StockTransferItem(Base):
 
 
 class StockAdjustment(Base):
-    """库存调整单（盘盈盘亏）"""
+    """库存调整单（盘盈盘亏）
+
+    count_id：由盘点单自动生成时回填，用于溯源「该调整单来自哪张盘点单」。
+    """
     __tablename__ = "stock_adjustments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     order_no = Column(String(50), nullable=False, unique=True)
     status = Column(String(20), default="COMPLETED")
     remark = Column(String(200), nullable=True)
+    count_id = Column(Integer, ForeignKey("cycle_counts.id"), nullable=True)  # 来源盘点单（自动调整时回填）
     created_at = Column(DateTime, default=datetime.now)
 
     items = relationship(
@@ -242,4 +246,54 @@ class StockAdjustmentItem(Base):
     change_qty = Column(Integer, nullable=False)
 
     adjustment = relationship("StockAdjustment", back_populates="items")
+    product = relationship("Product")
+
+
+class CycleCount(Base):
+    """盘点单 — 库存准确率闭环
+
+    状态机：PENDING(待盘点) → COMPLETED(已完成)
+    - 创建时按范围（库位/库区/商品/全部）快照账面库存生成盘点明细；
+    - 录入实盘数量后完成：差异行自动生成盘盈/盘亏调整单并写流水；
+    - 完成后可统计「库存准确率 / 库位准确率」等信任指标。
+
+    scope_type：
+      LOCATION 按库位（scope_value=库位编码）
+      ZONE     按库区（scope_value=库区ID）
+      PRODUCT  按商品（scope_value=商品ID）
+      ALL      全部库存（scope_value=None）
+    """
+    __tablename__ = "cycle_counts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    count_no = Column(String(50), nullable=False, unique=True)  # CC-YYYYMMDD-XXX
+    scope_type = Column(String(20), nullable=False)  # LOCATION / ZONE / PRODUCT / ALL
+    scope_value = Column(String(50), nullable=True)  # 范围值（库位编码 / 库区ID / 商品ID）
+    status = Column(String(20), default="PENDING")  # PENDING → COMPLETED
+    remark = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    items = relationship(
+        "CycleCountItem", back_populates="count",
+        cascade="all, delete-orphan",
+    )
+
+
+class CycleCountItem(Base):
+    """盘点明细 — 每行 = (商品, 库位)，账面数量为创建时快照（可用+锁定合计）
+
+    - system_qty  账面数量（创建盘点单时快照，含已锁定库存）
+    - counted_qty 实盘数量（录入，完成后不可再改）
+    - diff_qty    = counted_qty - system_qty（计算列，盘盈为正 / 盘亏为负）
+    """
+    __tablename__ = "cycle_count_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    count_id = Column(Integer, ForeignKey("cycle_counts.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    location_code = Column(String(50), nullable=False)
+    system_qty = Column(Integer, nullable=False, default=0)
+    counted_qty = Column(Integer, nullable=True)  # 未录入为 None
+
+    count = relationship("CycleCount", back_populates="items")
     product = relationship("Product")
