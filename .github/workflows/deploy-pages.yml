@@ -1,0 +1,51 @@
+name: Deploy Vue frontend to GitHub Pages
+
+# 触发：push/PR 合并到 master 时构建并部署；也支持手动触发
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# GitHub Pages 部署所需的最小权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: frontend-vue/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend-vue
+        run: npm ci
+      - name: Build
+        working-directory: frontend-vue
+        run: npm run build
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend-vue/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
