@@ -1,0 +1,2667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WMS BI 数据看板 · Apple Store 风格</title>
+<!-- ========= CDN 依赖 ========= -->
+<script>
+  window.CDN_READY = { chartjs: false, html2canvas: false };
+  window.CDN_FALLBACK = false;
+  // 3秒未就绪进入降级模式
+  setTimeout(() => {
+    if (!window.CDN_READY.chartjs) {
+      window.CDN_FALLBACK = true;
+      console.warn('[BI] Chart.js CDN unavailable, falling back to CSS-only placeholders');
+    }
+  }, 3000);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+  onload="window.CDN_READY.chartjs = true"
+  onerror="window.CDN_FALLBACK = true"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
+  onload="window.CDN_READY.html2canvas = true"
+  onerror="console.warn('[BI] html2canvas unavailable, export button will be hidden')"></script>
+<style>
+/* ============ Reset & Base ============ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --text-2: #86868b;
+  --text-3: #d2d2d7;
+  --blue: #0071e3;
+  --blue-light: #2997ff;
+  --green: #34c759;
+  --orange: #ff9500;
+  --red: #ff3b30;
+  --purple: #af52de;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --blur: saturate(180%) blur(20px);
+  --shadow: 0 4px 24px rgba(0,0,0,0.06);
+  --shadow-hover: 0 12px 40px rgba(0,0,0,0.12);
+  --sidebar-w: 200px;
+  --dock-h: 72px;
+}
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ============ 整体布局 ============ */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: 52px 1fr var(--dock-h);
+  height: 100vh;
+}
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  position: relative;
+  z-index: 100;
+}
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-logo {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #0071e3, #00c7ff);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 15px;
+  box-shadow: 0 2px 8px rgba(0,113,227,0.3);
+}
+.topbar-title { font-size: 15px; font-weight: 600; }
+.topbar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 40px;
+}
+.search-box {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.05);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.search-box svg { flex-shrink: 0; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.icon-btn {
+  width: 32px; height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+  transition: background 0.2s;
+}
+.icon-btn:hover { background: rgba(0,0,0,0.06); }
+.avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff9500, #ff3b30);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+
+/* ============ 侧边栏 ============ */
+.sidebar {
+  grid-row: 2 / 3;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  padding: 12px 8px;
+  overflow-y: auto;
+  z-index: 50;
+}
+.nav-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 16px 10px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: all 0.2s ease;
+  margin-bottom: 1px;
+}
+.nav-item:hover { background: rgba(0,0,0,0.04); }
+.nav-item.active { background: var(--blue); color: #fff; }
+.nav-item.active svg { color: #fff; }
+.nav-item svg { flex-shrink: 0; color: var(--text-2); transition: color 0.2s; }
+.nav-item:hover svg { color: var(--text); }
+.nav-badge {
+  margin-left: auto;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+/* ============ 主内容区 ============ */
+.main {
+  grid-row: 2 / 3;
+  overflow-y: auto;
+  padding: 20px 32px 100px;
+  position: relative;
+}
+.page { display: none; animation: fadeIn 0.35s ease; }
+.page.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============ 页头 + 筛选器 ============ */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.page-greeting { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.page-greeting .date { font-size: 14px; font-weight: 400; color: var(--text-2); margin-top: 4px; display: block; }
+.page-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 980px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #0077ed; }
+.btn-ghost { background: rgba(0,0,0,0.05); color: var(--text); }
+.btn-ghost:hover { background: rgba(0,0,0,0.08); }
+
+/* 筛选器 */
+.filter-bar {
+  background: var(--card);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.filter-group { display: flex; align-items: center; gap: 8px; }
+.filter-label { font-size: 12px; color: var(--text-2); font-weight: 500; }
+.time-btns { display: flex; gap: 4px; background: rgba(0,0,0,0.04); border-radius: 10px; padding: 3px; }
+.time-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-2);
+  font-weight: 500;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.time-btn:hover { color: var(--text); }
+.time-btn.active { background: #fff; color: var(--blue); box-shadow: 0 1px 4px rgba(0,0,0,0.08); font-weight: 600; }
+.custom-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.custom-date input {
+  padding: 4px 8px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+  color: var(--text);
+}
+.custom-date input:focus { border-color: var(--blue); }
+.warehouse-select {
+  position: relative;
+}
+.wh-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+}
+.wh-dropdown-btn:hover { border-color: var(--blue); }
+.wh-dropdown-panel {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  padding: 8px;
+  min-width: 180px;
+  z-index: 1000;
+  display: none;
+}
+.wh-dropdown-panel.open { display: block; animation: fadeIn 0.18s ease; }
+.wh-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.wh-option:hover { background: rgba(0,0,0,0.04); }
+.wh-option input[type="checkbox"] { accent-color: var(--blue); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; max-width: 260px; }
+.chip {
+  background: rgba(0,113,227,0.08);
+  color: var(--blue);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 980px;
+  font-weight: 500;
+}
+
+/* ============ KPI 核心指标卡 ============ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+.kpi-card .kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.kpi-label { font-size: 13px; color: var(--text-2); font-weight: 500; }
+.kpi-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.kpi-value {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  font-family: "SF Pro Display", -apple-system, sans-serif;
+}
+.kpi-unit { font-size: 14px; font-weight: 400; color: var(--text-2); margin-left: 4px; }
+.kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: 980px;
+}
+.kpi-trend.up { color: var(--green); background: rgba(52,199,89,0.1); }
+.kpi-trend.down { color: var(--red); background: rgba(255,59,48,0.1); }
+.kpi-sub { font-size: 12px; color: var(--text-2); margin-top: 8px; }
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 3px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+
+/* ============ 统计彩色卡片 ============ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+.stat-card:hover { transform: scale(1.03); }
+.stat-card::after {
+  content: '';
+  position: absolute;
+  right: -16px; bottom: -16px;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+}
+.stat-icon {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.22);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+}
+.stat-info { position: relative; z-index: 1; min-width: 0; }
+.stat-label { font-size: 12px; opacity: 0.9; margin-bottom: 2px; }
+.stat-value { font-size: 20px; font-weight: 700; white-space: nowrap; }
+
+/* ============ 面板 ============ */
+.panel {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.3s ease;
+  position: relative;
+}
+.panel:hover { box-shadow: var(--shadow-hover); }
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.panel-title { font-size: 17px; font-weight: 600; }
+.panel-sub { font-size: 11px; color: var(--text-2); letter-spacing: 0.5px; text-transform: uppercase; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.row-2-wide { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 20px; }
+.row-full { margin-bottom: 20px; }
+.chart-wrap { position: relative; width: 100%; height: 260px; }
+.chart-wrap.tall { height: 320px; }
+.chart-wrap.short { height: 200px; }
+/* 图表 loading 遮罩 */
+.panel.loading .chart-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(2px);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel.loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 3px solid rgba(0,113,227,0.2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  z-index: 5;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 双图并排 */
+.dual-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; }
+
+/* 图例 */
+.chart-legend { display: flex; gap: 16px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ============ 库存预警 ============ */
+.alert-list { display: flex; flex-direction: column; gap: 12px; max-height: 260px; overflow-y: auto; }
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.02);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.alert-item:hover { background: rgba(0,0,0,0.04); }
+.alert-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 980px;
+}
+.tag-danger { background: rgba(255,59,48,0.12); color: var(--red); }
+.tag-warning { background: rgba(255,149,0,0.12); color: var(--orange); }
+.alert-body { flex: 1; min-width: 0; }
+.alert-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.alert-sku { font-size: 12px; color: var(--text-2); font-weight: 400; margin-left: 6px; }
+.alert-desc { font-size: 12px; color: var(--text-2); }
+
+/* ============ 待办卡片 ============ */
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.todo-card {
+  background: rgba(0,0,0,0.02);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.todo-card:hover { background: rgba(0,0,0,0.04); transform: translateY(-2px); }
+.todo-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 980px;
+  margin-bottom: 8px;
+}
+.todo-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.todo-desc { font-size: 12px; color: var(--text-2); line-height: 1.5; margin-bottom: 6px; }
+.todo-time { font-size: 11px; color: var(--text-3); }
+
+/* ============ 底部 Dock 栏 ============ */
+.dock {
+  grid-column: 1 / -1;
+  grid-row: 3 / 4;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  z-index: 100;
+}
+.dock-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 20px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+.dock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+.dock-item:hover { transform: translateY(-8px) scale(1.15); }
+.dock-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.dock-label {
+  position: absolute;
+  bottom: -28px;
+  font-size: 11px;
+  color: var(--text);
+  background: rgba(255,255,255,0.9);
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.dock-item:hover .dock-label { opacity: 1; }
+.dock-separator { width: 1px; height: 40px; background: rgba(0,0,0,0.1); margin: 0 4px; }
+
+/* ============ Modal ============ */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.modal.open { opacity: 1; pointer-events: auto; }
+.modal-content {
+  background: #fff;
+  border-radius: 22px;
+  width: min(720px, 92vw);
+  max-height: 82vh;
+  overflow: hidden;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.3);
+  transform: translateY(30px) scale(0.96);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+}
+.modal.open .modal-content { transform: translateY(0) scale(1); }
+.modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-title { font-size: 18px; font-weight: 600; }
+.modal-close {
+  width: 30px; height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.06);
+  cursor: pointer;
+  color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.modal-close:hover { background: rgba(0,0,0,0.1); color: var(--text); }
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+
+/* Modal 内表格 */
+.m-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.m-table th, .m-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.m-table th { font-weight: 600; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.m-trend-mini { height: 60px; padding: 8px 0; }
+.m-sku-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.m-sku-stat {
+  background: rgba(0,0,0,0.03);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.m-sku-stat .lbl { font-size: 11px; color: var(--text-2); }
+.m-sku-stat .val { font-size: 20px; font-weight: 700; margin-top: 4px; }
+
+/* 视图：小工具（效率/出入库通用） */
+.mini-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mini-stat {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.02);
+  text-align: center;
+}
+.mini-stat .ms-lbl { font-size: 11px; color: var(--text-2); }
+.mini-stat .ms-val { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.mini-stat .ms-val.pos { color: var(--green); }
+.mini-stat .ms-val.neg { color: var(--red); }
+
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0,0,0,0.04);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  width: fit-content;
+}
+.tab-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { background: #fff; color: var(--blue); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+.biz-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.biz-table th, .biz-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.biz-table th { font-size: 11px; color: var(--text-2); font-weight: 600; letter-spacing: 0.3px; }
+.biz-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.biz-progress-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.biz-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--blue-light));
+  border-radius: 3px;
+}
+.status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 980px;
+  display: inline-block;
+}
+.status-doing { background: rgba(0,113,227,0.1); color: var(--blue); }
+.status-done { background: rgba(52,199,89,0.1); color: var(--green); }
+.status-timeout { background: rgba(255,59,48,0.1); color: var(--red); }
+.status-wait { background: rgba(0,0,0,0.06); color: var(--text-2); }
+
+.alert-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  background: rgba(255,59,48,0.08);
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rate-bar { display: flex; align-items: center; gap: 6px; }
+.rate-track {
+  width: 80px;
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rate-fill { height: 100%; border-radius: 3px; }
+
+.net-dashboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(0,113,227,0.05), rgba(52,199,89,0.05));
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.net-dashboard .nd-box { text-align: center; }
+.net-dashboard .nd-box .nd-lbl { font-size: 12px; color: var(--text-2); }
+.net-dashboard .nd-box .nd-v { font-size: 28px; font-weight: 700; margin-top: 6px; }
+.net-dashboard .nd-box.in .nd-v { color: var(--blue); }
+.net-dashboard .nd-box.out .nd-v { color: var(--green); }
+.net-dashboard .nd-arrow {
+  font-size: 30px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.net-dashboard .nd-arrow .nd-net { font-size: 18px; font-weight: 700; }
+
+/* CDN 降级占位 */
+.cdn-placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: 12px;
+  gap: 8px;
+  background: repeating-linear-gradient(45deg, rgba(0,0,0,0.01), rgba(0,0,0,0.01) 10px, rgba(0,0,0,0.03) 10px, rgba(0,0,0,0.03) 20px);
+  border-radius: 12px;
+}
+
+/* ============ 响应式 ============ */
+@media (max-width: 1200px) {
+  .kpi-grid, .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .row-2, .row-2-wide, .dual-chart { grid-template-columns: 1fr; }
+  .m-sku-summary, .mini-stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  :root { --sidebar-w: 60px; }
+  .sidebar .nav-item span, .nav-group-label, .topbar-center { display: none; }
+  .kpi-grid, .stat-grid { grid-template-columns: 1fr; }
+  .main { padding: 16px; }
+  .page-greeting { font-size: 22px; }
+  .filter-bar { flex-direction: column; align-items: flex-start; }
+  .m-sku-summary, .mini-stat-row { grid-template-columns: 1fr 1fr; }
+  .net-dashboard { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ========== 顶部导航栏 ========== -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">W</div>
+      <span class="topbar-title">WMS BI 数据看板</span>
+    </div>
+    <div class="topbar-center">
+      <div class="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>搜索库存、单据、商品…</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" title="导出PNG" id="exportBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      </button>
+      <button class="icon-btn" title="通知">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <button class="icon-btn" title="设置">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <div class="avatar">管</div>
+    </div>
+  </header>
+
+  <!-- ========== 侧边栏 ========== -->
+  <aside class="sidebar">
+    <div class="nav-group-label">BI 看板</div>
+    <div class="nav-item active" data-page="overview">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      <span>数据看板</span>
+    </div>
+    <div class="nav-item" data-page="inventory-analysis">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+      <span>库存分析</span>
+    </div>
+    <div class="nav-item" data-page="flow-analysis">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+      <span>出入库分析</span>
+    </div>
+    <div class="nav-item" data-page="efficiency">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+      <span>作业效率</span>
+    </div>
+
+    <div class="nav-group-label">业务操作</div>
+    <div class="nav-item" data-page="overview">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m6 9 6 6 6-6"/><path d="M21 21H3"/></svg>
+      <span>入库管理</span>
+      <span class="nav-badge">23</span>
+    </div>
+    <div class="nav-item" data-page="overview">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9"/><path d="m6 15 6-6 6 6"/><path d="M3 3h18"/></svg>
+      <span>出库管理</span>
+      <span class="nav-badge">37</span>
+    </div>
+    <div class="nav-item" data-page="overview">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1z"/><path d="M2 20c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1z"/><path d="M2 13c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1z"/><path d="M6 5h16"/><path d="M6 12h16"/><path d="M6 19h16"/></svg>
+      <span>波次拣货</span>
+    </div>
+    <div class="nav-item" data-page="overview">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.7 3L3 13"/></svg>
+      <span>退货管理</span>
+    </div>
+  </aside>
+
+  <!-- ========== 主内容区 ========== -->
+  <main class="main">
+
+    <!-- ============ 筛选器 ============ -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">时间范围</span>
+        <div class="time-btns" id="timeBtns">
+          <button class="time-btn" data-preset="today">今日</button>
+          <button class="time-btn active" data-preset="7d">近7天</button>
+          <button class="time-btn" data-preset="30d">近30天</button>
+          <button class="time-btn" data-preset="custom">自定义</button>
+        </div>
+        <div class="custom-date" id="customDate" style="display:none">
+          <input type="date" id="startDate"> <span>至</span> <input type="date" id="endDate">
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">仓库</span>
+        <div class="warehouse-select">
+          <button class="wh-dropdown-btn" id="whBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 7v14M21 7v14M3 7l9-4 9 4"/></svg>
+            <span id="whBtnText">全部仓库</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="wh-dropdown-panel" id="whPanel"></div>
+        </div>
+        <div class="chips" id="whChips"></div>
+      </div>
+    </div>
+
+    <!-- ============ 视图：数据看板 ============ -->
+    <section class="page page-overview active">
+      <div class="page-header">
+        <div>
+          <div class="page-greeting">数据看板
+            <span class="date" id="todayDate">2026年9月2日 · 星期三</span>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            新建入库单
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="stat-grid" id="statGrid"></div>
+
+      <div class="row-2-wide">
+        <div class="panel" id="panelTrend">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">近7天出入库趋势</div>
+              <div class="panel-sub">Inbound / Outbound</div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#0071e3"></div>入库</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#34c759"></div>出库</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+        </div>
+        <div class="panel" id="panelDonut">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">单据状态分布</div>
+              <div class="panel-sub">Order Status</div>
+            </div>
+          </div>
+          <div class="dual-chart">
+            <div class="chart-wrap" style="height:220px"><canvas id="chartDonut"></canvas></div>
+            <div id="donutLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="panel" id="panelWh">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">各仓库库存分布</div>
+              <div class="panel-sub">Warehouse Inventory</div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#0071e3"></div>可用</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#ff9500"></div>锁定</div>
+            </div>
+          </div>
+          <div class="chart-wrap short"><canvas id="chartWhBar"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">库存预警</div>
+              <div class="panel-sub">Stock Alerts</div>
+            </div>
+          </div>
+          <div class="alert-list" id="alertList"></div>
+        </div>
+      </div>
+
+      <div class="row-full">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">待办事项与消息</div>
+              <div class="panel-sub">Todo &amp; Messages</div>
+            </div>
+          </div>
+          <div class="todo-grid" id="todoGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 视图：库存分析 ============ -->
+    <section class="page page-inventory-analysis">
+      <div class="page-header">
+        <div>
+          <div class="page-greeting">库存分析
+            <span class="date" id="invDate"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="panel" id="panelSkuTop">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">SKU 库存 TOP 10</div>
+              <div class="panel-sub">High Inventory SKUs</div>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartSkuTop"></canvas></div>
+        </div>
+        <div class="panel" id="panelLowStock">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">低库存 TOP 10</div>
+              <div class="panel-sub">Low / Critical Stock</div>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartLowStock"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="panel" id="panelAge">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">库龄分布</div>
+              <div class="panel-sub">Inventory Age</div>
+            </div>
+          </div>
+          <div class="dual-chart">
+            <div class="chart-wrap" style="height:220px"><canvas id="chartAge"></canvas></div>
+            <div id="ageLegend"></div>
+          </div>
+        </div>
+        <div class="panel" id="panelBatch">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">批次状态分布（按仓库）</div>
+              <div class="panel-sub">Batch Status by Warehouse</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chartBatch"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row-full">
+        <div class="panel" id="panelAbc">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">ABC 分类帕累托分析</div>
+              <div class="panel-sub">金额贡献 / 累计占比</div>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartAbc"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 视图：出入库分析 ============ -->
+    <section class="page page-flow-analysis">
+      <div class="page-header">
+        <div>
+          <div class="page-greeting">出入库分析
+            <span class="date" id="flowDate"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="net-dashboard" id="netDashboard">
+        <div class="nd-box in">
+          <div class="nd-lbl">入库合计</div>
+          <div class="nd-v" id="netIn">-</div>
+        </div>
+        <div class="nd-arrow">
+          <span>→</span>
+          <div>
+            <div class="nd-lbl" style="text-align:center">净库存变化</div>
+            <div class="nd-net" id="netVal">-</div>
+          </div>
+          <span>→</span>
+        </div>
+        <div class="nd-box out">
+          <div class="nd-lbl">出库合计</div>
+          <div class="nd-v" id="netOut">-</div>
+        </div>
+      </div>
+
+      <div class="row-full">
+        <div class="panel" id="panelFlow30">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">出入库趋势（近30天）</div>
+              <div class="panel-sub">30-Day Trend</div>
+            </div>
+            <div class="tab-bar" id="metricTabs">
+              <button class="tab-btn active" data-metric="qty">数量</button>
+              <button class="tab-btn" data-metric="amt">金额</button>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartFlow30"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="panel" id="panelVendor">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">供应商入库 TOP 10</div>
+              <div class="panel-sub">Vendor Top</div>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartVendor"></canvas></div>
+        </div>
+        <div class="panel" id="panelCust">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">客户出库 TOP 10</div>
+              <div class="panel-sub">Customer Top</div>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartCust"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="panel" id="panelReturnRate">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">退货率趋势</div>
+              <div class="panel-sub">Return Rate</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="chartRetRate"></canvas></div>
+        </div>
+        <div class="panel" id="panelReturnReason">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">退货原因分布</div>
+              <div class="panel-sub">Reasons</div>
+            </div>
+          </div>
+          <div class="dual-chart">
+            <div class="chart-wrap" style="height:220px"><canvas id="chartRetRea"></canvas></div>
+            <div id="retLegend"></div>
+          </div>
+        </div>
+      </div>
+      <div class="alert-banner" id="retAlert" style="display:none"></div>
+    </section>
+
+    <!-- ============ 视图：作业效率 ============ -->
+    <section class="page page-efficiency">
+      <div class="page-header">
+        <div>
+          <div class="page-greeting">作业效率
+            <span class="date" id="effDate"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mini-stat-row">
+        <div class="mini-stat"><div class="ms-lbl">平均人效 · 日拣货</div><div class="ms-val" id="msAvgEff">-</div><div class="ms-lbl" style="margin-top:4px">件/人</div></div>
+        <div class="mini-stat"><div class="ms-lbl">波次完成率</div><div class="ms-val" id="msWave">-</div></div>
+        <div class="mini-stat"><div class="ms-lbl">今日任务总数</div><div class="ms-val" id="msTask">-</div></div>
+      </div>
+
+      <div class="row-full">
+        <div class="panel" id="panelWorker">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">作业员近7天拣货量</div>
+              <div class="panel-sub">Worker Performance · click to drill-down</div>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="chartWorker"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="panel" id="panelWave">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">波次状态分布</div>
+              <div class="panel-sub">Wave Status</div>
+            </div>
+          </div>
+          <div class="dual-chart">
+            <div class="chart-wrap" style="height:220px"><canvas id="chartWave"></canvas></div>
+            <div id="waveLegend"></div>
+          </div>
+        </div>
+        <div class="panel" id="panelDuration">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">作业耗时箱线图</div>
+              <div class="panel-sub">Task Duration · 分钟</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chartDur"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row-full">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">今日任务进度</div>
+              <div class="panel-sub">Task Progress</div>
+            </div>
+            <div class="tab-bar" id="taskTypeTabs">
+              <button class="tab-btn active" data-type="all">全部</button>
+              <button class="tab-btn" data-type="入库">入库</button>
+              <button class="tab-btn" data-type="出库">出库</button>
+              <button class="tab-btn" data-type="盘点">盘点</button>
+            </div>
+          </div>
+          <table class="biz-table" id="taskTable">
+            <thead>
+              <tr><th>任务号</th><th>类型</th><th>负责人</th><th>开始时间</th><th>进度</th><th>状态</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== 底部 Dock 栏 ========== -->
+  <div class="dock">
+    <div class="dock-inner">
+      <div class="dock-item" data-page="overview">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#af52de,#c77dff)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        </div>
+        <span class="dock-label">数据看板</span>
+      </div>
+      <div class="dock-item" data-page="inventory-analysis">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#5856d6,#7b79f0)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <span class="dock-label">库存分析</span>
+      </div>
+      <div class="dock-separator"></div>
+      <div class="dock-item" data-page="flow-analysis">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#00c7ff,#5ad7ff)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+        </div>
+        <span class="dock-label">出入库分析</span>
+      </div>
+      <div class="dock-item" data-page="efficiency">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#34c759,#5ad77a)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+        </div>
+        <span class="dock-label">作业效率</span>
+      </div>
+      <div class="dock-separator"></div>
+      <div class="dock-item">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#0071e3,#00c7ff)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m6 9 6 6 6-6"/><path d="M21 21H3"/></svg>
+        </div>
+        <span class="dock-label">入库快捷</span>
+      </div>
+      <div class="dock-item">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#ff9500,#ff7a00)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <span class="dock-label">搜索</span>
+      </div>
+      <div class="dock-item" id="exportDock">
+        <div class="dock-icon" style="background:linear-gradient(135deg,#6e6e73,#86868b)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+        </div>
+        <span class="dock-label">导出截图</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Modal ========== -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">详情</div>
+        <button class="modal-close" id="modalClose">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =================================================================
+   ===== JS 模块锚点：以下代码按顺序用 Edit 追加到此脚本末尾 =====
+   ===== 模块顺序：
+   =====   1) 常量 & 全局状态 & 工具函数（含 seeded PRNG）
+   =====   2) Mock 数据生成层
+   =====   3) 通用交互：筛选器 / 页面切换 / Modal / 导出
+   =====   4) Overview 渲染
+   =====   5) 三视图渲染
+   =====   6) 初始化入口
+   ================================================================= */
+window.__JS_MODULES_BEGIN__ = true;
+
+/* =========================================================
+ * ===== Module 1: 常量 & 全局状态 & 工具函数 =====
+ * ========================================================= */
+const THEME = {
+  blue: '#0071e3', blueLight: '#2997ff',
+  green: '#34c759', greenLight: '#5ad77a',
+  orange: '#ff9500', orangeLight: '#ffb340',
+  red: '#ff3b30', redLight: '#ff6b6b',
+  purple: '#af52de', purpleLight: '#c77dff',
+  indigo: '#5856d6', cyan: '#3a9ec0',
+  grey: '#86868b', greyLight: '#d2d2d7'
+};
+const WH_LIST = [
+  { id: 'sh', name: '上海仓' },
+  { id: 'gz', name: '广州仓' },
+  { id: 'bj', name: '北京仓' },
+  { id: 'cd', name: '成都仓' },
+  { id: 'wh', name: '武汉仓' }
+];
+const SKU_POOL = [
+  ['iPhone 15 Pro Max 256G', 'IP15PM-256'],
+  ['iPhone 15 Pro 128G', 'IP15P-128'],
+  ['AirPods Pro 2代', 'APP-2'],
+  ['MacBook Pro 14 M3', 'MBP14-M3'],
+  ['iPad Air 5 256G', 'IPAD-A5'],
+  ['Apple Watch S9', 'AWS-9'],
+  ['戴森吹风机 HD15', 'DY-HD15'],
+  ['戴森吸尘器 V15', 'DY-V15'],
+  ['SK-II神仙水 230ml', 'SK2-230'],
+  ['雅诗兰黛小棕瓶 50ml', 'EL-EB50'],
+  ['兰蔻粉水 400ml', 'LC-400'],
+  ['海蓝之谜面霜 60ml', 'LAM-60'],
+  ['华为Mate60 Pro 256G', 'HW-M60P'],
+  ['小米14 Ultra 256G', 'MI-14U'],
+  ['索尼WH-1000XM5', 'SN-WH1K5'],
+  ['Bose QC Ultra', 'BOSE-QCU'],
+  ['任天堂Switch OLED', 'NS-OLED'],
+  ['PS5 光驱版', 'PS5-DRV'],
+  ['大疆Mini 4 Pro', 'DJ-M4P'],
+  ['GoPro Hero 12', 'GP-H12'],
+  ['茅台飞天53度500ml', 'MT-FT53'],
+  ['五粮液普五52度', 'WLY-P5'],
+  ['雀巢胶囊咖啡机', 'NES-C100'],
+  ['飞利浦电动牙刷9系', 'HPP-9000'],
+  ['博朗9系剃须刀', 'BR-9'],
+  ['乐高哈利波特城堡', 'LEGO-HP'],
+  ['Kindle Oasis', 'KD-Oasis'],
+  ['小米扫地机器人S8', 'MI-S8'],
+  ['石头扫地机器人G20', 'ROB-G20'],
+  ['美的破壁机', 'MD-PB']
+];
+const WORKERS = ['张伟','李娜','王芳','刘洋','陈静','杨勇','赵敏','黄磊','周强','吴刚','徐敏','孙莉'];
+const VENDORS = ['华为科技','小米供应链','苹果中国','宝洁中国','联合利华','欧莱雅集团','戴森中国','苏宁物流','京东商采','天猫超市','大疆创新','索尼中国'];
+const CUSTOMERS = ['京东自营','天猫旗舰店','拼多多百亿','唯品会','苏宁易购','考拉海购','得物APP','小红书自营','国美在线','一号店','沃尔玛中国','大润发'];
+const RETURN_REASONS = [
+  { name: '质量问题', color: THEME.red },
+  { name: '错发/漏发', color: THEME.orange },
+  { name: '物流破损', color: THEME.blue },
+  { name: '客户无理由', color: THEME.grey }
+];
+
+/* ---- Global State ---- */
+const BI_STATE = {
+  time: { preset: '7d', start: null, end: null },
+  warehouses: ['all'],
+  activePage: 'overview',
+  charts: new Map(),      // id -> Chart instance
+  pagesRendered: new Set(),
+  metric: 'qty',           // flow-analysis: qty/amt
+  taskType: 'all'          // efficiency filter
+};
+
+/* ---- Utils ---- */
+function hashString(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(seed) {
+  return function() {
+    seed = (seed + 0x6D2B79F5) >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function getSeed(statePart) {
+  return hashString(JSON.stringify(statePart) + BI_STATE.time.preset + BI_STATE.warehouses.slice().sort().join(','));
+}
+function randRange(rng, min, max) { return min + rng() * (max - min); }
+function randInt(rng, min, max) { return Math.floor(randRange(rng, min, max + 1)); }
+function pickItem(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+function fmt(n, d = 0) { return (Number(n) || 0).toLocaleString('zh-CN', { maximumFractionDigits: d, minimumFractionDigits: d }); }
+function fmtAmt(n) {
+  if (n >= 1e8) return (n / 1e8).toFixed(2) + '亿';
+  if (n >= 1e4) return (n / 1e4).toFixed(1) + '万';
+  return fmt(n);
+}
+function todayYYYYMMDD(offsetDays = 0, joiner = '-') {
+  const d = new Date(); d.setDate(d.getDate() + offsetDays);
+  const p = n => String(n).padStart(2, '0');
+  return [d.getFullYear(), p(d.getMonth() + 1), p(d.getDate())].join(joiner);
+}
+function dateArr(offsetBack, days) {
+  const out = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - offsetBack - i);
+    out.push(String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+  }
+  return out;
+}
+function getDateRange() {
+  switch (BI_STATE.time.preset) {
+    case 'today': return { days: 1, offset: 0, label: '今日' };
+    case '30d': return { days: 30, offset: 0, label: '近30天' };
+    case 'custom': {
+      if (BI_STATE.time.start && BI_STATE.time.end) {
+        const s = new Date(BI_STATE.time.start), e = new Date(BI_STATE.time.end);
+        const days = Math.max(1, Math.ceil((e - s) / 86400000) + 1);
+        return { days, offset: 0, label: `自定义(${days}天)` };
+      }
+      return { days: 7, offset: 0, label: '自定义' };
+    }
+    case '7d': default: return { days: 7, offset: 0, label: '近7天' };
+  }
+}
+function activeWarehouses() {
+  if (BI_STATE.warehouses.includes('all')) return WH_LIST;
+  return WH_LIST.filter(w => BI_STATE.warehouses.includes(w.id));
+}
+
+/* =========================================================
+ * ===== Module 2: Mock 数据生成层 =====
+ * ========================================================= */
+const MOCK = {};
+
+/* ---- Overview ---- */
+MOCK.overview = function() {
+  const rng = mulberry32(getSeed('overview'));
+  const range = getDateRange();
+  const whs = activeWarehouses();
+  const whFactor = whs.length / WH_LIST.length;
+  const dates = dateArr(0, range.days);
+  // KPI
+  const turnoverRate = randRange(rng, 3.2, 5.4);
+  const capacityPct = Math.round(randRange(rng, 55, 92));
+  const totalCap = 75000;
+  const totalStock = Math.round(totalCap * capacityPct / 100 * whFactor);
+  const todayOrders = randInt(rng, 900, 1800);
+  const inboundDone = randInt(rng, 110, 160);
+  const inboundPlan = 150;
+  const outboundDone = randInt(rng, 80, 130);
+  const outboundPlan = 120;
+  const kpis = [
+    { label: '库存周转率', value: turnoverRate.toFixed(1), unit: '次/月',
+      trend: rng() > 0.3 ? 'up' : 'down',
+      trendVal: randRange(rng, 3, 15).toFixed(1),
+      icon: 'blue' },
+    { label: '库容使用率', value: capacityPct, unit: '%',
+      progress: capacityPct, sub: fmt(totalStock) + ' / ' + fmt(Math.round(totalCap * whFactor)) + ' 件',
+      icon: 'cyan' },
+    { label: '今日订单量', value: fmt(todayOrders), unit: '单',
+      trend: 'up', trendVal: randRange(rng, 5, 18).toFixed(1),
+      icon: 'green' },
+    { label: '作业效率',
+      rows: [
+        { name: '入库', done: inboundDone, plan: inboundPlan },
+        { name: '出库', done: outboundDone, plan: outboundPlan }
+      ],
+      sub: '完成量 / 计划量', icon: 'orange' }
+  ];
+  // Stat cards
+  const todayIn = randInt(rng, 80, 180);
+  const todayOut = randInt(rng, 60, 140);
+  const lowStockCount = randInt(rng, 6, 18);
+  const stats = [
+    { label: '今日入库单', value: fmt(todayIn), gradient: ['#1a5cb0','#3a8de0'], type: 'inbound' },
+    { label: '今日出库单', value: fmt(todayOut), gradient: ['#3a7a3f','#6ba84f'], type: 'outbound' },
+    { label: '库存总量(件)', value: fmt(totalStock), gradient: ['#1a6a8a','#3a9ec0'] },
+    { label: '低库存商品', value: lowStockCount, gradient: ['#a82828','#d44848'], type: 'lowstock' }
+  ];
+  // Trend 7d (or range.days)
+  const trend = { labels: dates, inbound: [], outbound: [] };
+  for (let i = 0; i < range.days; i++) {
+    trend.inbound.push(randInt(rng, 60, 150));
+    trend.outbound.push(randInt(rng, 40, 120));
+  }
+  // Donut order status
+  const orderStatus = [
+    { name: '待处理', value: randInt(rng, 40, 80), color: THEME.orange },
+    { name: '进行中', value: randInt(rng, 60, 100), color: THEME.blue },
+    { name: '已完成', value: randInt(rng, 200, 320), color: THEME.green },
+    { name: '已取消', value: randInt(rng, 10, 30), color: THEME.grey }
+  ];
+  // Warehouse inventory
+  const whInventory = whs.map(w => {
+    const base = randInt(rng, 4000, 14000);
+    const available = Math.round(base * randRange(rng, 0.82, 0.92));
+    return { name: w.name, available, locked: base - available };
+  }).sort((a, b) => (b.available + b.locked) - (a.available + a.locked));
+  // Alerts
+  const alerts = [];
+  const usedSkus = new Set();
+  for (let i = 0; i < 6; i++) {
+    let sku;
+    do { sku = pickItem(rng, SKU_POOL); } while (usedSkus.has(sku[1]));
+    usedSkus.add(sku[1]);
+    const isLowStock = rng() > 0.35;
+    const wh = pickItem(rng, whs);
+    const qty = randInt(rng, 1, 12);
+    const threshold = randInt(rng, 15, 40);
+    alerts.push({
+      level: isLowStock ? 'danger' : 'warning',
+      tag: isLowStock ? '低库存' : '临期',
+      title: sku[0], sku: sku[1],
+      warehouse: wh.name, whId: wh.id,
+      current: qty, threshold,
+      daysLeft: isLowStock ? 0 : randInt(rng, 3, 30),
+      price: randInt(rng, 80, 12000)
+    });
+  }
+  // Todos
+  const todoTemplates = [
+    { t: '入库审核', c: 'tag-warning', tfmt: n => `${n} 张入库单待审核` },
+    { t: '出库发货', c: 'tag-danger', tfmt: n => `${n} 张出库单待发货` },
+    { t: '波次拣货', c: '', bg: 'rgba(0,113,227,0.1)', color: THEME.blue, tfmt: n => `${n} 个波次待拣货` },
+    { t: '盘点', c: '', bg: 'rgba(175,82,222,0.1)', color: THEME.purple, tfmt: () => '月末盘点任务待执行' },
+    { t: '公告', c: '', bg: 'rgba(52,199,89,0.1)', color: THEME.green, tfmt: () => '系统升级公告待确认' },
+    { t: '移库', c: '', bg: 'rgba(58,158,192,0.1)', color: THEME.cyan, tfmt: n => `${n} 个移库申请待审批` }
+  ];
+  const todoCount = randInt(rng, 5, 7);
+  const todos = [];
+  for (let i = 0; i < todoCount; i++) {
+    const tpl = todoTemplates[i % todoTemplates.length];
+    const wh = pickItem(rng, whs);
+    const descMap = {
+      '入库审核': `${wh.name} · 供应商：${pickItem(rng, VENDORS)}`,
+      '出库发货': `${wh.name} · 客户：${pickItem(rng, CUSTOMERS)}`,
+      '波次拣货': `波次号 WAVE-2026${todayYYYYMMDD(0,'').slice(4)}-${String(i+1).padStart(2,'0')}`,
+      '盘点': `${whs.length > 1 ? '全部仓库' : whs[0].name} · 计划 本月底 执行`,
+      '公告': `v1.2.0 将于本周六凌晨停机维护`,
+      '移库': `${wh.name} → ${pickItem(rng, whs.filter(x=>x.id!==wh.id)||WH_LIST).name}`
+    };
+    const timeAgo = ['10 分钟前','32 分钟前','1 小时前','2 小时前','今天早上','昨天'][Math.min(i, 5)];
+    const n = randInt(rng, 2, 8);
+    todos.push({
+      tagText: tpl.t,
+      tagClass: tpl.c,
+      tagBg: tpl.bg || '',
+      tagColor: tpl.color || '',
+      title: tpl.tfmt(n),
+      desc: descMap[tpl.t],
+      time: timeAgo
+    });
+  }
+  return { kpis, stats, trend, orderStatus, whInventory, alerts, todos };
+};
+
+/* ---- Inventory Analysis ---- */
+MOCK.inventory = function() {
+  const rng = mulberry32(getSeed('inventory'));
+  const whs = activeWarehouses();
+  const nSku = 50;
+  // Generat SKU qty and unit price
+  const skus = [];
+  for (let i = 0; i < nSku; i++) {
+    const sp = SKU_POOL[i % SKU_POOL.length];
+    const qty = randInt(rng, 5, 8000);
+    const price = randInt(rng, 50, 15000);
+    skus.push({ name: sp[0], sku: sp[1] + '-' + i, qty, price, amount: qty * price });
+  }
+  skus.sort((a,b) => b.qty - a.qty);
+  const skuTop10 = skus.slice(0, 10).map(s => ({ sku: s.sku.length > 10 ? s.name : s.sku, name: s.name, qty: s.qty, pct: s.qty / skus[0].qty * 100 }));
+  const lowStockList = [...skus].sort((a,b) => a.qty - b.qty).slice(0, 10).map(s => ({ name: s.name, qty: s.qty }));
+  // Age distribution
+  const ageRanges = [
+    { range: '<30天', color: THEME.green },
+    { range: '30-90天', color: THEME.blue },
+    { range: '90-180天', color: THEME.cyan },
+    { range: '180-365天', color: THEME.orange },
+    { range: '>365天', color: THEME.red }
+  ];
+  const agePcts = [randRange(rng,0.3,0.45), randRange(rng,0.22,0.32), randRange(rng,0.13,0.2), randRange(rng,0.06,0.12), randRange(rng,0.02,0.07)];
+  const totalSkuAmt = skus.reduce((s,x)=>s+x.amount, 0);
+  const ageDistribution = ageRanges.map((r,i) => ({
+    range: r.range, color: r.color,
+    skuCount: Math.round(nSku * agePcts[i]),
+    amount: Math.round(totalSkuAmt * agePcts[i])
+  }));
+  // Batch status by warehouse
+  const batchStatus = whs.map(w => {
+    const total = randInt(rng, 80, 260);
+    const normal = Math.round(total * randRange(rng, 0.6, 0.8));
+    const nearExp = Math.round(total * randRange(rng, 0.06, 0.14));
+    const expired = Math.round(total * randRange(rng, 0.01, 0.05));
+    return {
+      name: w.name,
+      normal, nearExpire: nearExp,
+      expired, frozen: total - normal - nearExp - expired
+    };
+  });
+  // ABC Pareto - sort by amount desc, compute cumulative
+  const skusAmt = [...skus].sort((a,b) => b.amount - a.amount);
+  const totalAmt = skusAmt.reduce((s,x) => s + x.amount, 0);
+  let cum = 0;
+  const abc = skusAmt.slice(0, 24).map((s, idx) => {
+    cum += s.amount;
+    const cpct = cum / totalAmt * 100;
+    let cat = 'C';
+    if (cpct <= 70) cat = 'A';
+    else if (cpct <= 90) cat = 'B';
+    return { sku: s.name.length > 14 ? s.name.slice(0, 14) + '…' : s.name, amount: s.amount, cumulativePct: cpct, category: cat };
+  });
+  return { skuTop10, lowStockList, ageDistribution, batchStatus, abc };
+};
+
+/* ---- Flow Analysis ---- */
+MOCK.flow = function() {
+  const rng = mulberry32(getSeed('flow'));
+  const dates = dateArr(0, 30);
+  const trend30 = { labels: dates, inQty: [], outQty: [], inAmt: [], outAmt: [] };
+  let totalInQty = 0, totalOutQty = 0;
+  dates.forEach(() => {
+    const iq = randInt(rng, 600, 2400), oq = randInt(rng, 500, 2200);
+    const ia = iq * randInt(rng, 180, 900), oa = oq * randInt(rng, 200, 1100);
+    trend30.inQty.push(iq); trend30.outQty.push(oq);
+    trend30.inAmt.push(ia); trend30.outAmt.push(oa);
+    totalInQty += iq; totalOutQty += oq;
+  });
+  // Vendor top 10
+  const vendors = VENDORS.map(v => ({
+    vendor: v,
+    amount: randInt(rng, 500_000, 9_000_000),
+    orderCount: randInt(rng, 8, 60),
+    onTimeRate: randRange(rng, 0.75, 0.99)
+  })).sort((a,b) => b.amount - a.amount).slice(0, 10);
+  // Customer top 10
+  const customers = CUSTOMERS.map(c => ({
+    customer: c,
+    amount: randInt(rng, 500_000, 10_000_000),
+    orderCount: randInt(rng, 12, 90),
+    returnRate: randRange(rng, 0.005, 0.11)
+  })).sort((a,b) => b.amount - a.amount).slice(0, 10);
+  // Return rate trend (14 days)
+  const retLabels = dateArr(0, 14);
+  const returnTrend = retLabels.map(() => randRange(rng, 0.01, 0.075));
+  const avgRetRate = returnTrend.reduce((s,x)=>s+x,0) / returnTrend.length;
+  // Return reasons
+  const rrPcts = [randRange(rng, 0.3, 0.5), randRange(rng, 0.15, 0.28), randRange(rng, 0.12, 0.22), randRange(rng, 0.1, 0.22)];
+  const rrTotal = rrPcts.reduce((s,x)=>s+x,0);
+  const returnReasons = RETURN_REASONS.map((r,i) => ({ name: r.name, color: r.color, count: Math.round(120 * rrPcts[i] / rrTotal) }));
+  return {
+    trend30, netIn: totalInQty, netOut: totalOutQty, netVal: totalInQty - totalOutQty,
+    vendors, customers, returnTrend: { labels: retLabels, values: returnTrend },
+    avgRetRate, returnReasons
+  };
+};
+
+/* ---- Efficiency ---- */
+MOCK.efficiency = function() {
+  const rng = mulberry32(getSeed('efficiency'));
+  const workers = WORKERS.slice(0, 8);
+  const dayLabels = dateArr(0, 7);
+  const workerDaily = workers.map(w => {
+    const days = [];
+    let total = 0;
+    for (let i = 0; i < 7; i++) {
+      const q = randInt(rng, 60, 200);
+      days.push(q); total += q;
+    }
+    return { worker: w, days, avg: Math.round(total / 7) };
+  });
+  const avgEff = Math.round(workerDaily.reduce((s,x)=>s+x.avg,0) / workerDaily.length);
+  // Wave status
+  const waveTotal = randInt(rng, 40, 70);
+  const waveStatus = [
+    { name: '待分配', value: randInt(rng, 2, 8), color: THEME.grey },
+    { name: '进行中', value: randInt(rng, 8, 16), color: THEME.blue },
+    { name: '已完成', value: randInt(rng, 20, 40), color: THEME.green },
+    { name: '超时', value: randInt(rng, 1, 5), color: THEME.red }
+  ];
+  const waveDone = waveStatus.find(x => x.name === '已完成').value;
+  const wavePct = Math.round(waveDone / waveTotal * 100);
+  // Task duration (box plots approx p10/p25/p50/p75/p90 for each type)
+  const durationTypes = [
+    { type: '入库', p10: 15, p25: 22, p50: 32, p75: 45, p90: 65, color: THEME.blue },
+    { type: '出库', p10: 12, p25: 19, p50: 28, p75: 42, p90: 70, color: THEME.green },
+    { type: '盘点', p10: 40, p25: 55, p50: 80, p75: 120, p90: 180, color: THEME.orange }
+  ];
+  durationTypes.forEach(d => {
+    const jitter = () => randRange(rng, 0.88, 1.14);
+    ['p10','p25','p50','p75','p90'].forEach(k => d[k] = Math.round(d[k] * jitter()));
+  });
+  // Task list
+  const types = ['入库','出库','盘点'];
+  const statuses = [
+    { s: '进行中', c: 'status-doing', range: [20, 85] },
+    { s: '已完成', c: 'status-done', range: [100, 100] },
+    { s: '超时', c: 'status-timeout', range: [40, 95] },
+    { s: '待开始', c: 'status-wait', range: [0, 0] }
+  ];
+  const tasks = [];
+  const tPrefixes = { 入库: 'RK', 出库: 'CK', 盘点: 'PD' };
+  for (let i = 0; i < 22; i++) {
+    const type = types[Math.floor(rng() * types.length)];
+    const st = statuses[Math.floor(rng() * statuses.length)];
+    const prog = randInt(rng, st.range[0], st.range[1]);
+    const h = randInt(rng, 6, 17);
+    const m = String(randInt(rng, 0, 59)).padStart(2, '0');
+    tasks.push({
+      no: `${tPrefixes[type]}260902${String(i+1).padStart(3,'0')}`,
+      type,
+      worker: pickItem(rng, workers),
+      startTime: `${String(h).padStart(2,'0')}:${m}`,
+      progress: prog,
+      status: st.s, statusClass: st.c
+    });
+  }
+  return { workerDaily, dayLabels, avgEff, waveStatus, wavePct, waveTotal, durationTypes, tasks, taskTotal: tasks.length };
+};
+
+/* =========================================================
+ * ===== Module 3: 通用交互（筛选/页面切换/Modal/导出/Chart helper）=====
+ * ========================================================= */
+
+/* ---- Chart Helper ---- */
+const ICONS_SVG = {
+  turnover: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m23 6-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>',
+  capacity: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>',
+  order: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.13h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>',
+  efficiency: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>',
+  inbound: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m6 9 6 6 6-6"/><path d="M21 21H3"/></svg>',
+  outbound: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9"/><path d="m6 15 6-6 6 6"/><path d="M3 3h18"/></svg>',
+  stock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+  alert: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 1-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+};
+const ICON_COLORS = {
+  blue:   { bg: 'rgba(0,113,227,0.1)',   fg: THEME.blue },
+  cyan:   { bg: 'rgba(0,199,255,0.1)',  fg: '#00c7ff' },
+  green:  { bg: 'rgba(52,199,89,0.1)',  fg: THEME.green },
+  orange: { bg: 'rgba(255,149,0,0.1)',  fg: THEME.orange }
+};
+
+function getOrCreateChart(id, cfg) {
+  const existing = BI_STATE.charts.get(id);
+  if (existing) return existing;
+  if (window.CDN_FALLBACK || !window.Chart) {
+    // 降级
+    const canvas = document.getElementById(id);
+    if (canvas && canvas.parentNode) {
+      canvas.parentNode.innerHTML = `<div class="cdn-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg><div>图表 CDN 不可用（离线环境）<br/>请联网后刷新</div></div>`;
+    }
+    return null;
+  }
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  Chart.defaults.font.family = '-apple-system, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#86868b';
+  const chart = new Chart(ctx, cfg);
+  BI_STATE.charts.set(id, chart);
+  return chart;
+}
+function updateChart(id, updater) {
+  const ch = BI_STATE.charts.get(id);
+  if (!ch) return;
+  updater(ch);
+  ch.update('none');
+}
+function setLoading(sel, flag) {
+  const el = document.querySelector(sel);
+  if (el) el.classList.toggle('loading', !!flag);
+}
+
+/* ---- Modal ---- */
+function openModal(title, bodyHtml) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  const m = document.getElementById('modal');
+  m.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ---- Filter Bar: 仓库面板 ---- */
+function initWarehousePanel() {
+  const panel = document.getElementById('whPanel');
+  panel.innerHTML = '';
+  const allRow = document.createElement('label');
+  allRow.className = 'wh-option';
+  allRow.innerHTML = `<input type="checkbox" data-wh="all" ${BI_STATE.warehouses.includes('all') ? 'checked' : ''}> <span>全部仓库</span>`;
+  panel.appendChild(allRow);
+  WH_LIST.forEach(w => {
+    const row = document.createElement('label');
+    row.className = 'wh-option';
+    row.innerHTML = `<input type="checkbox" data-wh="${w.id}" ${BI_STATE.warehouses.includes(w.id) || BI_STATE.warehouses.includes('all') ? 'checked' : ''}> <span>${w.name}</span>`;
+    panel.appendChild(row);
+  });
+  panel.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.dataset.wh === 'all') {
+        panel.querySelectorAll('input[data-wh!="all"]').forEach(o => o.checked = cb.checked);
+      } else {
+        const allCb = panel.querySelector('input[data-wh="all"]');
+        const others = [...panel.querySelectorAll('input[data-wh!="all"]')];
+        allCb.checked = others.every(o => o.checked);
+      }
+    });
+  });
+  // outside click close
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.warehouse-select')) panel.classList.remove('open');
+  });
+  document.getElementById('whBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    panel.classList.toggle('open');
+  });
+  // confirm btn none - change fires on close automatically
+  panel.addEventListener('click', e => e.stopPropagation());
+}
+function applyWarehouseSelection() {
+  const panel = document.getElementById('whPanel');
+  const checked = [...panel.querySelectorAll('input:checked')].map(i => i.dataset.wh);
+  BI_STATE.warehouses = checked.length === 0 ? ['all'] :
+    (checked.includes('all') || checked.length === WH_LIST.length ? ['all'] : checked);
+  renderWarehouseChips();
+  refreshAll();
+}
+function renderWarehouseChips() {
+  const chipsEl = document.getElementById('whChips');
+  chipsEl.innerHTML = '';
+  const names = BI_STATE.warehouses.includes('all') ? ['全部仓库'] :
+    activeWarehouses().map(w => w.name);
+  document.getElementById('whBtnText').textContent =
+    (BI_STATE.warehouses.includes('all') || BI_STATE.warehouses.length >= WH_LIST.length) ? '全部仓库' :
+    `${activeWarehouses().length}个仓库`;
+  if (BI_STATE.warehouses.includes('all')) return;
+  names.forEach(n => {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.textContent = n;
+    chipsEl.appendChild(c);
+  });
+}
+
+/* ---- Filter Bar: 时间 ---- */
+function initTimeBtns() {
+  document.getElementById('timeBtns').addEventListener('click', e => {
+    const btn = e.target.closest('.time-btn');
+    if (!btn) return;
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const preset = btn.dataset.preset;
+    BI_STATE.time.preset = preset;
+    document.getElementById('customDate').style.display = preset === 'custom' ? 'flex' : 'none';
+    if (preset !== 'custom') refreshAll();
+  });
+  ['startDate','endDate'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('change', () => {
+      const s = document.getElementById('startDate').value;
+      const eVal = document.getElementById('endDate').value;
+      if (!s || !eVal) return;
+      if (new Date(s) > new Date(eVal)) {
+        alert('结束日期必须大于等于开始日期');
+        return;
+      }
+      BI_STATE.time.start = s;
+      BI_STATE.time.end = eVal;
+      refreshAll();
+    });
+  });
+}
+
+/* ---- Page Switch ---- */
+function switchPage(pageName, opts) {
+  if (!document.querySelector(`.page-${pageName}`)) pageName = 'overview';
+  BI_STATE.activePage = pageName;
+  // Sidebar
+  document.querySelectorAll('.sidebar .nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.page === pageName);
+  });
+  // Pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.page-${pageName}`).classList.add('active');
+  // Render if first time
+  if (!BI_STATE.pagesRendered.has(pageName)) {
+    renderPage(pageName, opts);
+    BI_STATE.pagesRendered.add(pageName);
+  } else {
+    renderPage(pageName, opts); // refresh anyway
+  }
+}
+function initNavAndDock() {
+  document.querySelectorAll('.sidebar .nav-item, .dock-item').forEach(n => {
+    n.addEventListener('click', () => {
+      const p = n.dataset.page;
+      if (p) switchPage(p);
+    });
+  });
+}
+
+/* ---- Export ---- */
+function exportPng() {
+  if (!window.CDN_READY.html2canvas) {
+    alert('html2canvas 未加载完成，请检查网络后重试');
+    return;
+  }
+  const target = document.querySelector('.page.active') || document.querySelector('main');
+  const pageNameMap = { overview: 'Overview', 'inventory-analysis': 'Inventory', 'flow-analysis': 'Flow', 'efficiency': 'Efficiency' };
+  const pn = pageNameMap[BI_STATE.activePage] || 'BI';
+  const ts = todayYYYYMMDD(0, '') +
+    String(new Date().getHours()).padStart(2,'0') +
+    String(new Date().getMinutes()).padStart(2,'0') +
+    String(new Date().getSeconds()).padStart(2,'0');
+  html2canvas(target, { scale: 2, backgroundColor: '#f5f5f7', useCORS: true }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `WMS-BI-${pn}-${ts}.png`;
+    a.click();
+  }).catch(err => {
+    console.error(err);
+    alert('导出失败: ' + err.message);
+  });
+}
+
+/* ---- Header date strings ---- */
+function renderHeaderDates() {
+  const d = new Date();
+  const wd = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][d.getDay()];
+  const str = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 · ${wd}`;
+  ['todayDate','invDate','flowDate','effDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = str;
+  });
+}
+
+/* ---- Refresh All (filter change) ---- */
+function refreshAll() {
+  // Show loading
+  document.querySelectorAll('.page.active .panel').forEach(p => p.classList.add('loading'));
+  setTimeout(() => {
+    renderPage(BI_STATE.activePage);
+    document.querySelectorAll('.page.active .panel').forEach(p => p.classList.remove('loading'));
+  }, 180);
+}
+
+/* =========================================================
+ * ===== Module 4: Overview 渲染 =====
+ * ========================================================= */
+const RENDER = {};
+RENDER.overview = function(data) {
+  // KPI
+  const iconMap = { blue: ICONS_SVG.turnover, cyan: ICONS_SVG.capacity, green: ICONS_SVG.order, orange: ICONS_SVG.efficiency };
+  document.getElementById('kpiGrid').innerHTML = data.kpis.map(k => {
+    const c = ICON_COLORS[k.icon] || ICON_COLORS.blue;
+    let valueHtml = '';
+    if (k.rows) {
+      valueHtml = '<div style="display:flex;flex-direction:column;gap:8px">' +
+        k.rows.map(r => {
+          const pct = Math.round(r.done / r.plan * 100);
+          const color = k.icon === 'blue' ? THEME.blue : THEME.green;
+          return `<div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--text-2);width:32px">${r.name}</span>
+            <div class="progress-track" style="flex:1;margin:0"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span style="font-size:12px;font-weight:600;width:56px;text-align:right">${r.done}/${r.plan}</span>
+          </div>`;
+        }).join('') + '</div>' +
+        (k.sub ? `<div class="kpi-sub">${k.sub}</div>` : '');
+    } else {
+      valueHtml = `<div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit||''}</span></div>`;
+      if (k.progress != null) {
+        valueHtml += `<div class="progress-track"><div class="progress-fill" style="width:${k.progress}%;background:linear-gradient(90deg,#00c7ff,#0071e3)"></div></div>`;
+      }
+      if (k.trend) {
+        valueHtml += `<div class="kpi-trend ${k.trend}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="${k.trend==='up'?'m18 15-6-6-6 6':'m6 9 6 6 6-6'}"/></svg>
+          ${k.trendVal}% · 较${getDateRange().label.replace('今日','昨日').replace(/近\d+天/,'上期')}
+        </div>`;
+      }
+      if (k.sub) valueHtml += `<div class="kpi-sub">${k.sub}</div>`;
+    }
+    return `<div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-label">${k.label}</span>
+        <div class="kpi-icon" style="background:${c.bg};color:${c.fg}">${iconMap[k.icon]||''}</div>
+      </div>${valueHtml}
+    </div>`;
+  }).join('');
+  // Stat cards
+  const statIconMap = [ICONS_SVG.inbound, ICONS_SVG.outbound, ICONS_SVG.stock, ICONS_SVG.alert];
+  document.getElementById('statGrid').innerHTML = data.stats.map((s, i) => {
+    const jump = s.type ? `onclick="switchPage('flow-analysis')"` : '';
+    return `<div class="stat-card" style="background:linear-gradient(135deg,${s.gradient[0]},${s.gradient[1]});box-shadow:0 4px 16px ${s.gradient[1]}40" ${jump}>
+      <div class="stat-icon">${statIconMap[i]||''}</div>
+      <div class="stat-info"><div class="stat-label">${s.label}</div><div class="stat-value">${s.value}</div></div>
+    </div>`;
+  }).join('');
+  // Trend Bar
+  getOrCreateChart('chartTrend', {
+    type: 'bar',
+    data: {
+      labels: data.trend.labels,
+      datasets: [
+        { label: '入库', data: data.trend.inbound, backgroundColor: THEME.blue, borderRadius: 6, borderSkipped: false, maxBarThickness: 28 },
+        { label: '出库', data: data.trend.outbound, backgroundColor: THEME.green, borderRadius: 6, borderSkipped: false, maxBarThickness: 28 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: 'rgba(29,29,31,0.92)', padding: 12, cornerRadius: 10,
+        callbacks: {
+          label: ctx => {
+            const idx = ctx.dataIndex;
+            const base = ctx.dataset.label === '入库' ? data.trend.inbound : data.trend.outbound;
+            const cur = base[idx], prev = idx > 0 ? base[idx - 1] : cur;
+            const chg = prev ? ((cur - prev) / prev * 100).toFixed(1) + '%' : '—';
+            return ` ${ctx.dataset.label}: ${fmt(cur)} 单  (环比 ${chg})`;
+          }
+        }
+      }},
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } } }
+    }
+  });
+  // Donut
+  const donutTotal = data.orderStatus.reduce((s, d) => s + d.value, 0);
+  getOrCreateChart('chartDonut', {
+    type: 'doughnut',
+    data: {
+      labels: data.orderStatus.map(d => d.name),
+      datasets: [{ data: data.orderStatus.map(d => d.value), backgroundColor: data.orderStatus.map(d => d.color), borderWidth: 0, hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 12, cornerRadius: 10 },
+      }
+    },
+    plugins: [{
+      id: 'centerText',
+      afterDraw: ch => {
+        const { ctx, chartArea: { left, top, width, height } } = ch;
+        ctx.save();
+        ctx.fillStyle = '#1d1d1f';
+        ctx.textAlign = 'center';
+        ctx.font = '600 28px "SF Pro Display", sans-serif';
+        ctx.fillText(fmt(donutTotal), left + width / 2, top + height / 2 + 4);
+        ctx.font = '11px sans-serif'; ctx.fillStyle = '#86868b';
+        ctx.fillText('单据总数', left + width / 2, top + height / 2 + 22);
+        ctx.restore();
+      }
+    }]
+  });
+  document.getElementById('donutLegend').innerHTML = data.orderStatus.map(d => {
+    const pct = (d.value / donutTotal * 100).toFixed(1);
+    return `<div class="donut-legend-item">
+      <div class="legend-dot" style="background:${d.color};border-radius:50%"></div>
+      <span>${d.name}</span>
+      <span style="color:var(--text-2)">${fmt(d.value)} 单</span>
+      <span class="pct">${pct}%</span>
+    </div>`;
+  }).join('');
+  // WH Horizontal Bar
+  getOrCreateChart('chartWhBar', {
+    type: 'bar',
+    data: {
+      labels: data.whInventory.map(d => d.name),
+      datasets: [
+        { label: '可用', data: data.whInventory.map(d => d.available), backgroundColor: THEME.blue, borderSkipped: false, borderRadius: 6, barThickness: 20 },
+        { label: '锁定', data: data.whInventory.map(d => d.locked), backgroundColor: THEME.orange, borderSkipped: false, borderRadius: 6, barThickness: 20 }
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 12, cornerRadius: 10,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.x)} 件` }
+        }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: v => fmt(v) } },
+        y: { stacked: true, grid: { display: false } }
+      }
+    }
+  });
+  // Alerts
+  document.getElementById('alertList').innerHTML = data.alerts.map(a => {
+    const desc = a.level === 'danger'
+      ? `${a.warehouse} · 当前 <b style="color:var(--red)">${a.current}</b> / 阈值 ${a.threshold}`
+      : `${a.warehouse} · 剩余 <b style="color:var(--orange)">${a.daysLeft}</b> 天到期`;
+    return `<div class="alert-item" data-alert='${JSON.stringify(a)}'>
+      <span class="alert-tag tag-${a.level}">${a.tag}</span>
+      <div class="alert-body">
+        <div class="alert-title">${a.title}<span class="alert-sku">${a.sku}</span></div>
+        <div class="alert-desc">${desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('#alertList .alert-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const a = JSON.parse(el.dataset.alert);
+      // Build mini modal
+      const rng = mulberry32(hashString(a.sku));
+      const whDist = WH_LIST.map(w => {
+        const q = a.level === 'danger' ? randInt(rng, 1, 25) : randInt(rng, 10, 200);
+        return { wh: w.name, qty: q };
+      });
+      const days = dateArr(0, 7);
+      const miniTrend = days.map(() => randInt(rng, 20, 100));
+      const restock = a.level === 'danger' ? `<div style="padding:12px;border-radius:12px;background:rgba(255,59,48,0.08);color:var(--red);font-size:13px;margin-top:16px">
+        <b>补货建议：</b>建议采购 ${Math.max(50, a.threshold * 3 - a.current)} 件（安全库存阈值的 3 倍），供应商：${VENDORS[Math.floor(rng()*VENDORS.length)]}，预计到货 ${randInt(rng,2,7)} 天
+      </div>` : '';
+      const spark = miniTrend.map((v,i) => {
+        const h = 40 * v / Math.max(...miniTrend);
+        return `<div style="width:14%;height:${h}px;background:${THEME.blue};border-radius:3px"></div>`;
+      }).join('');
+      const modalBody = `
+        <div class="m-sku-summary">
+          <div class="m-sku-stat"><div class="lbl">当前库存</div><div class="val" style="color:${a.level==='danger'?THEME.red:THEME.orange}">${a.current}</div></div>
+          <div class="m-sku-stat"><div class="lbl">安全阈值</div><div class="val">${a.threshold||'—'}</div></div>
+          <div class="m-sku-stat"><div class="lbl">单价</div><div class="val">¥${a.price?fmt(a.price):'—'}</div></div>
+          <div class="m-sku-stat"><div class="lbl">占用金额</div><div class="val">¥${fmt((a.price||0)*a.current)}</div></div>
+        </div>
+        <h4 style="font-size:14px;margin-bottom:10px">各仓库分布</h4>
+        <table class="m-table"><thead><tr><th>仓库</th><th>当前数量</th><th>占比</th><th>状态</th></tr></thead>
+        <tbody>${whDist.map(w => {
+          const tot = whDist.reduce((s,x)=>s+x.qty,0);
+          const pct = (w.qty/tot*100).toFixed(0);
+          const tag = w.qty < a.threshold/2 ? '<span class="alert-tag tag-danger">短缺</span>' :
+                      w.qty < a.threshold ? '<span class="alert-tag tag-warning">偏低</span>' :
+                      '<span class="alert-tag" style="background:rgba(52,199,89,0.12);color:#34c759">正常</span>';
+          return `<tr><td>${w.wh}</td><td><b>${fmt(w.qty)}</b></td><td><div style="display:flex;align-items:center;gap:6px"><div style="height:4px;width:${pct}%;background:${THEME.blue};border-radius:2px"></div>${pct}%</div></td><td>${tag}</td></tr>`;
+        }).join('')}</tbody></table>
+        <h4 style="font-size:14px;margin:20px 0 10px">近 7 天出入库趋势</h4>
+        <div class="m-trend-mini" style="display:flex;align-items:flex-end;gap:4px;padding:10px 0 0">${spark}</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-2);padding:4px 0">
+          ${days.map(d=>`<span>${d}</span>`).join('')}
+        </div>
+        ${restock}
+      `;
+      openModal(`SKU 明细 · ${a.title}`, modalBody);
+    });
+  });
+  // Todos
+  document.getElementById('todoGrid').innerHTML = data.todos.map(t => {
+    const custom = t.tagBg ? `style="background:${t.tagBg};color:${t.tagColor}"` : `class="${t.tagClass}"`;
+    return `<div class="todo-card">
+      <span class="todo-tag" ${t.tagBg ? custom : 'class="'+t.tagClass+'"'}>${t.tagText}</span>
+      <div class="todo-title">${t.title}</div>
+      <div class="todo-desc">${t.desc}</div>
+      <div class="todo-time">${t.time}</div>
+    </div>`;
+  }).join('');
+};
+
+/* =========================================================
+ * ===== Module 5: 三视图渲染 =====
+ * ========================================================= */
+
+/* ---- Inventory ---- */
+RENDER.inventory = function(data) {
+  getOrCreateChart('chartSkuTop', {
+    type: 'bar',
+    data: {
+      labels: data.skuTop10.map(s => s.name.length>8?s.name.slice(0,8)+'…':s.name),
+      datasets: [{ label: '库存量', data: data.skuTop10.map(s => s.qty),
+        backgroundColor: Object.values({...THEME}).slice(0,10),
+        borderRadius: 6, borderSkipped: false, barThickness: 18 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+        callbacks: { title: items => data.skuTop10[items[0].dataIndex].name, label: c => ` 库存: ${fmt(c.parsed.x)} 件 (占TOP1: ${data.skuTop10[c.dataIndex].pct.toFixed(0)}%)` }
+      } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => fmt(v) } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+  getOrCreateChart('chartLowStock', {
+    type: 'bar',
+    data: {
+      labels: data.lowStockList.map(s => s.name.length>8?s.name.slice(0,8)+'…':s.name),
+      datasets: [{ label: '低库存', data: data.lowStockList.map(s => s.qty),
+        backgroundColor: ctx => ctx.parsed.x < 8 ? THEME.red : THEME.orange,
+        borderRadius: 6, borderSkipped: false, barThickness: 18 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+        callbacks: { title: items => data.lowStockList[items[0].dataIndex].name, label: c => ` 当前库存: ${c.parsed.x} 件，建议补货!` } } },
+      scales: { x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, y: { grid: { display: false } } }
+    }
+  });
+  // Age pie
+  const ageTot = data.ageDistribution.reduce((s,d)=>s+d.skuCount,0);
+  getOrCreateChart('chartAge', {
+    type: 'doughnut',
+    data: {
+      labels: data.ageDistribution.map(d => d.range),
+      datasets: [{ data: data.ageDistribution.map(d => d.skuCount), backgroundColor: data.ageDistribution.map(d => d.color), borderWidth: 0, hoverOffset: 8 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+        callbacks: { label: c => {
+          const d = data.ageDistribution[c.dataIndex];
+          return ` ${d.range}: ${fmt(d.skuCount)} SKU / 金额 ¥${fmtAmt(d.amount)}`;
+        } } } }
+    }
+  });
+  document.getElementById('ageLegend').innerHTML = data.ageDistribution.map(d => `
+    <div class="donut-legend-item">
+      <div class="legend-dot" style="background:${d.color};border-radius:50%"></div>
+      <span>${d.range}</span>
+      <span style="color:var(--text-2)">¥${fmtAmt(d.amount)}</span>
+      <span class="pct">${(d.skuCount/ageTot*100).toFixed(1)}%</span>
+    </div>`).join('');
+  // Batch status stacked
+  getOrCreateChart('chartBatch', {
+    type: 'bar',
+    data: {
+      labels: data.batchStatus.map(b => b.name),
+      datasets: [
+        { label: '正常', data: data.batchStatus.map(b => b.normal), backgroundColor: THEME.green, borderRadius: 0, borderSkipped: false },
+        { label: '临期', data: data.batchStatus.map(b => b.nearExpire), backgroundColor: THEME.orange, borderRadius: 0, borderSkipped: false },
+        { label: '过期', data: data.batchStatus.map(b => b.expired), backgroundColor: THEME.red, borderRadius: 0, borderSkipped: false },
+        { label: '冻结', data: data.batchStatus.map(b => b.frozen), backgroundColor: THEME.grey, borderRadius: 0, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14 } },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10 } },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+  // ABC Pareto
+  getOrCreateChart('chartAbc', {
+    data: {
+      labels: data.abc.map(d => d.sku),
+      datasets: [
+        { type: 'bar', label: 'SKU金额', data: data.abc.map(d => d.amount), backgroundColor: ctx => {
+            const cat = data.abc[ctx.dataIndex].category;
+            return cat === 'A' ? THEME.red : cat === 'B' ? THEME.orange : THEME.blue;
+          }, borderRadius: 4, borderSkipped: false, barThickness: 14, yAxisID: 'y' },
+        { type: 'line', label: '累计占比', data: data.abc.map(d => d.cumulativePct), borderColor: THEME.purple,
+          backgroundColor: 'rgba(175,82,222,0.08)', fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14 } },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => c.dataset.type === 'bar'
+            ? ` 金额: ¥${fmtAmt(c.parsed.y)} (${data.abc[c.dataIndex].category}类)`
+            : ` 累计占比: ${c.parsed.y.toFixed(1)}%` }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 30, font: { size: 10 } } },
+        y: { beginAtZero: true, position: 'left', grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: v => '¥' + fmtAmt(v) } },
+        y1: { beginAtZero: true, max: 100, position: 'right', grid: { display: false },
+          ticks: { callback: v => v + '%' } }
+      }
+    }
+  });
+};
+
+/* ---- Flow ---- */
+RENDER.flow = function(data) {
+  // Net dashboard
+  document.getElementById('netIn').textContent = fmt(data.netIn) + ' 件';
+  document.getElementById('netOut').textContent = fmt(data.netOut) + ' 件';
+  const nv = document.getElementById('netVal');
+  nv.textContent = (data.netVal >= 0 ? '+' : '') + fmt(data.netVal) + ' 件';
+  nv.style.color = data.netVal >= 0 ? THEME.green : THEME.red;
+  // Trend 30 toggle
+  const isAmt = BI_STATE.metric === 'amt';
+  const flow30Data = isAmt
+    ? { labels: data.trend30.labels, datasets: [
+        { label: '入库金额', data: data.trend30.inAmt, borderColor: THEME.blue, backgroundColor: 'rgba(0,113,227,0.1)', tension: 0.35, fill: true, pointRadius: 0, borderWidth: 2, yAxisID: 'y' },
+        { label: '出库金额', data: data.trend30.outAmt, borderColor: THEME.green, backgroundColor: 'rgba(52,199,89,0.08)', tension: 0.35, fill: true, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }
+      ]}
+    : { labels: data.trend30.labels, datasets: [
+        { label: '入库数量', data: data.trend30.inQty, borderColor: THEME.blue, backgroundColor: 'rgba(0,113,227,0.12)', tension: 0.35, fill: true, pointRadius: 0, borderWidth: 2 },
+        { label: '出库数量', data: data.trend30.outQty, borderColor: THEME.green, backgroundColor: 'rgba(52,199,89,0.10)', tension: 0.35, fill: true, pointRadius: 0, borderWidth: 2 }
+      ]};
+  getOrCreateChart('chartFlow30', { type: 'line', data: flow30Data,
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14 } },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => ` ${c.dataset.label}: ${isAmt ? '¥'+fmtAmt(c.parsed.y) : fmt(c.parsed.y)+' 件'}` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: v => isAmt ? '¥' + fmtAmt(v) : fmt(v) } }
+      }
+    }
+  });
+  // Refresh data on toggle without rebuild
+  const f30 = BI_STATE.charts.get('chartFlow30');
+  if (f30) {
+    f30.data.datasets[0].data = flow30Data.datasets[0].data;
+    f30.data.datasets[1].data = flow30Data.datasets[1].data;
+    f30.update('none');
+  }
+  // Vendor top 10 horizontal bar + on-time rate in tooltip + legend label
+  getOrCreateChart('chartVendor', {
+    type: 'bar',
+    data: {
+      labels: data.vendors.map(v => v.vendor),
+      datasets: [{ label: '入库金额', data: data.vendors.map(v => v.amount),
+        backgroundColor: THEME.blue + 'cc', borderRadius: 4, borderSkipped: false, barThickness: 16 }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => {
+            const v = data.vendors[c.dataIndex];
+            return [
+              ` 入库金额: ¥${fmtAmt(v.amount)}`,
+              ` 入库单数: ${v.orderCount} 单`,
+              ` 准时率: ${(v.onTimeRate*100).toFixed(1)}% ${v.onTimeRate>=0.95?'✅':v.onTimeRate<0.8?'⚠️':''}`
+            ];
+          } } } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: v => '¥' + fmtAmt(v) } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+  // Customer top 10 + return rate
+  getOrCreateChart('chartCust', {
+    type: 'bar',
+    data: {
+      labels: data.customers.map(c => c.customer),
+      datasets: [{ label: '出库金额', data: data.customers.map(c => c.amount),
+        backgroundColor: THEME.green + 'cc', borderRadius: 4, borderSkipped: false, barThickness: 16 }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => {
+            const cu = data.customers[c.dataIndex];
+            return [
+              ` 出库金额: ¥${fmtAmt(cu.amount)}`,
+              ` 出库单数: ${cu.orderCount} 单`,
+              ` 退货率: ${(cu.returnRate*100).toFixed(1)}% ${cu.returnRate<=0.03?'✅':cu.returnRate>0.1?'⚠️':''}`
+            ];
+          } } } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: v => '¥' + fmtAmt(v) } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+  // Return rate trend line
+  getOrCreateChart('chartRetRate', {
+    type: 'line',
+    data: { labels: data.returnTrend.labels, datasets: [
+      { label: '退货率', data: data.returnTrend.values.map(v => (v*100).toFixed(2)),
+        borderColor: THEME.red, backgroundColor: 'rgba(255,59,48,0.08)', tension: 0.35, fill: true, pointRadius: 3, borderWidth: 2 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => ` 退货率: ${c.parsed.y}%` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 7 } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => v + '%' } }
+      }
+    }
+  });
+  // Return reasons donut
+  const retTot = data.returnReasons.reduce((s,x)=>s+x.count,0);
+  getOrCreateChart('chartRetRea', {
+    type: 'doughnut',
+    data: { labels: data.returnReasons.map(r=>r.name),
+      datasets: [{ data: data.returnReasons.map(r=>r.count), backgroundColor: data.returnReasons.map(r=>r.color), borderWidth: 0, hoverOffset: 8 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10 } } }
+  });
+  document.getElementById('retLegend').innerHTML = data.returnReasons.map(r => `
+    <div class="donut-legend-item">
+      <div class="legend-dot" style="background:${r.color};border-radius:50%"></div>
+      <span>${r.name}</span><span style="color:var(--text-2)">${r.count} 单</span>
+      <span class="pct">${(r.count/retTot*100).toFixed(1)}%</span>
+    </div>`).join('');
+  // Overall rate banner
+  const alertEl = document.getElementById('retAlert');
+  if (data.avgRetRate > 0.05) {
+    alertEl.style.display = 'flex';
+    alertEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    <span>⚠️ 区间平均退货率 <b>${(data.avgRetRate*100).toFixed(2)}%</b> 超过 5% 警戒线，请重点关注「${data.returnReasons[0].name}」类退货</span>`;
+  } else alertEl.style.display = 'none';
+};
+
+/* ---- Efficiency ---- */
+RENDER.efficiency = function(data) {
+  document.getElementById('msAvgEff').textContent = fmt(data.avgEff);
+  document.getElementById('msWave').textContent = data.wavePct + '%';
+  document.getElementById('msTask').textContent = fmt(data.taskTotal);
+  // Worker grouped stacked bar: each worker 7 color bars for 7 days
+  const dayColors = [THEME.blue, THEME.cyan, THEME.green, '#00c7ff', THEME.purple, THEME.orange, THEME.red];
+  const workerLabels = data.workerDaily.map(w => w.worker);
+  const datasets = data.dayLabels.map((d, idx) => ({
+    label: d, data: data.workerDaily.map(w => w.days[idx]),
+    backgroundColor: dayColors[idx], borderSkipped: false, borderRadius: 3, barThickness: 18
+  }));
+  getOrCreateChart('chartWorker', {
+    type: 'bar',
+    data: { labels: workerLabels, datasets },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10 } },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)} 件` } } },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+      },
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const wIdx = els[0].index;
+        const w = data.workerDaily[wIdx];
+        const rows = [];
+        for (let i = 0; i < 7; i++) {
+          const qty = w.days[i];
+          const dur = (10 + qty * 0.3).toFixed(0);
+          rows.push(`<tr>
+            <td>${data.dayLabels[i]}</td>
+            <td>拣货-${String(i+1).padStart(3,'0')}</td>
+            <td>${w.worker}</td>
+            <td>${fmt(qty)} 件</td>
+            <td>${dur} 分钟</td>
+            <td><span class="status-pill status-done">已完成</span></td>
+          </tr>`);
+        }
+        const modalBody = `
+          <div class="m-sku-summary">
+            <div class="m-sku-stat"><div class="lbl">近7天总拣货</div><div class="val">${fmt(w.days.reduce((s,x)=>s+x,0))}</div></div>
+            <div class="m-sku-stat"><div class="lbl">日均</div><div class="val">${w.avg}</div></div>
+            <div class="m-sku-stat"><div class="lbl">最高单日</div><div class="val" style="color:var(--green)">${Math.max(...w.days)}</div></div>
+            <div class="m-sku-stat"><div class="lbl">最低单日</div><div class="val" style="color:var(--orange)">${Math.min(...w.days)}</div></div>
+          </div>
+          <h4 style="font-size:14px;margin-bottom:10px">近 7 天明细</h4>
+          <table class="m-table"><thead><tr><th>日期</th><th>任务号</th><th>作业员</th><th>拣货量</th><th>耗时</th><th>状态</th></tr></thead>
+          <tbody>${rows.join('')}</tbody></table>`;
+        openModal(`作业员详情 · ${w.worker}`, modalBody);
+      }
+    }
+  });
+  // Wave status donut with center percent
+  getOrCreateChart('chartWave', {
+    type: 'doughnut',
+    data: { labels: data.waveStatus.map(s=>s.name),
+      datasets: [{ data: data.waveStatus.map(s=>s.value), backgroundColor: data.waveStatus.map(s=>s.color), borderWidth: 0, hoverOffset: 8 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '70%',
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10 } } },
+    plugins: [{
+      id: 'waveCenter',
+      afterDraw: ch => {
+        const { ctx, chartArea: { left, top, width, height } } = ch;
+        ctx.save();
+        ctx.fillStyle = '#1d1d1f';
+        ctx.textAlign = 'center';
+        ctx.font = '700 32px "SF Pro Display", sans-serif';
+        ctx.fillText(data.wavePct + '%', left + width/2, top + height/2 + 6);
+        ctx.font = '11px sans-serif'; ctx.fillStyle = '#86868b';
+        ctx.fillText(`完成率 · 共 ${data.waveTotal} 波`, left + width/2, top + height/2 + 24);
+        ctx.restore();
+      }
+    }]
+  });
+  const wTot = data.waveStatus.reduce((s,x)=>s+x.value,0);
+  document.getElementById('waveLegend').innerHTML = data.waveStatus.map(s => `
+    <div class="donut-legend-item">
+      <div class="legend-dot" style="background:${s.color};border-radius:50%"></div>
+      <span>${s.name}</span><span style="color:var(--text-2)">${s.value} 波</span>
+      <span class="pct">${(s.value/wTot*100).toFixed(0)}%</span>
+    </div>`).join('');
+  // Duration box plot - simulate with floating bars [p10, p90] and use stacked bars
+  // Render as a custom grouped bar with: whisker-low | p25-p50-p75 box | whisker-high
+  const durCfg = {
+    type: 'bar',
+    data: {
+      labels: data.durationTypes.map(d => d.type + '作业'),
+      datasets: [
+        { label: '下须(P10-P25)', data: data.durationTypes.map(d => [d.p10, d.p25]), backgroundColor: 'rgba(0,0,0,0.18)', barThickness: 30, categoryPercentage: 0.4 },
+        { label: '箱体(P25-P50)', data: data.durationTypes.map(d => [d.p25, d.p50]), backgroundColor: ctx => data.durationTypes[ctx.dataIndex].color + '99', barThickness: 30, categoryPercentage: 0.4 },
+        { label: '箱体(P50-P75)', data: data.durationTypes.map(d => [d.p50, d.p75]), backgroundColor: ctx => data.durationTypes[ctx.dataIndex].color, barThickness: 30, categoryPercentage: 0.4 },
+        { label: '上须(P75-P90)', data: data.durationTypes.map(d => [d.p75, d.p90]), backgroundColor: 'rgba(0,0,0,0.18)', barThickness: 30, categoryPercentage: 0.4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10, filter: i => i.text.includes('箱体') } },
+        tooltip: { backgroundColor: 'rgba(29,29,31,0.92)', padding: 10, cornerRadius: 10,
+          callbacks: { label: c => {
+            const d = data.durationTypes[c.dataIndex];
+            return [
+              ` P10: ${d.p10} 分钟`,
+              ` P25: ${d.p25} 分钟`,
+              ` P50 (中位数): ${d.p50} 分钟`,
+              ` P75: ${d.p75} 分钟`,
+              ` P90: ${d.p90} 分钟`
+            ];
+          } } }
+      },
+      scales: {
+        x: { stacked: false, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: v => v + ' min' } },
+        y: { grid: { display: false } }
+      }
+    }
+  };
+  getOrCreateChart('chartDur', durCfg);
+  // Task table
+  renderTaskTable(data.tasks);
+};
+
+function renderTaskTable(tasks) {
+  const t = BI_STATE.taskType;
+  const list = t === 'all' ? tasks : tasks.filter(x => x.type === t);
+  const tbody = document.querySelector('#taskTable tbody');
+  tbody.innerHTML = list.map(ta => `
+    <tr>
+      <td style="font-family:monospace;color:var(--text-2)">${ta.no}</td>
+      <td>${ta.type}</td>
+      <td>${ta.worker}</td>
+      <td style="color:var(--text-2)">${ta.startTime}</td>
+      <td>
+        <div class="biz-progress">
+          <div class="biz-progress-track"><div class="biz-progress-fill" style="width:${ta.progress}%;background:${
+            ta.statusClass==='status-timeout'?THEME.red:
+            ta.statusClass==='status-done'?THEME.green:THEME.blue}"></div></div>
+          <span style="font-size:11px;width:36px;text-align:right;color:var(--text-2)">${ta.progress}%</span>
+        </div>
+      </td>
+      <td><span class="status-pill ${ta.statusClass}">${ta.status}</span></td>
+    </tr>
+  `).join('');
+}
+
+/* ---- renderPage dispatcher ---- */
+function renderPage(pageName, opts) {
+  if (pageName === 'overview') RENDER.overview(MOCK.overview());
+  else if (pageName === 'inventory-analysis') RENDER.inventory(MOCK.inventory());
+  else if (pageName === 'flow-analysis') RENDER.flow(MOCK.flow());
+  else if (pageName === 'efficiency') RENDER.efficiency(MOCK.efficiency());
+  // flow stat cards jump
+  if (opts && opts.type === 'inbound' || opts && opts.type === 'outbound') {
+    setTimeout(() => {
+      const tab = opts.type === 'inbound' ? '入库' : '出库';
+      document.querySelectorAll('#taskTypeTabs .tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.type === tab);
+      });
+      BI_STATE.taskType = tab;
+      renderTaskTable(MOCK.efficiency().tasks);
+    }, 80);
+  }
+}
+
+/* =========================================================
+ * ===== Module 6: 初始化入口 =====
+ * ========================================================= */
+window.addEventListener('DOMContentLoaded', () => {
+  renderHeaderDates();
+  initWarehousePanel();
+  renderWarehouseChips();
+  initTimeBtns();
+  initNavAndDock();
+  // Modal events
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  // Warehouse panel: closing triggers apply
+  const whPanel = document.getElementById('whPanel');
+  const panelObserver = new MutationObserver(() => {
+    if (!whPanel.classList.contains('open')) {
+      // Apply when user closes
+      const inputs = [...whPanel.querySelectorAll('input')];
+      const hadOpen = inputs.length > 0;
+      if (hadOpen) applyWarehouseSelectionThrottled();
+    }
+  });
+  panelObserver.observe(whPanel, { attributes: true, attributeFilter: ['class'] });
+  // Export buttons
+  document.getElementById('exportBtn').addEventListener('click', exportPng);
+  const exportDock = document.getElementById('exportDock');
+  if (exportDock) exportDock.addEventListener('click', exportPng);
+  // Metric tabs (flow)
+  document.querySelectorAll('#metricTabs .tab-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#metricTabs .tab-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      BI_STATE.metric = b.dataset.metric;
+      if (BI_STATE.activePage === 'flow-analysis') RENDER.flow(MOCK.flow());
+    });
+  });
+  // Task type tabs
+  document.querySelectorAll('#taskTypeTabs .tab-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#taskTypeTabs .tab-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      BI_STATE.taskType = b.dataset.type;
+      if (BI_STATE.activePage === 'efficiency') renderTaskTable(MOCK.efficiency().tasks);
+    });
+  });
+  // Render overview first
+  renderPage('overview');
+  BI_STATE.pagesRendered.add('overview');
+});
+
+/* ---- Wh apply throttle ---- */
+let _whApplyTimer = null;
+function applyWarehouseSelectionThrottled() {
+  clearTimeout(_whApplyTimer);
+  _whApplyTimer = setTimeout(() => {
+    // Only apply if user actually changed selection vs current state
+    const panel = document.getElementById('whPanel');
+    const checked = [...panel.querySelectorAll('input:checked')].map(i => i.dataset.wh);
+    const nextWhs = checked.length === 0 ? ['all'] :
+      (checked.includes('all') || checked.length === WH_LIST.length ? ['all'] : checked);
+    const same = nextWhs.length === BI_STATE.warehouses.length &&
+      nextWhs.slice().sort().join(',') === BI_STATE.warehouses.slice().sort().join(',');
+    if (!same) applyWarehouseSelection();
+    else renderWarehouseChips();
+  }, 60);
+}
+</script>
+</body>
+</html>
