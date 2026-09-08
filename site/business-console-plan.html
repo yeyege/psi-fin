@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电商企业业财一体 · 中后台搭建方案 Demo</title>
+<style>
+/* ============ Reset & Tokens ============ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --text-2: #86868b;
+  --text-3: #d2d2d7;
+  --blue: #0071e3;
+  --blue-light: #2997ff;
+  --green: #34c759;
+  --orange: #ff9500;
+  --red: #ff3b30;
+  --purple: #af52de;
+  --teal: #30b0c7;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --blur: saturate(180%) blur(20px);
+  --shadow: 0 4px 24px rgba(0,0,0,0.06);
+  --shadow-hover: 0 12px 40px rgba(0,0,0,0.12);
+  --line: rgba(0,0,0,0.07);
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ============ Top Bar ============ */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 200;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 20px;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-logo {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  background: linear-gradient(135deg, #0071e3, #00c7ff);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0,113,227,0.3);
+}
+.topbar-title { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.topbar-title small { display:block; font-size: 10px; font-weight: 500; color: var(--text-2); letter-spacing: .3px; }
+.topbar-nav { flex: 1; display: flex; justify-content: center; gap: 2px; overflow-x: auto; }
+.topbar-nav a {
+  font-size: 13px; color: var(--text-2); text-decoration: none;
+  padding: 6px 12px; border-radius: 980px; white-space: nowrap;
+  transition: all .2s;
+}
+.topbar-nav a:hover { color: var(--text); background: rgba(0,0,0,0.05); }
+.topbar-nav a.active { color: var(--blue); background: rgba(0,113,227,0.08); font-weight: 600; }
+.topbar-cta {
+  flex-shrink: 0; padding: 6px 14px; border: none; border-radius: 980px;
+  background: var(--blue); color: #fff; font-size: 13px; font-weight: 500;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  transition: background .2s; font-family: inherit;
+}
+.topbar-cta:hover { background: #0077ed; }
+
+/* ============ Layout ============ */
+main { padding-top: 52px; }
+section.block { padding: 56px 20px; scroll-margin-top: 70px; }
+.wrap { max-width: 1160px; margin: 0 auto; }
+.sec-eyebrow {
+  display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.2px;
+  color: var(--blue); text-transform: uppercase; margin-bottom: 10px;
+}
+.sec-title { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 10px; }
+.sec-sub { font-size: 15px; color: var(--text-2); max-width: 760px; line-height: 1.7; }
+
+/* ============ Hero ============ */
+.hero {
+  position: relative; overflow: hidden;
+  padding: 84px 20px 96px;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(0,199,255,0.14), transparent 60%),
+    radial-gradient(900px 460px at 0% 10%, rgba(0,113,227,0.10), transparent 55%),
+    var(--bg);
+}
+.hero .wrap { text-align: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.8); border: 1px solid var(--line);
+  backdrop-filter: var(--blur);
+  font-size: 12px; font-weight: 600; color: var(--text-2);
+  padding: 6px 14px; border-radius: 980px; margin-bottom: 22px;
+}
+.hero-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+.hero h1 {
+  font-size: clamp(30px, 5vw, 52px); font-weight: 700; letter-spacing: -1px;
+  line-height: 1.15; margin-bottom: 16px;
+}
+.hero h1 .grad {
+  background: linear-gradient(100deg, var(--blue), var(--teal));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero p { font-size: 17px; color: var(--text-2); max-width: 720px; margin: 0 auto 30px; line-height: 1.8; }
+.hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 22px; border-radius: 980px; font-size: 14px; font-weight: 600;
+  text-decoration: none; cursor: pointer; border: none; transition: all .2s; font-family: inherit;
+}
+.btn-primary { background: var(--blue); color: #fff; box-shadow: 0 6px 18px rgba(0,113,227,0.28); }
+.btn-primary:hover { background: #0077ed; transform: translateY(-1px); }
+.btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--line); }
+.btn-ghost:hover { background: #f0f0f2; transform: translateY(-1px); }
+.hero-stats {
+  display: flex; gap: 18px; justify-content: center; margin-top: 44px; flex-wrap: wrap;
+}
+.stat-pill {
+  background: rgba(255,255,255,0.72); backdrop-filter: var(--blur);
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  padding: 12px 22px; min-width: 170px;
+}
+.stat-pill b { display: block; font-size: 20px; letter-spacing: -0.3px; }
+.stat-pill b em { font-style: normal; color: var(--blue); }
+.stat-pill span { font-size: 12px; color: var(--text-2); }
+
+/* ============ Cards ============ */
+.card {
+  background: var(--card); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow); border: 1px solid var(--line);
+  padding: 26px;
+}
+.grid { display: grid; gap: 18px; }
+.g-3 { grid-template-columns: repeat(3, 1fr); }
+.g-2 { grid-template-columns: repeat(2, 1fr); }
+.g-4 { grid-template-columns: repeat(4, 1fr); }
+.icon-tile {
+  width: 44px; height: 44px; border-radius: 12px; display: flex;
+  align-items: center; justify-content: center; margin-bottom: 14px;
+}
+.icon-tile svg { width: 22px; height: 22px; color: #fff; }
+.c-title { font-size: 17px; font-weight: 650; margin-bottom: 8px; }
+.c-body { font-size: 13.5px; color: var(--text-2); line-height: 1.75; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tag {
+  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 980px;
+  background: rgba(0,0,0,0.05); color: var(--text-2);
+}
+.tag.blue { background: rgba(0,113,227,0.1); color: var(--blue); }
+.tag.green { background: rgba(52,199,89,0.12); color: #1f9c47; }
+.tag.orange { background: rgba(255,149,0,0.12); color: #c56e00; }
+.tag.purple { background: rgba(175,82,222,0.12); color: #8e34bf; }
+.tag.red { background: rgba(255,59,48,0.1); color: #d7261c; }
+
+/* ============ 架构分层 ============ */
+.layers { display: flex; flex-direction: column; gap: 10px; }
+.layer {
+  display: flex; gap: 18px; align-items: flex-start;
+  background: var(--card); border-radius: var(--radius-md);
+  padding: 16px 20px; box-shadow: var(--shadow); border: 1px solid var(--line);
+  transition: transform .2s;
+}
+.layer:hover { transform: translateY(-2px); }
+.layer .lv {
+  flex-shrink: 0; width: 118px; text-align: center; font-size: 12px; font-weight: 700;
+  color: #fff; border-radius: var(--radius-sm); padding: 8px 4px; line-height: 1.3;
+}
+.layer .lv span { display: block; font-weight: 600; }
+.layer .lb { font-size: 13.5px; color: var(--text); font-weight: 600; padding-top: 3px; }
+.layer .ld { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-top: 4px; }
+.arrow-down { text-align: center; color: var(--text-3); font-size: 16px; line-height: 1; }
+
+/* ============ 菜单蓝图 ============ */
+.menu-stage {
+  display: grid; grid-template-columns: 320px 1fr; gap: 18px; margin-top: 26px;
+  align-items: stretch;
+}
+.sidebar-mock {
+  background: rgba(255,255,255,0.7); backdrop-filter: var(--blur);
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 10px 8px; max-height: 640px; overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+.mg-label {
+  font-size: 10.5px; font-weight: 700; color: var(--text-2);
+  padding: 12px 10px 5px; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;
+}
+.mg-label svg { width: 13px; height: 13px; color: var(--text-3); }
+.mg-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 6px 10px; border: none; background: transparent; cursor: pointer;
+  border-radius: 9px; font-size: 13px; color: var(--text); font-family: inherit;
+  text-align: left; transition: background .15s;
+}
+.mg-item:hover { background: rgba(0,0,0,0.045); }
+.mg-item .chev { margin-left: auto; color: var(--text-3); transition: transform .2s; font-size: 10px; }
+.mg-item.open .chev { transform: rotate(90deg); }
+.mg-item .gi { color: var(--text-2); display: flex; }
+.mg-item .gi svg { width: 16px; height: 16px; }
+.mg-children { padding: 1px 0 4px; }
+.mi {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 6px 10px 6px 28px; border: none; background: transparent; cursor: pointer;
+  border-radius: 8px; font-size: 12.5px; color: var(--text-2); font-family: inherit;
+  text-align: left; transition: all .15s;
+}
+.mi:hover { background: rgba(0,0,0,0.04); color: var(--text); }
+.mi.active { background: var(--blue); color: #fff; font-weight: 600; }
+.mi .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.mi .badge {
+  margin-left: auto; font-size: 9.5px; font-weight: 700; padding: 1px 7px;
+  border-radius: 6px; line-height: 1.6; opacity: .9;
+}
+.mi.active .badge { background: rgba(255,255,255,0.25); color: #fff; }
+.detail-card { display: flex; flex-direction: column; }
+.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.detail-head h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+.detail-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.detail-desc { font-size: 14px; color: var(--text-2); line-height: 1.8; margin: 14px 0 8px; }
+.detail-sub { font-size: 12px; font-weight: 700; color: var(--text-3); letter-spacing: 1px; margin: 14px 0 8px; }
+.detail-points { list-style: none; display: grid; gap: 8px; }
+.detail-points li {
+  position: relative; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--text);
+}
+.detail-points li::before {
+  content: ""; position: absolute; left: 0; top: 8px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--blue-light);
+}
+.detail-link {
+  margin-top: auto; padding-top: 16px;
+  border-top: 1px dashed var(--line); font-size: 13px; color: var(--text-2); line-height: 1.7;
+}
+.detail-link b { color: var(--blue); font-weight: 600; }
+.detail-empty { text-align: center; color: var(--text-3); padding: 60px 20px; font-size: 14px; }
+
+/* ============ 链路 ============ */
+.lane { margin-bottom: 16px; }
+.lane-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.lane-title .bar { width: 4px; height: 16px; border-radius: 2px; }
+.chain { display: flex; gap: 0; overflow-x: auto; padding: 4px 2px 10px; align-items: stretch; }
+.node {
+  min-width: 128px; max-width: 150px; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  padding: 12px 12px; box-shadow: var(--shadow);
+  flex-shrink: 0; display: flex; flex-direction: column; gap: 4px;
+}
+.node b { font-size: 13px; line-height: 1.4; }
+.node small { font-size: 11px; color: var(--text-2); line-height: 1.5; }
+.node .impl { margin-top: auto; font-size: 10.5px; color: var(--blue); background: rgba(0,113,227,0.07); border-radius: 6px; padding: 3px 6px; }
+.conn { flex-shrink: 0; display: flex; align-items: center; color: var(--text-3); font-size: 18px; padding: 0 2px; }
+
+/* ============ 数据管线 ============ */
+.pipeline { display: flex; gap: 0; overflow-x: auto; padding: 8px 0 10px; align-items: stretch; }
+.pipe-node {
+  flex: 1; min-width: 170px; background: var(--card); border-radius: var(--radius-md);
+  border: 1px solid var(--line); box-shadow: var(--shadow); padding: 16px;
+  border-top: 3px solid var(--pc, var(--blue));
+}
+.pipe-node .num { font-size: 11px; font-weight: 800; color: var(--pc, var(--blue)); letter-spacing: .5px; }
+.pipe-node b { display: block; font-size: 14px; margin: 6px 0; }
+.pipe-node p { font-size: 12.5px; color: var(--text-2); line-height: 1.7; }
+.pipe-conn { flex-shrink: 0; display: flex; align-items: center; color: var(--text-3); font-size: 20px; padding: 0 4px; }
+.sources { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.src-chip {
+  display: inline-flex; align-items: center; gap: 7px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 980px; padding: 8px 16px;
+  font-size: 13px; font-weight: 500; box-shadow: var(--shadow);
+}
+.src-chip i { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ============ 路线图 ============ */
+.timeline { position: relative; margin-top: 30px; padding-left: 26px; }
+.timeline::before {
+  content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px;
+  width: 2px; background: linear-gradient(var(--blue), rgba(0,113,227,0.1));
+}
+.tl-item { position: relative; margin-bottom: 20px; }
+.tl-item::before {
+  content: ""; position: absolute; left: -26px; top: 5px; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff; border: 3px solid var(--blue); box-shadow: var(--shadow);
+}
+.tl-item .ph {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; margin-bottom: 6px;
+}
+.tl-item .dur {
+  font-size: 11px; font-weight: 700; color: #fff; border-radius: 980px; padding: 2px 10px;
+}
+.tl-body { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.tl-col .h { font-size: 12px; font-weight: 700; color: var(--text-2); margin-bottom: 6px; }
+.tl-col ul { list-style: none; }
+.tl-col li { font-size: 13px; color: var(--text); padding-left: 14px; position: relative; line-height: 1.9; }
+.tl-col li::before { content: ""; position: absolute; left: 0; top: 9px; width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
+
+/* ============ 看板预览 ============ */
+.window {
+  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-hover);
+  border: 1px solid var(--line); background: #fff; margin-top: 26px;
+}
+.window-bar {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  background: #ececf0; border-bottom: 1px solid var(--line);
+}
+.tdot { width: 12px; height: 12px; border-radius: 50%; }
+.window-url {
+  flex: 1; margin: 0 12px; background: #fff; border-radius: 6px;
+  font-size: 11.5px; color: var(--text-2); padding: 3px 10px; text-align: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 1px solid var(--line);
+}
+.window-bar a {
+  font-size: 11px; font-weight: 600; color: var(--blue); text-decoration: none;
+  background: rgba(0,113,227,0.1); padding: 3px 10px; border-radius: 980px; white-space: nowrap;
+}
+.demo-frame { width: 100%; height: 640px; border: 0; display: block; background: var(--bg); }
+.demo-note { text-align: center; font-size: 12.5px; color: var(--text-3); margin-top: 12px; }
+
+/* ============ 能力对照 ============ */
+table.map { width: 100%; border-collapse: collapse; margin-top: 20px; background: var(--card); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+table.map th, table.map td { text-align: left; padding: 14px 18px; font-size: 13.5px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.map th { background: rgba(0,0,0,0.02); font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: .4px; }
+table.map tr:last-child td { border-bottom: none; }
+table.map td:first-child { font-weight: 600; width: 26%; }
+table.map td small { color: var(--text-2); display: block; margin-top: 3px; font-weight: 400; }
+
+footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size: 12px; border-top: 1px solid var(--line); background: rgba(0,0,0,0.015); line-height: 1.8; }
+
+/* ============ 响应式 ============ */
+@media (max-width: 960px) {
+  .g-3, .g-4 { grid-template-columns: 1fr 1fr; }
+  .menu-stage { grid-template-columns: 1fr; }
+  .sidebar-mock { max-height: 420px; }
+  .tl-body { grid-template-columns: 1fr; }
+  .topbar-nav { display: none; }
+}
+@media (max-width: 600px) {
+  .g-3, .g-4, .g-2 { grid-template-columns: 1fr; }
+  .sec-title { font-size: 24px; }
+  .layer { flex-direction: column; gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ================= Top Bar ================= -->
+<header class="topbar">
+  <div class="topbar-logo">W</div>
+  <div class="topbar-title">业财一体中后台方案<small>SOLUTION DEMO · 电商 · 简道云落地版</small></div>
+  <nav class="topbar-nav">
+    <a href="#arch">整体设计</a>
+    <a href="#menu">菜单蓝图</a>
+    <a href="#flow">业财链路</a>
+    <a href="#data">数据接入</a>
+    <a href="#roadmap">实施路线</a>
+    <a href="#demo">看板预览</a>
+    <a href="#fit">能力对照</a>
+  </nav>
+  <a class="topbar-cta" href="apple-store-wms.html" target="_blank" rel="noopener">打开看板 Demo ↗</a>
+</header>
+
+<main>
+
+<!-- ================= Hero ================= -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-badge"><i></i> 求职方案演示 · 从业务梳理到系统落地的完整思路</div>
+    <h1>电商公司「业财一体」<br><span class="grad">中后台搭建方案</span></h1>
+    <p>以低代码平台(简道云)为核心载体,串联 销售、采购、库存、生产、财务、行政 六大业务线,让每一笔业务单据自动沉淀为财务与经营数据 —— 一套可分批落地、可逐步迭代的数字化中后台。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#menu">查看中后台菜单长什么样 ↓</a>
+      <a class="btn btn-ghost" href="#demo">看板效果预览</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-pill"><b><em>8</em> 大模块域</b><span>覆盖业务 + 财务 + 系统</span></div>
+      <div class="stat-pill"><b><em>30+</em> 表单 / 流程</b><span>按业务场景逐块拆分</span></div>
+      <div class="stat-pill"><b><em>1</em> 条主线</b><span>业务单据 → 财务台账 同源流转</span></div>
+      <div class="stat-pill"><b><em>4</em> 个阶段</b><span>分步上线,每期可见价值</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 整体设计 ================= -->
+<section class="block" id="arch">
+  <div class="wrap">
+    <span class="sec-eyebrow">01 · 整体设计</span>
+    <h2 class="sec-title">一句话架构:四层模型</h2>
+    <p class="sec-sub">上层用「菜单 + 门户」承接各角色入口;业务层用低代码「表单 / 流程」把线下台账和审批搬到线上;数据层用聚合表 / 数据库沉淀统一台账,让财务口径与业务口径同源;决策层用仪表盘把数据变成老板和管理者看得懂的经营指标。</p>
+
+    <div class="layers" style="margin-top:26px;">
+      <div class="layer">
+        <div class="lv" style="background:linear-gradient(135deg,#af52de,#5856d6)">决策层<br><span>仪表盘 / BI</span></div>
+        <div>
+          <div class="lb">经营驾驶舱 · 按角色给报表</div>
+          <div class="ld">老板看「赚多少、压多少货、现金流」;销售看业绩;仓管看库存健康;财务看应收应付。所有图表由聚合表实时汇总,同一数据源、口径一致。</div>
+          <div class="tag-row"><span class="tag purple">仪表盘</span><span class="tag purple">报表下钻</span><span class="tag blue">看板联动</span></div>
+        </div>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="layer">
+        <div class="lv" style="background:linear-gradient(135deg,#0071e3,#00c7ff)">业务层<br><span>表单 · 流程 · 视图</span></div>
+        <div>
+          <div class="lb">六大业务域线上化</div>
+          <div class="ld">销售订单、采购、入库出库、生产工单、费用报销、审批中心……把线下 Excel 台账和口头流程,拆成「一张表单 + 一条审批流 + 一个跟进视图」的标准件。</div>
+          <div class="tag-row"><span class="tag blue">流程表单</span><span class="tag blue">数据联动</span><span class="tag blue">子表单</span></div>
+        </div>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="layer">
+        <div class="lv" style="background:linear-gradient(135deg,#34c759,#30b0c7)">数据层<br><span>统一台账</span></div>
+        <div>
+          <div class="lb">业务数据与财务数据同源</div>
+          <div class="ld">销售、采购、出入库单据发生即写入对应台账;应收 / 应付 / 库存 / 成本全部从业务单据汇总而来,不做第二套手工账 —— 这是「业财一体」的地基。</div>
+          <div class="tag-row"><span class="tag green">聚合表</span><span class="tag green">数据库</span><span class="tag green">对账</span></div>
+        </div>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="layer">
+        <div class="lv" style="background:linear-gradient(135deg,#ff9500,#ff3b30)">接入层<br><span>数据来源</span></div>
+        <div>
+          <div class="lb">多来源数据汇入</div>
+          <div class="ld">电商平台 / 公开网站数据由爬虫采集,内部数据手工录入或 Excel 导入,外部系统走 API —— 清洗规整后同步进统一台账。</div>
+          <div class="tag-row"><span class="tag orange">爬虫</span><span class="tag orange">API</span><span class="tag orange">Excel 导入</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 菜单蓝图 ================= -->
+<section class="block" id="menu" style="background:rgba(255,255,255,0.5);">
+  <div class="wrap">
+    <span class="sec-eyebrow">02 · 菜单蓝图</span>
+    <h2 class="sec-title">中后台「菜单长什么样」</h2>
+    <p class="sec-sub">按角色使用的菜单分组:左侧是真实的侧边栏菜单(可点击展开),右侧是对应模块的设计说明 —— 每个模块都标清了它用什么低代码能力实现(表单 / 流程 / 聚合表 / 仪表盘),以及它和财务、库存之间的衔接点。</p>
+
+    <div class="menu-stage">
+      <!-- 左侧菜单模拟器 -->
+      <aside class="sidebar-mock" id="menuRoot"></aside>
+
+      <!-- 右侧详情 -->
+      <div class="card detail-card" id="detailPanel"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 业财链路 ================= -->
+<section class="block" id="flow">
+  <div class="wrap">
+    <span class="sec-eyebrow">03 · 业财一体核心链路</span>
+    <h2 class="sec-title">业务一发生,账就自动记</h2>
+    <p class="sec-sub">业财一体的关键是「不重复记账」:业务单据是唯一事实来源,财务数据(应收 / 应付 / 成本 / 毛利)全部由业务单据自动归集。下面是收入侧与成本侧两条主线。</p>
+
+    <div class="card" style="margin-top:22px;">
+      <div class="lane">
+        <div class="lane-title"><span class="bar" style="background:var(--green)"></span> 收入侧 · 销售到回款(按食品电商场景)</div>
+        <div class="chain" id="chainSales"></div>
+      </div>
+      <div class="lane">
+        <div class="lane-title"><span class="bar" style="background:var(--orange)"></span> 成本侧 · 采购到应付(含代工/生产)</div>
+        <div class="chain" id="chainBuy"></div>
+      </div>
+      <div class="lane" style="margin-bottom:0;">
+        <div class="lane-title"><span class="bar" style="background:var(--blue)"></span> 贯穿两侧的库存底座(食品特有:批次 + 效期)</div>
+        <div class="chain" id="chainStock"></div>
+      </div>
+    </div>
+
+    <div class="grid g-4" style="margin-top:18px;">
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">① 单据带出,不重复填</div>
+        <div class="c-body">订单选客户自动带出地址 / 账期 / 信用额度,选商品自动带出价格、税率与实时库存;仓库出库只录数量,成本价由批次自动带出。</div>
+      </div>
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">② 自动归集,不手工算</div>
+        <div class="c-body">每张销售单审核通过 → 应收台账自动 +1 条;每次入库 → 应付 +1 条。聚合表实时给出「这家客户欠多少、这笔款逾期多久」。</div>
+      </div>
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">③ 成本毛利,口径统一</div>
+        <div class="c-body">收入来自销售出库、成本来自采购入库 / 生产投料,库存进出都带金额 —— 毛利、库存资金占用、效期损耗全部可算。</div>
+      </div>
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">④ 权限隔离,该看谁看</div>
+        <div class="c-body">财务数据仅财务与老板可见;仓库看不到单价与毛利;销售只看自己的客户与订单。表单级 + 数据级权限双重控制。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 数据接入 ================= -->
+<section class="block" id="data" style="background:rgba(255,255,255,0.5);">
+  <div class="wrap">
+    <span class="sec-eyebrow">04 · 数据接入与打通</span>
+    <h2 class="sec-title">爬虫数据 + 内部数据 → 统一台账</h2>
+    <p class="sec-sub">公司需要的数据不只在内部:竞品价格、平台销量、行业公开数据等,通过爬虫稳定采集,清洗规整后和内部业务数据汇到同一套台账里,支撑统计、复盘与决策。</p>
+
+    <div class="sources" style="margin-top:22px;">
+      <div class="src-chip"><i style="background:var(--blue)"></i> 电商平台 / 公开网页数据</div>
+      <div class="src-chip"><i style="background:var(--green)"></i> 内部业务单据(表单录入)</div>
+      <div class="src-chip"><i style="background:var(--orange)"></i> Excel / 历史台账批量导入</div>
+      <div class="src-chip"><i style="background:var(--purple)"></i> 第三方系统 API 对接</div>
+    </div>
+
+    <div class="pipeline" id="pipeline"></div>
+
+    <div class="grid g-3" style="margin-top:18px;">
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">爬虫稳定第一</div>
+        <div class="c-body">Requests / BeautifulSoup / Scrapy 分层封装,反爬与限流策略、失败重试、增量抓取与断点续爬,保障采集的稳定性与时效性。</div>
+      </div>
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">清洗去重是常态</div>
+        <div class="c-body">重复商品、同义词(如规格单位不统一)、缺失字段、脏编码 —— 统一清洗规整,再落 MySQL,形成结构化、可对账的干净数据。</div>
+      </div>
+      <div class="card">
+        <div class="c-title" style="font-size:15px;">同步台账自动化</div>
+        <div class="c-body">通过平台开放 API / 批量导入定时把外部数据同步进简道云台账,与内部单据同库汇总,报表直接引用,无需人工搬运。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 实施路线 ================= -->
+<section class="block" id="roadmap">
+  <div class="wrap">
+    <span class="sec-eyebrow">05 · 实施路线图</span>
+    <h2 class="sec-title">分四期上线,每期都能落地</h2>
+    <p class="sec-sub">不建议一口气全量搭建。每一期先跑通一条业务闭环、让业务人员真实用起来,再横向扩模块 —— 这也是我在方案中强调的落地方式。</p>
+
+    <div class="timeline" id="timeline"></div>
+  </div>
+</section>
+
+<!-- ================= 看板预览 ================= -->
+<section class="block" id="demo" style="background:rgba(255,255,255,0.5);">
+  <div class="wrap">
+    <span class="sec-eyebrow">06 · 效果预览</span>
+    <h2 class="sec-title">决策层看板,长这样</h2>
+    <p class="sec-sub">以下是同类中后台「经营驾驶舱」的实际实现效果(自研可交互 Demo,数据为模拟):时间范围切换、仓库筛选、图表联动、点击下钻、一键导出,全部可操作。在简道云中,同样的看板用「仪表盘 + 聚合表」承载。</p>
+
+    <div class="window">
+      <div class="window-bar">
+        <span class="tdot" style="background:#ff5f57"></span>
+        <span class="tdot" style="background:#febc2e"></span>
+        <span class="tdot" style="background:#28c840"></span>
+        <div class="window-url">apple-store-wms.html · WMS BI 数据看板 Demo(可交互)</div>
+        <a href="apple-store-wms.html" target="_blank" rel="noopener">新窗口打开 ↗</a>
+      </div>
+      <iframe class="demo-frame" src="apple-store-wms.html" title="BI 看板 Demo" loading="lazy"></iframe>
+    </div>
+    <div class="demo-note">提示:若嵌入区空白,请点击右上角「新窗口打开」在新标签页查看完整可交互看板。</div>
+  </div>
+</section>
+
+<!-- ================= 能力对照 ================= -->
+<section class="block" id="fit">
+  <div class="wrap">
+    <span class="sec-eyebrow">07 · 能力对照</span>
+    <h2 class="sec-title">这套方案,对应岗位的哪些要求</h2>
+    <p class="sec-sub">方案不是停留在「想」,而是每一块都有对应的实现能力和交付习惯。</p>
+    <table class="map">
+      <thead>
+        <tr><th>岗位职责</th><th>在本方案中的体现</th><th>我的交付方式</th></tr>
+      </thead>
+      <tbody id="fitBody"></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  本页面为求职「方案思路」演示用,业务数据均为示意结构,不代表任何公司真实数据。<br>
+  方案主线:业务单据 → 财务台账 同源流转 · 表单 / 流程 / 聚合表 / 仪表盘 / 权限 / API 全套落地。
+</footer>
+
+<script>
+/* ============================================================
+   常量与数据
+============================================================ */
+const TYPE_STYLE = {
+  '仪表盘':  { cls: 'blue',  color: '#2997ff' },
+  '表单':    { cls: 'green', color: '#34c759' },
+  '流程':    { cls: 'orange', color: '#ff9500' },
+  '聚合表':  { cls: 'purple', color: '#af52de' },
+  '视图':    { cls: 'blue',  color: '#0071e3' },
+  '系统':    { cls: '',      color: '#8e8e93' },
+};
+
+const ICONS = {
+  gauge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>',
+  box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8V6a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 6v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>',
+  factory: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>',
+  wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>',
+  briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+};
+
+/* 菜单数据:group -> items。detail: 描述 / points 设计要点 / link 业财衔接 */
+const MENU = [
+  { group: '经营驾驶舱', role: '老板 / 管理层', icon: 'gauge', items: [
+    { name: '经营总览', type: '仪表盘', desc: '给老板和管理层的一屏总览:卖了多少钱、毛利多少、压了多少库存、现金流紧不紧。', points: ['收入 / 毛利 / 库存资金 / 现金流 四类核心指标,环比 + 预警高亮', '数据全部来自各业务聚合表,口径与财务一致', '点击指标一键下钻到对应的订单 / 库存明细'], link: '是「业财一体」的对外窗口,所有数字都追得到原始单据。' },
+    { name: '销售业绩榜', type: '仪表盘', desc: '按客户、按商品、按销售员三个维度看业绩与退货率。', points: ['TOP 客户贡献度、新品动销、退货原因分布', '支持时间范围与渠道筛选,联动刷新'], link: '退货率联动售后流程,异常品自动进入客诉跟踪。' },
+    { name: '库存健康度', type: '仪表盘', desc: '库容利用率、低库存、超储、临期批次四类告警集中展示。', points: ['食品电商核心:批次效期倒计时告警', '红黄绿分级,低库存联动补货建议'], link: '库存金额 = 采购成本口径,直接进资产负债表。' },
+  ]},
+  { group: '销售管理', role: '销售 / 客服', icon: 'cart', items: [
+    { name: '客户档案', type: '表单', desc: '客户 / 渠道统一建档,区分电商平台店、经销、一件代发等类型。', points: ['带出常用收货地址、账期、信用额度', '同一客户多渠道去重合并'], link: '客户信用额度和账期是应收管理的源头参数。' },
+    { name: '销售订单', type: '流程', desc: '从下单到审核的销售主流程,支持一件代发与整单批发。', points: ['选客户 / 商品自动联动价格、库存、税率', '多级审批:金额或折扣超限自动升级', '订单状态看板跟进:待审核 / 待发货 / 已发货'], link: '审核通过即自动生成应收台账 + 待出库任务。' },
+    { name: '售后与退货', type: '流程', desc: '退款、退货、换货统一入口,关联原始订单。', points: ['自动校验:是否在售后期内、是否已发货', '退货入库与仓库联动,质检结果留痕'], link: '退款冲减应收、退货冲减收入,坏账单独计提。' },
+  ]},
+  { group: '采购管理', role: '采购', icon: 'briefcase', items: [
+    { name: '供应商档案', type: '表单', desc: '供应商资质、账期、供货品类、历史准时率集中管理。', points: ['物料与供应商的默认价格带出', '禁用 / 黑名单标记'], link: '供应商账期决定应付付款计划。' },
+    { name: '采购订单', type: '流程', desc: '采购申请 → 比价 → 下单 → 到货,一条流程走完。', points: ['缺货预警一键转采购申请', '到货数量与订单自动对账,允差校验'], link: '到货验收入库后自动生成应付台账。' },
+    { name: '供应商对账', type: '聚合表', desc: '按账期自动汇总应付,生成对账单。', points: ['月度对账单一键生成与导出', '差异核对:未入库 / 已入库未开票分开'], link: '对账差异是财务月底关账前必查项。' },
+  ]},
+  { group: '库存管理', role: '仓库 / 运营', icon: 'box', items: [
+    { name: '商品 / SKU', type: '表单', desc: '商品主数据:条码、规格、单位换算、默认供应商与成本参考。', points: ['条码唯一性校验,多单位换算', '商品分类与效期管理开关(是否临期品)'], link: 'SKU 成本是成本核算的最小颗粒。' },
+    { name: '仓库与库位', type: '表单', desc: '多仓多库位管理,区分良品 / 待检 / 残次区域。', points: ['常温 / 冷藏等库区属性(食品场景)', '库位编码规范,支持扫码'], link: '批次成本按先进先出核算。' },
+    { name: '批次效期', type: '表单', desc: '每一批来货记录生产日期、保质期、批次号。', points: ['先进先出自动锁定出库批次', '临期 30 天自动告警并限制发货'], link: '临期 / 过期损耗单独记账,计入报损成本。' },
+    { name: '入库 / 出库 / 调拨 / 盘点', type: '流程', desc: '四种库存作业统一模板,审核后实时增减库存。', points: ['与采购订单、销售订单联动,作业单反查来源单', '盘点差异自动生成调整单,需复核'], link: '每一次出入库都带金额,库存账 = 财务存货账。' },
+  ]},
+  { group: '生产 / 代工', role: '生产 / 采购', icon: 'factory', items: [
+    { name: '生产工单', type: '流程', desc: '自产或委外代工的投产、领料、完工报工流程。', points: ['BOM 自动展开用料清单', '完工后自动回补产成品库存'], link: '投料 = 成本归集,产出 = 存货增加。' },
+    { name: '委外对账', type: '聚合表', desc: '代工厂完工数、加工费按单汇总对账。', points: ['损耗率超标自动标红', '与供应商应付合并管理'], link: '加工费直接计入生产成本。' },
+  ]},
+  { group: '财务中心', role: '财务 / 老板', icon: 'wallet', items: [
+    { name: '应收管理', type: '聚合表', desc: '按客户自动汇总应收、账龄、回款核销。', points: ['账龄分段:30 / 60 / 90 天自动分色', '回款登记自动核销对应应收'], link: '信用额度的实际执行校验就在这一环。' },
+    { name: '应付管理', type: '聚合表', desc: '按供应商汇总应付与付款计划。', points: ['到期应付提醒,避免错过账期优惠', '付款审批留痕'], link: '与采购 / 委外对账同源,不重复记账。' },
+    { name: '费用报销', type: '流程', desc: '差旅、运费、推广等费用线上提单审批。', points: ['费用类型化:运费 / 推广 / 办公 / 差旅', '超预算自动提示'], link: '费用按部门 / 项目归集,进损益表。' },
+    { name: '成本与毛利', type: '仪表盘', desc: '按 SKU / 渠道看毛利,自动剔除成本与费用。', points: ['收入 - 出库成本 - 运费推广 = 渠道毛利', '可下钻到单 SKU'], link: '这就是「业财一体」的最终输出。' },
+  ]},
+  { group: '行政人事', role: '行政 / 全员', icon: 'users', items: [
+    { name: '员工档案', type: '表单', desc: '员工信息、部门、岗位统一管理。', points: ['入职 / 转正 / 离职状态机', '同步到系统权限组织'], link: '权限按组织架构走,离职即收回账号。' },
+    { name: '审批中心', type: '流程', desc: '通用审批:用章、请假、采购、报销统一入口。', points: ['按金额 / 事项自动路由审批人', '移动端随时批'], link: '审批通过的单据才允许进入财务处理。' },
+    { name: '合同台账', type: '表单', desc: '采购 / 销售 / 租赁等合同电子化登记。', points: ['到期续签提醒', '合同与订单关键条款关联'], link: '合同账期是应收应付账期的依据。' },
+  ]},
+  { group: '系统管理', role: '管理员', icon: 'settings', items: [
+    { name: '组织与权限', type: '系统', desc: '部门、角色、权限点统一配置。', points: ['表单级 + 数据级双层权限', '财务数据隔离,销售只看自己的单'], link: '权限是「业财一体」能安全运行的保障。' },
+    { name: '流程设计', type: '系统', desc: '审批流可视化配置,调整无需改代码。', points: ['条件分支、多人会签、抄送', '流程版本管理'], link: '业务规则变化时,低代码改配置即可。' },
+    { name: '数据字典与日志', type: '系统', desc: '枚举项统一维护,操作留痕可审计。', points: ['客户类型 / 订单状态 / 费用类型统一', '关键单据操作日志'], link: '配合财务审计与问题追溯。' },
+  ]},
+];
+
+/* 默认选中:经营总览 */
+let cur = { g: 0, i: 0 };
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* 渲染左侧菜单 */
+function renderMenu() {
+  const root = document.getElementById('menuRoot');
+  root.innerHTML = MENU.map((g, gi) => {
+    const open = gi === cur.g;
+    const items = g.items.map((it, ii) => {
+      const st = TYPE_STYLE[it.type] || {};
+      const active = gi === cur.g && ii === cur.i;
+      const act = active ? ' active' : '';
+      return `<button class="mi${act}" data-g="${gi}" data-i="${ii}">
+        <span class="dot" style="background:${st.color || '#8e8e93'}"></span>
+        <span>${esc(it.name)}</span>
+        <span class="badge" style="background:${st.color || '#8e8e93'};color:#fff">${it.type}</span>
+      </button>`;
+    }).join('');
+    const arrow = '<svg class="chev" style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m9 18 6-6-6-6"/></svg>';
+    return `<div class="mg">
+      <button class="mg-item${open ? ' open' : ''}" data-gt="${gi}">
+        <span class="gi">${ICONS[g.icon] || ''}</span><span>${esc(g.group)}</span>${arrow}
+      </button>
+      ${open ? `<div class="mg-children">${items}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  root.querySelectorAll('.mg-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const gi = +btn.dataset.gt;
+      const open = btn.classList.contains('open');
+      MENU.forEach((g, x) => { if (x === gi) { if (open) { cur.g = -1; } else { cur.g = x; cur.i = 0; } } });
+      if (cur.g >= 0) renderMenu(), renderDetail(cur.g, cur.i);
+      else renderMenu();
+    });
+  });
+  root.querySelectorAll('.mi').forEach(btn => {
+    btn.addEventListener('click', () => {
+      cur.g = +btn.dataset.g; cur.i = +btn.dataset.i;
+      renderMenu(); renderDetail(cur.g, cur.i);
+    });
+  });
+}
+
+/* 渲染右侧详情 */
+function renderDetail(gi, ii) {
+  const g = MENU[gi], it = g.items[ii];
+  const st = TYPE_STYLE[it.type] || {};
+  const p = document.getElementById('detailPanel');
+  p.innerHTML = `
+    <div class="detail-head">
+      <h3>${esc(g.group)} · ${esc(it.name)}</h3>
+      <div class="detail-meta">
+        <span class="tag ${st.cls}">${it.type}实现</span>
+        <span class="tag">低代码组件</span>
+        <span class="tag">角色:${g.role || '按权限'}</span>
+      </div>
+    </div>
+    <p class="detail-desc">${esc(it.desc)}</p>
+    <div class="detail-sub">设 计 要 点</div>
+    <ul class="detail-points">${it.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    <div class="detail-link"><b>业财衔接:</b> ${esc(it.link || '无')}</div>`;
+}
+
+/* ============================================================
+   业财链路数据
+============================================================ */
+const CHAIN_SALES = [
+  { n: '客户下单', d: '线下合同 / 平台订单', im: '简道云:表单' },
+  { n: '销售订单', d: '带出价格 / 账期 / 信用校验', im: '流程表单 + 数据联动' },
+  { n: '仓库发货', d: '生成出库单,扣减批次库存', im: '流程 + 聚合表' },
+  { n: '物流签收', d: '签收后回传状态', im: '表单更新' },
+  { n: '收入确认', d: '签收即确认收入口径', im: '聚合表归集' },
+  { n: '应收台账', d: '按客户 + 账期自动入账', im: '聚合表自动生成' },
+  { n: '对账开票', d: '导出对账单 / 开票申请', im: '报表导出' },
+  { n: '回款核销', d: '收款登记冲销应收', im: '表单 + 聚合表' },
+];
+const CHAIN_BUY = [
+  { n: '采购申请', d: '缺货预警一键转申请', im: '流程表单' },
+  { n: '采购订单', d: '供应商 + 价格带出,审批', im: '流程表单' },
+  { n: '验收入库', d: '来料质检,批次 / 效期建档', im: '流程 + 子表单' },
+  { n: '应付台账', d: '入库即自动入应付', im: '聚合表自动生成' },
+  { n: '供应商对账', d: '账期对账单,差异核对', im: '聚合表 + 报表' },
+  { n: '付款核销', d: '付款审批后冲销应付', im: '流程 + 聚合表' },
+];
+const CHAIN_STOCK = [
+  { n: '采购入库', d: '批次 + 效期 + 采购成本价', im: '影响存货账' },
+  { n: '库存台账', d: '数量 / 金额实时一致', im: '聚合表,业务财务同源' },
+  { n: '销售出库', d: '先进先出取批次成本', im: '结转销售成本' },
+  { n: '调拨 / 盘点', d: '仓位移动与差异调整', im: '流程 + 调整单' },
+  { n: '临期告警', d: '效期 30 天预警,限制发货', im: '仪表盘告警' },
+  { n: '报损处理', d: '过期品报废,损失入账', im: '财务报损单' },
+];
+
+function renderChain(el, data) {
+  const node = d => `
+    <div class="node">
+      <b>${d.n}</b>
+      <small>${d.d}</small>
+      <div class="impl">${d.im}</div>
+    </div>`;
+  document.getElementById(el).innerHTML =
+    data.map((d, i) => (i ? '<div class="conn">→</div>' : '') + node(d)).join('');
+}
+
+/* ============================================================
+   数据管线
+============================================================ */
+const PIPELINE = [
+  { n: '数据采集', d: '爬虫(Requests / BS4 / Scrapy)抓取公开数据;内部单据表单录入;Excel / API 导入', tag: 'Python 爬虫', c: '#0071e3' },
+  { n: '清洗规整', d: '去重、格式统一、缺失补全、同义词归一,结构化入库', tag: '数据清洗', c: '#34c759' },
+  { n: '本地存储', d: 'MySQL 统一存储原始与清洗后数据,保留历史可追溯', tag: 'MySQL', c: '#ff9500' },
+  { n: '同步入云', d: '按定时任务通过开放 API / 批量导入同步到简道云统一台账', tag: 'API 对接', c: '#af52de' },
+  { n: '报表消费', d: '聚合表汇总,仪表盘呈现,支撑统计 / 复盘 / 决策', tag: '仪表盘', c: '#ff3b30' },
+];
+function renderPipeline() {
+  const box = (d, i) => `<div class="pipe-node" style="--pc:${d.c}">
+      <div class="num">STEP ${i + 1}</div><b>${d.n}</b>
+      <p>${d.d}</p><div class="tag-row"><span class="tag" style="color:${d.c}">${d.tag}</span></div>
+    </div>`;
+  document.getElementById('pipeline').innerHTML =
+    PIPELINE.map((d, i) => (i ? '<div class="pipe-conn">›</div>' : '') + box(d, i)).join('');
+}
+
+/* ============================================================
+   路线图
+============================================================ */
+const ROADMAP = [
+  { ph: '一期 · 打好地基', dur: '聚焦核心闭环', durColor: '#0071e3', a: '搭建门户与组织权限;客户 / 供应商 / 商品 SKU 主数据档案', a2: '销售订单 + 采购订单两条主流程跑通', b: '业务人员正式使用,纸质台账退居二线', b2: '验证:老板能查到「今天卖了多少、库里有啥」' },
+  { ph: '二期 · 库存线上化', dur: '批次效期上线', durColor: '#34c759', a: '入库 / 出库 / 调拨 / 盘点作业全部线上,批次效期建档', a2: '先进先出、临期告警、缺货预警生效', b: '库存数量与财务存货账对齐', b2: '验证:盘点差异能解释、临期损失能统计' },
+  { ph: '三期 · 业财打通', dur: '应收应付自动化', durColor: '#ff9500', a: '应收 / 应付聚合表上线,单据自动入账、回款核销', a2: '费用报销 + 供应商 / 客户对账', b: '财务不再手工录第二遍账,毛利能按 SKU 算', b2: '验证:月底对账 1 天内完成' },
+  { ph: '四期 · 数据增值', dur: '爬虫 + BI 深化', durColor: '#af52de', a: '外部数据爬虫稳定运行,自动同步进统一台账', a2: '经营驾驶舱、渠道毛利、库存健康看板完善', b: '文档 + 培训 + 运维机制固化,业务可自助提需求', b2: '验证:管理决策都从仪表盘拿数' },
+];
+
+function renderTimeline() {
+  document.getElementById('timeline').innerHTML = ROADMAP.map(t => `
+    <div class="tl-item">
+      <div class="ph">${t.ph} <span class="dur" style="background:${t.durColor}">${t.dur}</span></div>
+      <div class="tl-body">
+        <div class="tl-col"><div class="h">本期做</div><ul>
+          ${t.a.split(';').map(x => `<li>${x}</li>`).join('')}
+          ${t.a2.split(';').map(x => `<li>${x}</li>`).join('')}
+        </ul></div>
+        <div class="tl-col"><div class="h">交付价值 / 验收</div><ul>
+          ${t.b.split(';').map(x => `<li>${x}</li>`).join('')}
+          ${t.b2.split(';').map(x => `<li>${x}</li>`).join('')}
+        </ul></div>
+      </div>
+    </div>`).join('');
+}
+
+/* ============================================================
+   能力对照
+============================================================ */
+const FIT = [
+  { duty: '简道云全流程搭建与定制', where: '架构四层模型 + 30+ 模块的「表单 → 流程 → 聚合表 → 仪表盘」落地设计,权限与数据联动贯穿其中', how: '先画业务流,再拆表单字段与流程节点,颗粒度到字段级' },
+  { duty: '对接各业务线,梳理流程落低代码应用', where: '按销售 / 采购 / 库存 / 生产 / 财务 / 行政六大域拆解,每个域=台账+审批+统计三件套', how: '需求访谈输出流程图与字段清单,方案先评审再搭建' },
+  { duty: '数据爬虫开发与维护', where: '数据接入层的采集 — 清洗 — 去重 — 规整链路', how: 'Requests / BS4 / Scrapy 分层封装,重试与增量采集保证稳定' },
+  { duty: '爬虫数据与业务系统对接、统一台账', where: '爬虫数据 + 内部单据汇入同一套聚合台账,供统计与决策', how: 'MySQL 中转 + 平台 API 定时同步,对账差异可查' },
+  { duty: '上线应用运维、优化、持续迭代', where: '四期路线图每期带验收标准;权限、字典、日志集中管理', how: '按业务反馈排迭代,操作手册 + 使用培训同步交付' },
+];
+
+function renderFit() {
+  document.getElementById('fitBody').innerHTML = FIT.map(f => `
+    <tr>
+      <td>${f.duty}</td>
+      <td>${f.where}</td>
+      <td><small>${f.how}</small></td>
+    </tr>`).join('');
+}
+
+/* ============================================================
+   初始化 + 滚动高亮导航
+============================================================ */
+function init() {
+  renderMenu();
+  renderDetail(cur.g, cur.i);
+  renderChain('chainSales', CHAIN_SALES);
+  renderChain('chainBuy', CHAIN_BUY);
+  renderChain('chainStock', CHAIN_STOCK);
+  renderPipeline();
+  renderTimeline();
+  renderFit();
+
+  const links = document.querySelectorAll('.topbar-nav a');
+  const secs = ['arch', 'menu', 'flow', 'data', 'roadmap', 'demo', 'fit'];
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + en.target.id));
+      }
+    });
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  secs.forEach(id => { const el = document.getElementById(id); if (el) io.observe(el); });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

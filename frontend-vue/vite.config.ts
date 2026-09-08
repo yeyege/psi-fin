@@ -5,8 +5,6 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [vue()],
-  // GitHub Pages 项目站点挂载在 /wms/ 子路径下，资源必须用相对/子路径 base
-  base: '/wms/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

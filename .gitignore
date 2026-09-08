@@ -5,7 +5,7 @@ __pycache__/
 dist/
 .venv/
 wms.db
-
+preview
 # ====== Java / Maven ======
 target/
 *.class
