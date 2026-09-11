@@ -40,6 +40,9 @@ Thumbs.db
 # ===== 本地求职/面试材料(不入库) =====
 docs/interview/
 
+# ===== 本地规划工具产物(不入库,仅本地保留) =====
+openspec/
+
 # ===== Playwright E2E =====
 test-results/
 playwright-report/
