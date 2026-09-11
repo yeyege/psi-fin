@@ -1,10 +1,19 @@
 import axios from 'axios'
+import { mockAdapter } from './mock'
 
 const api = axios.create({
-  baseURL: '/api',
+  // 真实后端地址可配置：默认走 `/api`（dev 由 Vite 代理；生产由 nginx 反代）
+  // 未来后端上云时，构建注入 VITE_API_BASE=https://<后端域名>/api 即可
+  baseURL: import.meta.env.VITE_API_BASE || '/api',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 })
+
+// 纯前端演示模式：开启后所有 /api 请求由浏览器内 Mock 实现响应，不发起真实网络请求
+// 由 .env.pages 的 VITE_USE_MOCK=true 在构建时注入
+if (import.meta.env.VITE_USE_MOCK === 'true') {
+  api.defaults.adapter = mockAdapter
+}
 
 // 请求拦截器：自动附加登录 token（Authorization: Bearer <token>）
 api.interceptors.request.use((config) => {

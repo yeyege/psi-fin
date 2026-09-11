@@ -534,3 +534,175 @@ export const submitCount = (id: number, items: Array<{ itemId: number; countedQt
 
 export const completeCount = (id: number) =>
   api.post<any, { code: number; data: CountOrder }>(`/counts/${id}/complete`)
+
+
+// ============ 业财一体：销售订单 ============
+
+export interface SalesOrderItem {
+  productId: number
+  productName: string
+  quantity: number
+  unitPrice: number
+  amount: number
+}
+
+export interface SalesOrder {
+  id: number
+  orderNo: string
+  customerId: number
+  customerName: string
+  status: string // DRAFT / CONFIRMED / SHIPPED / COMPLETED / CANCELLED
+  creditDays: number
+  totalAmount: number
+  outboundOrderNo: string | null
+  shippedAt: string | null
+  remark: string | null
+  items: SalesOrderItem[]
+  createdAt: string
+}
+
+export interface SalesOrderItemPayload {
+  productId: number
+  quantity: number
+  unitPrice: number
+}
+
+export const getSalesOrders = (params: {
+  status?: string
+  customerId?: number
+  keyword?: string
+  page?: number
+  pageSize?: number
+}) => api.get<any, { code: number; data: PageData<SalesOrder> }>('/sales-orders', { params })
+
+export const getSalesOrder = (id: number) =>
+  api.get<any, { code: number; data: SalesOrder }>(`/sales-orders/${id}`)
+
+export const createSalesOrder = (data: {
+  customerId: number
+  creditDays?: number
+  items: SalesOrderItemPayload[]
+  remark?: string
+}) => api.post<any, { code: number; data: SalesOrder }>('/sales-orders', data)
+
+export const updateSalesOrder = (id: number, data: {
+  creditDays?: number
+  items?: SalesOrderItemPayload[]
+  remark?: string
+}) => api.put<any, { code: number; data: SalesOrder }>(`/sales-orders/${id}`, data)
+
+export const confirmSalesOrder = (id: number) =>
+  api.post<any, { code: number; data: SalesOrder }>(`/sales-orders/${id}/confirm`)
+
+export const shipSalesOrder = (id: number, outboundOrderNo?: string) =>
+  api.post<any, { code: number; data: SalesOrder }>(
+    `/sales-orders/${id}/ship`,
+    outboundOrderNo ? { outboundOrderNo } : undefined,
+  )
+
+export const completeSalesOrder = (id: number) =>
+  api.post<any, { code: number; data: SalesOrder }>(`/sales-orders/${id}/complete`)
+
+export const cancelSalesOrder = (id: number) =>
+  api.post<any, { code: number; data: SalesOrder }>(`/sales-orders/${id}/cancel`)
+
+
+// ============ 业财一体：财务（应收台账 / 核销 / 账龄） ============
+
+export interface FinanceEntry {
+  id: number
+  entryNo: string
+  entryType: string // RECEIVABLE / PAYABLE / RECEIPT / PAYMENT
+  partnerType: string
+  partnerId: number | null
+  partnerName: string
+  sourceOrderNo: string | null
+  amount: number
+  settledAmount: number
+  outstanding: number
+  occurredDate: string
+  dueDate: string | null
+  status: string // OPEN / PARTIAL / SETTLED
+  overdue: boolean
+  remark: string | null
+  createdAt: string
+}
+
+export interface AgingRow {
+  partnerName: string
+  receivableTotal: number
+  settledTotal: number
+  balance: number
+  notDue: number
+  days1to30: number
+  days31to60: number
+  days60plus: number
+}
+
+export const getReceivables = (params: {
+  partnerName?: string
+  status?: string
+  onlyOutstanding?: boolean
+  onlyOverdue?: boolean
+  page?: number
+  pageSize?: number
+}) => api.get<any, { code: number; data: PageData<FinanceEntry> }>('/finance/receivables', { params })
+
+export const getAging = () =>
+  api.get<any, { code: number; data: AgingRow[] }>('/finance/aging')
+
+export const registerReceipt = (data: {
+  partnerName: string
+  partnerType?: string
+  partnerId?: number
+  amount: number
+  occurredDate?: string
+  remark?: string
+  allocations?: Array<{ targetEntryId: number; amount: number }>
+}) => api.post<any, { code: number; data: FinanceEntry }>('/finance/receipts', data)
+
+export const allocateReceipt = (id: number, allocations: Array<{ targetEntryId: number; amount: number }>) =>
+  api.post<any, { code: number; data: FinanceEntry }>(`/finance/receipts/${id}/allocate`, { allocations })
+
+
+// ============ 业财一体：经营驾驶舱 ============
+
+export interface ExecutiveSummary {
+  receivableTotal: number
+  receivedTotal: number
+  outstandingTotal: number
+  overdueTotal: number
+  orderCount: number
+  orderAmount: number
+}
+
+export interface ReceivableTopRow {
+  partnerName: string
+  balance: number
+  overdue: number
+}
+
+export interface AgingDistribution {
+  notDue: number
+  days1to30: number
+  days31to60: number
+  days60plus: number
+}
+
+export interface TrendPoint {
+  date: string
+  orderAmount: number
+  receiptAmount: number
+}
+
+export const getExecutiveSummary = () =>
+  api.get<any, { code: number; data: ExecutiveSummary }>('/executive/summary')
+
+export const getReceivableTop = (limit = 5) =>
+  api.get<any, { code: number; data: ReceivableTopRow[] }>('/executive/receivable-top', { params: { limit } })
+
+export const getAgingDistribution = () =>
+  api.get<any, { code: number; data: AgingDistribution }>('/executive/aging-distribution')
+
+export const getExecutiveTrends = (days = 30) =>
+  api.get<any, { code: number; data: TrendPoint[] }>('/executive/trends', { params: { days } })

@@ -38,7 +38,7 @@ const handleLogout = async () => {
 <template>
   <el-container v-if="!isLoginPage" class="app-layout">
     <el-aside width="220px" class="app-aside">
-      <div class="logo">WMS 仓储管理系统</div>
+      <div class="logo">进销存 · 业财一体中后台</div>
       <el-menu
         :default-active="activeMenu"
         router
@@ -47,57 +47,89 @@ const handleLogout = async () => {
         active-text-color="#fff"
         style="border-right: none"
       >
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon><span>数据看板</span>
-        </el-menu-item>
-        <el-menu-item index="/inventory">
-          <el-icon><DataBoard /></el-icon><span>库存查询</span>
-        </el-menu-item>
-        <el-menu-item index="/flows">
-          <el-icon><List /></el-icon><span>库存流水</span>
-        </el-menu-item>
-        <el-menu-item index="/batches">
-          <el-icon><Box /></el-icon><span>批次管理</span>
-        </el-menu-item>
-        <el-menu-item index="/inbound">
-          <el-icon><Download /></el-icon><span>入库管理</span>
-        </el-menu-item>
-        <el-menu-item index="/outbound">
-          <el-icon><Upload /></el-icon><span>出库管理</span>
-        </el-menu-item>
-        <el-menu-item index="/waves">
-          <el-icon><Files /></el-icon><span>波次拣货</span>
-        </el-menu-item>
-        <el-menu-item index="/returns">
-          <el-icon><RefreshLeft /></el-icon><span>退货管理</span>
-        </el-menu-item>
-        <el-menu-item index="/transfers">
-          <el-icon><Switch /></el-icon><span>库内移库</span>
-        </el-menu-item>
-        <el-menu-item index="/adjustments">
-          <el-icon><EditPen /></el-icon><span>库存调整</span>
-        </el-menu-item>
-        <el-menu-item index="/counts">
-          <el-icon><Checked /></el-icon><span>盘点管理</span>
-        </el-menu-item>
-        <el-menu-item index="/products">
-          <el-icon><Goods /></el-icon><span>商品管理</span>
-        </el-menu-item>
-        <el-menu-item index="/customers">
-          <el-icon><User /></el-icon><span>客户管理</span>
-        </el-menu-item>
-        <el-menu-item index="/warehouses">
-          <el-icon><OfficeBuilding /></el-icon><span>仓库库位</span>
-        </el-menu-item>
-        <el-menu-item v-if="userStore.isAdmin" index="/users">
-          <el-icon><Setting /></el-icon><span>用户管理</span>
-        </el-menu-item>
+        <!-- 经营驾驶舱 -->
+        <el-menu-item-group title="经营驾驶舱">
+          <el-menu-item index="/executive">
+            <el-icon><TrendCharts /></el-icon><span>经营驾驶舱</span>
+          </el-menu-item>
+          <el-menu-item index="/dashboard">
+            <el-icon><Odometer /></el-icon><span>仓储看板</span>
+          </el-menu-item>
+        </el-menu-item-group>
+
+        <!-- 销售 -->
+        <el-menu-item-group title="销售">
+          <el-menu-item index="/sales-orders">
+            <el-icon><ShoppingCart /></el-icon><span>销售订单</span>
+          </el-menu-item>
+          <el-menu-item index="/customers">
+            <el-icon><User /></el-icon><span>客户管理</span>
+          </el-menu-item>
+          <el-menu-item index="/returns">
+            <el-icon><RefreshLeft /></el-icon><span>退货管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+
+        <!-- 库存 -->
+        <el-menu-item-group title="库存">
+          <el-menu-item index="/inventory">
+            <el-icon><DataBoard /></el-icon><span>库存查询</span>
+          </el-menu-item>
+          <el-menu-item index="/flows">
+            <el-icon><List /></el-icon><span>库存流水</span>
+          </el-menu-item>
+          <el-menu-item index="/batches">
+            <el-icon><Box /></el-icon><span>批次管理</span>
+          </el-menu-item>
+          <el-menu-item index="/inbound">
+            <el-icon><Download /></el-icon><span>入库管理</span>
+          </el-menu-item>
+          <el-menu-item index="/outbound">
+            <el-icon><Upload /></el-icon><span>出库管理</span>
+          </el-menu-item>
+          <el-menu-item index="/waves">
+            <el-icon><Files /></el-icon><span>波次拣货</span>
+          </el-menu-item>
+          <el-menu-item index="/transfers">
+            <el-icon><Switch /></el-icon><span>库内移库</span>
+          </el-menu-item>
+          <el-menu-item index="/adjustments">
+            <el-icon><EditPen /></el-icon><span>库存调整</span>
+          </el-menu-item>
+          <el-menu-item index="/counts">
+            <el-icon><Checked /></el-icon><span>盘点管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+
+        <!-- 财务 -->
+        <el-menu-item-group title="财务">
+          <el-menu-item index="/finance">
+            <el-icon><Money /></el-icon><span>应收台账</span>
+          </el-menu-item>
+        </el-menu-item-group>
+
+        <!-- 基础数据 -->
+        <el-menu-item-group title="基础数据">
+          <el-menu-item index="/products">
+            <el-icon><Goods /></el-icon><span>商品管理</span>
+          </el-menu-item>
+          <el-menu-item index="/warehouses">
+            <el-icon><OfficeBuilding /></el-icon><span>仓库库位</span>
+          </el-menu-item>
+        </el-menu-item-group>
+
+        <!-- 系统管理 -->
+        <el-menu-item-group title="系统管理">
+          <el-menu-item v-if="userStore.isAdmin" index="/users">
+            <el-icon><Setting /></el-icon><span>用户管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
       </el-menu>
     </el-aside>
 
     <el-container class="app-main-container">
       <el-header class="app-header">
-        <span class="page-title">{{ route.meta?.title || 'WMS' }}</span>
+        <span class="page-title">{{ route.meta?.title || '业财一体中后台' }}</span>
         <div class="header-right">
           <template v-if="userStore.isLoggedIn">
             <el-button v-if="userStore.isAdmin" size="small" :icon="ChatDotRound" round @click="handleFeedback">消息反馈</el-button>
@@ -153,11 +185,18 @@ body {
   height: 56px;
   line-height: 56px;
   text-align: center;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+}
+
+/* 深色侧边栏下的分组标题 */
+.app-aside .el-menu-item-group__title {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  padding-left: 20px !important;
 }
 
 /* 右侧主容器：flex 列布局，高度撑满 */

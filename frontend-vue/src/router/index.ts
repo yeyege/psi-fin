@@ -5,7 +5,10 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/dashboard' },
     { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue') },
-    { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/DashboardView.vue') },
+    { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '仓储看板' } },
+    { path: '/executive', name: 'Executive', component: () => import('@/views/ExecutiveView.vue'), meta: { title: '经营驾驶舱' } },
+    { path: '/sales-orders', name: 'SalesOrders', component: () => import('@/views/SalesOrdersView.vue'), meta: { title: '销售订单' } },
+    { path: '/finance', name: 'Finance', component: () => import('@/views/FinanceView.vue'), meta: { title: '财务应收' } },
     { path: '/products', name: 'Products', component: () => import('@/views/ProductsView.vue') },
     { path: '/customers', name: 'Customers', component: () => import('@/views/CustomersView.vue') },
     { path: '/warehouses', name: 'Warehouses', component: () => import('@/views/WarehousesView.vue') },

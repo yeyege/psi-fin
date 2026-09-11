@@ -6,6 +6,7 @@ dist/
 .venv/
 wms.db
 preview
+
 # ====== Java / Maven ======
 target/
 *.class
@@ -16,6 +17,8 @@ target/
 # ====== Node / Frontend ======
 node_modules/
 dist/
+# Pages 站点内的 SPA 构建产物（由 CI 生成，不入库）
+site/app/
 
 # ====== IDE ======
 .idea/
@@ -33,6 +36,9 @@ Thumbs.db
 .env
 .env.local
 *.log
+
+# ===== 本地求职/面试材料(不入库) =====
+docs/interview/
 
 # ===== Playwright E2E =====
 test-results/

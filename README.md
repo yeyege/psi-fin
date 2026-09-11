@@ -1,15 +1,41 @@
-# WMS 仓储管理系统
+# 进销存 + 业财一体中后台
 
-一个对标领星 WMS 的简化版仓库管理系统，覆盖入库 / 出库 / 库存 / 波次拣货 / 退货 / 移库调拨 / 数据看板 / 用户权限等核心场景。后端 Python + FastAPI，前端 Vue 3 + Element Plus，支持 Docker 一键启动。
+一个「进销存 + 业财一体」中后台系统：库存底座对标领星 WMS（入库 / 出库 / 波次拣货 / 退货 / 移库调拨 / 盘点 / 批次），业务层新增**销售订单**与**财务应收**，打通 **销售订单 → 发货自动生成应收 → 收款核销（含部分核销/预收）→ 应收余额与账龄 → 经营驾驶舱** 的收入侧业财闭环。后端 Python + FastAPI，前端 Vue 3 + Element Plus + ECharts，支持 Docker 一键启动。
 
-- 后端测试：**80 用例**（pytest，全部通过）
-- 前端测试：**14 用例**（vitest，全部通过）
+- 后端测试：**112 用例**（pytest，全部通过）
+- 前端测试：**22 用例**（vitest，全部通过）
 - E2E：Playwright 覆盖入库核心正向流程
 - CI：GitHub Actions（pytest + 前端 build/vitest + docker build 校验）
 
 ---
 
+## 在线演示与部署（GitHub Pages）
+
+线上站点：<https://yeyege.github.io/wms/>
+
+| 路径 | 内容 |
+|---|---|
+| `/` | 落地页（`site/index.html`） |
+| `/app/` | 前端 SPA（**纯前端 Mock 模式**，无需后端） |
+| `/business-console-plan.html` | 业财一体中后台方案演示 |
+| `/apple-store-wms.html` | BI 数据看板演示 |
+
+- **构建**：`cd frontend-vue && npm run build:pages`（读取 `.env.pages`：`VITE_USE_MOCK=true`、`VITE_BASE=/wms/app/`）
+- **发布**：推送 `master` 后由 `.github/workflows/deploy-pages.yml` 自动「构建 SPA → 拷贝到 `site/app/` → 发布 `site/`」
+- **本地校验发布效果**：先 `npm run build:pages`，再 `npx vite preview --base=/wms/app/`，打开 `/wms/app/` 即可（与线上子路径一致）
+- **Mock 模式**：`src/api/mock/` 在浏览器内实现接口并复刻业务规则（发货才生成应收、部分核销与预收、账龄按到期日），未覆盖接口返回空数据兜底
+- **切真后端（后续）**：构建时注入 `VITE_API_BASE=https://<后端地址>/api` 并关闭 `VITE_USE_MOCK` 即可，页面代码无需改动
+
+---
+
 ## 核心特性
+
+### 业财一体（收入侧闭环）
+- **销售订单**：草稿 → 已确认 → 已发货 → 已完成 / 已作废，金额 = Σ(数量 × 单价)，确认后明细锁定
+- **发货自动生成应收**：到期日 = 发货日 + 账期；幂等由 DB 唯一约束 `(source_order_no, entry_type)` 兜底，重复发货不产生第二条
+- **收款核销**：支持部分核销与多笔核销；单张应收禁止超额核销，但收款允许保留**未核销余额（预收）**用于后续核销
+- **账龄与预警**：以**到期日**为基准实时分段（未到期 / 逾期 1-30 / 31-60 / 60+ 天）
+- **经营驾驶舱**：应收总额、已回款、未回款、逾期、欠款 TOP、账龄分布、订单与回款趋势（ECharts），口径与财务页同源
 
 ### 仓储模型
 - **仓库 → 库区 → 库位** 三层结构，库位带优先级（上架推荐排序）
