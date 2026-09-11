@@ -65,27 +65,27 @@ const submit = async () => {
       <section class="brand-panel">
         <div class="brand-inner">
           <div class="brand-logo">
-            <img src="/favicon.png" alt="WMS" />
+            <img src="/favicon.png" alt="进销存 · 业财一体中后台" />
           </div>
-          <h1 class="brand-name">WMS · </h1>
-          <p class="brand-slogan">仓库全链路数字化管理平台</p>
+          <h1 class="brand-name">进销存 · 业财一体</h1>
+          <p class="brand-slogan">库存底座 + 业务财务一体化的中后台</p>
 
           <ul class="brand-features">
             <li>
               <el-icon><DataAnalysis /></el-icon>
-              <span>入库 / 出库 / 库内作业全流程闭环</span>
+              <span>销售订单发货即生成应收,业务单据不重复记账</span>
             </li>
             <li>
               <el-icon><Cpu /></el-icon>
-              <span>实时库存与波次策略智能协同</span>
+              <span>入库 / 出库 / 批次效期全流程库存闭环</span>
             </li>
             <li>
               <el-icon><Lock /></el-icon>
-              <span>角色权限与数据安全多重保障</span>
+              <span>收款核销 · 往来账龄 · 经营驾驶舱实时看数</span>
             </li>
           </ul>
 
-          <p class="brand-copyright">© 2026 WMS · 领星 All rights reserved</p>
+          <p class="brand-copyright">© 2026 进销存 · 业财一体中后台</p>
         </div>
       </section>
 
@@ -93,7 +93,7 @@ const submit = async () => {
       <section class="form-panel">
         <div class="form-card">
           <h2 class="form-title">欢迎回来</h2>
-          <p class="form-subtitle">登录您的账号，继续管理仓库</p>
+          <p class="form-subtitle">登录您的账号,进入业财一体中后台</p>
 
           <el-form
             ref="formRef"
