@@ -13,13 +13,13 @@ target/
 *.jar
 *.war
 !.mvn/wrapper/maven-wrapper.jar
-
+docs
 # ====== Node / Frontend ======
 node_modules/
 dist/
 # Pages 站点内的 SPA 构建产物（由 CI 生成，不入库）
 site/app/
-
+.claude
 # ====== IDE ======
 .idea/
 *.iml
@@ -38,11 +38,9 @@ Thumbs.db
 *.log
 
 # ===== 本地求职/面试材料(不入库) =====
-docs
 docs/interview/
 
 # ===== 本地规划工具产物(不入库,仅本地保留) =====
-.claude
 openspec/
 
 # ===== Playwright E2E =====

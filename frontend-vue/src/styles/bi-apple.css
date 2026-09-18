@@ -1,0 +1,248 @@
+/* =====================================================================
+   BI 工作台局部 Apple 主题
+   —— 全部规则以 .bi-scope 前缀限定，禁止裸元素选择器，避免污染 Element 主站
+   —— 设计变量取自原型 apple-store-wms.html
+   ===================================================================== */
+.bi-scope {
+  --bi-bg: #f5f5f7;
+  --bi-card: #ffffff;
+  --bi-text: #1d1d1f;
+  --bi-text-2: #86868b;
+  --bi-text-3: #d2d2d7;
+  --bi-blue: #0071e3;
+  --bi-blue-light: #2997ff;
+  --bi-green: #34c759;
+  --bi-orange: #ff9500;
+  --bi-red: #ff3b30;
+  --bi-purple: #af52de;
+  --bi-cyan: #3a9ec0;
+  --bi-radius-lg: 20px;
+  --bi-radius-md: 14px;
+  --bi-radius-sm: 10px;
+  --bi-blur: saturate(180%) blur(20px);
+  --bi-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --bi-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.12);
+
+  min-height: 100%;
+  background: var(--bi-bg);
+  color: var(--bi-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 18px 22px 28px;
+  box-sizing: border-box;
+}
+.bi-scope *,
+.bi-scope *::before,
+.bi-scope *::after { box-sizing: border-box; }
+
+/* ---- 顶栏：标题 + 筛选器 + 导出 ---- */
+.bi-scope .bi-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: var(--bi-blur);
+  -webkit-backdrop-filter: var(--bi-blur);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--bi-radius-lg);
+  box-shadow: var(--bi-shadow);
+  margin-bottom: 16px;
+}
+.bi-scope .bi-title { font-size: 20px; font-weight: 700; letter-spacing: -0.2px; }
+.bi-scope .bi-title small { font-size: 12px; font-weight: 500; color: var(--bi-text-2); margin-left: 8px; }
+.bi-scope .bi-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bi-scope .bi-seg {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+  padding: 3px;
+}
+.bi-scope .bi-seg button {
+  border: none;
+  background: transparent;
+  color: var(--bi-text-2);
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.bi-scope .bi-seg button.active { background: #fff; color: var(--bi-text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); font-weight: 600; }
+.bi-scope .bi-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.bi-scope .bi-chip {
+  font-size: 12px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--bi-text-3);
+  background: #fff;
+  color: var(--bi-text-2);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.bi-scope .bi-chip.active { background: var(--bi-blue); border-color: var(--bi-blue); color: #fff; }
+.bi-scope .bi-export {
+  border: none;
+  background: var(--bi-blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
+  transition: transform 0.15s;
+}
+.bi-scope .bi-export:hover { transform: translateY(-1px); }
+.bi-scope .bi-date { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bi-text-2); }
+.bi-scope .bi-date input { border: 1px solid var(--bi-text-3); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+.bi-scope .bi-date .bi-date-err { color: var(--bi-red); }
+
+/* ---- 分段 Dock（面板切换） ---- */
+.bi-scope .bi-dock {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: var(--bi-blur);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 999px;
+  box-shadow: var(--bi-shadow);
+  margin-bottom: 18px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.bi-scope .bi-dock button {
+  border: none;
+  background: transparent;
+  color: var(--bi-text-2);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.bi-scope .bi-dock button.active { background: linear-gradient(135deg, var(--bi-blue), var(--bi-blue-light)); color: #fff; box-shadow: 0 2px 10px rgba(0, 113, 227, 0.35); }
+
+/* ---- 面板淡入 ---- */
+.bi-scope .bi-panel { animation: biFade 0.35s ease; }
+@keyframes biFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- 卡片网格 ---- */
+.bi-scope .bi-grid { display: grid; gap: 16px; }
+.bi-scope .bi-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.bi-scope .bi-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.bi-scope .bi-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) {
+  .bi-scope .bi-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+  .bi-scope .bi-grid.cols-3 { grid-template-columns: 1fr; }
+  .bi-scope .bi-grid.cols-2 { grid-template-columns: 1fr; }
+}
+.bi-scope .bi-card {
+  background: var(--bi-card);
+  border-radius: var(--bi-radius-md);
+  padding: 18px;
+  box-shadow: var(--bi-shadow);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.25s, transform 0.25s;
+}
+.bi-scope .bi-card:hover { box-shadow: var(--bi-shadow-hover); }
+.bi-scope .bi-card h3 { font-size: 15px; font-weight: 600; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
+.bi-scope .bi-card h3 .bi-sub { font-size: 12px; font-weight: 500; color: var(--bi-text-2); }
+.bi-scope .bi-section-gap { margin-top: 16px; }
+
+/* ---- KPI 卡 ---- */
+.bi-scope .bi-kpi { position: relative; }
+.bi-scope .bi-kpi .label { font-size: 13px; color: var(--bi-text-2); margin-bottom: 8px; }
+.bi-scope .bi-kpi .value { font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -0.5px; }
+.bi-scope .bi-kpi .unit { font-size: 13px; font-weight: 500; color: var(--bi-text-2); margin-left: 4px; }
+.bi-scope .bi-kpi .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-top: 8px; }
+.bi-scope .bi-kpi .badge.up { color: var(--bi-green); background: rgba(52, 199, 89, 0.12); }
+.bi-scope .bi-kpi .badge.down { color: var(--bi-red); background: rgba(255, 59, 48, 0.12); }
+.bi-scope .bi-kpi .sub { font-size: 12px; color: var(--bi-text-2); margin-top: 8px; }
+.bi-scope .bi-progress { height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.06); margin-top: 10px; overflow: hidden; }
+.bi-scope .bi-progress > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--bi-cyan), var(--bi-blue-light)); }
+.bi-scope .bi-kpi-rows { margin-top: 6px; display: flex; flex-direction: column; gap: 8px; }
+.bi-scope .bi-kpi-row { font-size: 12px; color: var(--bi-text-2); }
+.bi-scope .bi-kpi-row .bar { height: 5px; border-radius: 3px; background: rgba(0, 0, 0, 0.06); margin-top: 4px; overflow: hidden; }
+.bi-scope .bi-kpi-row .bar > i { display: block; height: 100%; }
+
+/* ---- 彩色统计卡 ---- */
+.bi-scope .bi-stat { color: #fff; border: none; position: relative; overflow: hidden; border-radius: var(--bi-radius-md); padding: 16px 18px; cursor: pointer; }
+.bi-scope .bi-stat.clickable:hover { transform: translateY(-3px); }
+.bi-scope .bi-stat .label { font-size: 13px; opacity: 0.9; }
+.bi-scope .bi-stat .value { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.bi-scope .bi-stat::after { content: ''; position: absolute; right: -18px; bottom: -18px; width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); }
+
+/* ---- 预警列表 ---- */
+.bi-scope .bi-alert { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: var(--bi-radius-sm); cursor: pointer; transition: background 0.18s; }
+.bi-scope .bi-alert:hover { background: rgba(0, 0, 0, 0.03); }
+.bi-scope .bi-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.bi-scope .bi-tag.danger { color: var(--bi-red); background: rgba(255, 59, 48, 0.12); }
+.bi-scope .bi-tag.warning { color: var(--bi-orange); background: rgba(255, 149, 0, 0.14); }
+.bi-scope .bi-alert .a-title { font-size: 13px; font-weight: 600; }
+.bi-scope .bi-alert .a-meta { font-size: 12px; color: var(--bi-text-2); }
+.bi-scope .bi-alert .a-right { margin-left: auto; text-align: right; font-size: 12px; color: var(--bi-text-2); }
+
+/* ---- 待办网格 ---- */
+.bi-scope .bi-todo { border-radius: var(--bi-radius-sm); padding: 12px 14px; background: rgba(0, 0, 0, 0.02); border: 1px solid rgba(0, 0, 0, 0.04); }
+.bi-scope .bi-todo .t-head { display: flex; align-items: center; gap: 8px; }
+.bi-scope .bi-todo .t-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; color: #fff; }
+.bi-scope .bi-todo .t-time { margin-left: auto; font-size: 11px; color: var(--bi-text-2); }
+.bi-scope .bi-todo .t-title { font-size: 13px; font-weight: 600; margin-top: 8px; }
+.bi-scope .bi-todo .t-desc { font-size: 12px; color: var(--bi-text-2); margin-top: 3px; }
+
+/* ---- 排行榜（TOP10 行） ---- */
+.bi-scope .bi-rank { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; }
+.bi-scope .bi-rank .idx { width: 22px; height: 22px; border-radius: 6px; background: rgba(0, 0, 0, 0.05); color: var(--bi-text-2); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.bi-scope .bi-rank .idx.top { background: var(--bi-blue); color: #fff; }
+.bi-scope .bi-rank .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bi-scope .bi-rank .val { font-weight: 600; }
+.bi-scope .bi-meter { width: 70px; height: 5px; border-radius: 3px; background: rgba(0, 0, 0, 0.06); overflow: hidden; flex-shrink: 0; }
+.bi-scope .bi-meter > i { display: block; height: 100%; }
+
+/* ---- 任务进度表 ---- */
+.bi-scope .bi-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.bi-scope .bi-tabs button { border: 1px solid var(--bi-text-3); background: #fff; color: var(--bi-text-2); font-size: 12px; padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+.bi-scope .bi-tabs button.active { background: var(--bi-blue); border-color: var(--bi-blue); color: #fff; }
+.bi-scope table.bi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bi-scope .bi-table th { text-align: left; color: var(--bi-text-2); font-weight: 500; font-size: 12px; padding: 8px 10px; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+.bi-scope .bi-table td { padding: 9px 10px; border-bottom: 1px solid rgba(0, 0, 0, 0.04); }
+.bi-scope .status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+.bi-scope .status-doing { color: var(--bi-blue); background: rgba(0, 113, 227, 0.1); }
+.bi-scope .status-done { color: var(--bi-green); background: rgba(52, 199, 89, 0.12); }
+.bi-scope .status-timeout { color: var(--bi-red); background: rgba(255, 59, 48, 0.12); }
+.bi-scope .status-wait { color: var(--bi-text-2); background: rgba(0, 0, 0, 0.05); }
+
+/* ---- 净增减仪表盘 ---- */
+.bi-scope .bi-gauge { display: flex; align-items: center; justify-content: space-around; text-align: center; padding: 8px 0; }
+.bi-scope .bi-gauge .g-label { font-size: 12px; color: var(--bi-text-2); }
+.bi-scope .bi-gauge .g-val { font-size: 22px; font-weight: 700; margin-top: 4px; }
+.bi-scope .bi-gauge .g-net .g-val { font-size: 30px; }
+.bi-scope .g-pos { color: var(--bi-green); }
+.bi-scope .g-neg { color: var(--bi-red); }
+
+/* ---- 警示条 ---- */
+.bi-scope .bi-warn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--bi-red); background: rgba(255, 59, 48, 0.08); border: 1px solid rgba(255, 59, 48, 0.2); border-radius: var(--bi-radius-sm); padding: 10px 14px; margin-bottom: 14px; }
+
+/* ---- 迷你趋势 / 空态 ---- */
+.bi-scope .bi-spark { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+.bi-scope .bi-spark > i { flex: 1; background: linear-gradient(180deg, var(--bi-blue-light), var(--bi-blue)); border-radius: 2px 2px 0 0; min-height: 2px; }
+.bi-scope .bi-loading { position: relative; }
+.bi-scope .bi-loading::after { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.5); border-radius: var(--bi-radius-md); }
+.bi-scope .bi-mock-flag { font-size: 11px; color: var(--bi-text-2); background: rgba(0, 0, 0, 0.04); padding: 2px 8px; border-radius: 6px; }
+
+/* ---- 通用 Modal（Teleport 到 body，仍在 .bi-scope 根类下） ---- */
+.bi-scope.bi-modal-root { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.bi-scope .bi-modal-mask { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); animation: biFade 0.2s ease; }
+.bi-scope .bi-modal-box { position: relative; width: min(560px, 92vw); max-height: 82vh; overflow: auto; background: #fff; border-radius: var(--bi-radius-lg); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28); padding: 22px; animation: biSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes biSlideUp { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+.bi-scope .bi-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.bi-scope .bi-modal-head h4 { margin: 0; font-size: 17px; font-weight: 700; }
+.bi-scope .bi-modal-close { border: none; background: rgba(0, 0, 0, 0.05); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 16px; color: var(--bi-text-2); }
+.bi-scope .bi-modal-close:hover { background: rgba(0, 0, 0, 0.1); }

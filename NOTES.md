@@ -312,3 +312,23 @@
 - TestClient 端到端实测：products 返回 `fnsKu/caseQty/createdAt`（无 snake_case），customers 返回 `createdAt/tier`；不存在的商品返回 404 JSON `{detail, message, data: null}`
 - 全量 router grep 确认无 `try/except` / `HTTPException` 残留
 
+---
+
+## 十四、BI 工作台（Apple 风格演示层，纯前端 Mock）
+
+把单文件原型 `apple-store-wms.html` 的 Apple 视觉与交互，以**局部主题 + 可复现造数**的方式落地进 Vue 系统，新增全幅 `/bi` 工作台（旧 `/executive` 重定向并入为「经营财务」面板）。规格见 `openspec/changes/bi-workbench-vue-integration/`。
+
+**架构要点：**
+- **数据层** `src/api/mock/bi.ts`：移植原型 `mulberry32` + `hashString`（FNV-1a）seeded PRNG，seed 由「视图 + 时间预设 + 起止日期 + 排序后仓库集合」派生 → 同筛选必然复现。`generateBiData(view, state)` 重载分派四生成器，返回结构 TS 接口齐备。纯函数**直接 import 调用，不走 axios mock adapter**。
+- **视觉隔离** `src/styles/bi-apple.css`：全部规则以 `.bi-scope` 前缀收敛，禁止裸元素选择器，主站 Element Plus 零污染。
+- **通用件**：`useBiState`（模块级单例，持时间/仓库/activePanel，`dataState()` 剥离 activePanel 保证切面板不改 seed）；`BiChart.vue`（ECharts init/setOption/ResizeObserver/dispose 一处收敛，`chart-click` 透传下钻）；`BiModal.vue`（Teleport + ESC/遮罩关闭）；`biChartTheme.ts`（Apple 配色 + `exportPanelCharts` 逐图 PNG 导出，不引 html2canvas）。
+- **面板**：数据总览 / 库存分析（含 ABC 帕累托）/ 出入库分析 / 作业效率（worker 柱点击下钻 + boxplot）**四仓 Mock**；经营财务走真实 `/api/executive/*`，接口不可用时仅本面板降级、不影响其余。
+
+**验证**：`vue-tsc --noEmit` 0 错；`vitest run` **31 passed**（含 bi.test.ts 可复现性 + 结构契约 9 用例）；`npm run build` 与 `build:pages`（Mock 模式）均成功，`BiWorkbenchView` 独立 chunk ~38.8 kB 懒加载。
+
+**三项后续登记（本次不做）：**
+1. **仓储看板 `/dashboard` 收敛**：现有 1555 行 DashboardView 与 BI 总览面板职责重叠，后续二选一收敛，避免双看板。
+2. **真实 `/api/bi/*` 接入**：待有真实数据后，把 Mock 生成器替换为后端聚合接口（复用现有 service 层），筛选联动改走 query 参数。
+3. **p0-2 字段复用**：`p0-2-strict-fifo-expiry`（FEFO 批次效期扣减）落地后，库存分析面板的「批次状态 / 库龄 / 临期过期」可直接复用其 `batch` 效期字段，替换 Mock。
+
+

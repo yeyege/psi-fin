@@ -49,8 +49,8 @@ const handleLogout = async () => {
       >
         <!-- 经营驾驶舱 -->
         <el-menu-item-group title="经营驾驶舱">
-          <el-menu-item index="/executive">
-            <el-icon><TrendCharts /></el-icon><span>经营驾驶舱</span>
+          <el-menu-item index="/bi">
+            <el-icon><TrendCharts /></el-icon><span>BI 工作台</span>
           </el-menu-item>
           <el-menu-item index="/dashboard">
             <el-icon><Odometer /></el-icon><span>仓储看板</span>

@@ -6,7 +6,9 @@ const router = createRouter({
     { path: '/', redirect: '/dashboard' },
     { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue') },
     { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '仓储看板' } },
-    { path: '/executive', name: 'Executive', component: () => import('@/views/ExecutiveView.vue'), meta: { title: '经营驾驶舱' } },
+    { path: '/bi', name: 'BiWorkbench', component: () => import('@/views/bi/BiWorkbenchView.vue'), meta: { title: 'BI 工作台' } },
+    // 旧版经营驾驶舱已并入 BI 工作台的「经营财务」面板
+    { path: '/executive', redirect: '/bi' },
     { path: '/sales-orders', name: 'SalesOrders', component: () => import('@/views/SalesOrdersView.vue'), meta: { title: '销售订单' } },
     { path: '/finance', name: 'Finance', component: () => import('@/views/FinanceView.vue'), meta: { title: '财务应收' } },
     { path: '/products', name: 'Products', component: () => import('@/views/ProductsView.vue') },
