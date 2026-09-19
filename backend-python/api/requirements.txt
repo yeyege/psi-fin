@@ -1,0 +1,12 @@
+# Vercel Python 函数依赖：必须放在函数同目录（api/）下才会被安装。
+# 与 backend-python/requirements.txt 保持一致（app.main 运行所需全部依赖 + mangum）。
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+sqlalchemy>=2.0.30
+pydantic>=2.7.0
+aiosqlite>=0.20.0
+pymysql>=1.1.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
+python-dotenv>=1.0.0
+mangum>=0.17.0
