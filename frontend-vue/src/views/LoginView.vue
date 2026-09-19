@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
 const REMEMBER_KEY = 'wms_remember_username'
+const APP_VERSION = 'v1.4.0'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -13,13 +14,24 @@ const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const remember = ref(true)
+type LoginTab = 'password' | 'sms' | 'sso'
+const activeTab = ref<LoginTab>('password')
+const isMockEnv = import.meta.env.VITE_USE_MOCK === 'true'
 
 const form = reactive({ username: '', password: '' })
 
 const rules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  username: [
+    { required: true, message: '请输入企业账号', trigger: 'blur' },
+    { min: 2, max: 32, message: '账号长度应为 2–32 位', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入登录密码', trigger: 'blur' },
+    { min: 6, max: 64, message: '密码长度应为 6–64 位', trigger: 'blur' },
+  ],
 }
+
+const year = computed(() => new Date().getFullYear())
 
 // 记住我：勾选时缓存用户名，下次登录自动填充
 onMounted(() => {
@@ -42,58 +54,205 @@ const submit = async () => {
     } else {
       localStorage.removeItem(REMEMBER_KEY)
     }
-    ElMessage.success('登录成功，欢迎回来！')
+    ElMessage.success('登录成功，欢迎回来')
     router.push('/')
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '用户名或密码错误')
+    ElMessage.error(e.response?.data?.detail || '账号或密码错误，请重试或联系管理员')
   } finally {
     loading.value = false
   }
 }
+
+const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，请联系企业管理员`)
 </script>
 
 <template>
-  <div class="login-wrap">
-    <!-- 背景装饰：光晕与网格 -->
-    <div class="bg-orb bg-orb-1"></div>
-    <div class="bg-orb bg-orb-2"></div>
-    <div class="bg-orb bg-orb-3"></div>
-    <div class="bg-grid"></div>
+  <div class="login-page">
+    <!-- ========== 顶部导航条 ========== -->
+    <header class="page-header">
+      <div class="brand-lockup">
+        <!-- 品牌图标：立方体(库存) + 对角线(资金流向) 定制 SVG -->
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28">
+            <defs>
+              <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#4C8FFF" />
+                <stop offset="100%" stop-color="#1E5EFF" />
+              </linearGradient>
+            </defs>
+            <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#brand-grad)" />
+            <!-- 立方体轮廓 -->
+            <path
+              d="M16 6.5 L24 11 L24 21 L16 25.5 L8 21 L8 11 Z"
+              fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" />
+            <path d="M8 11 L16 15.5 L24 11" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" />
+            <path d="M16 15.5 L16 25.5" fill="none" stroke="#fff" stroke-width="1.6" />
+            <!-- 财务对勾 -->
+            <path d="M12.2 18.2 L15 20.8 L20.4 15.4" fill="none" stroke="#BBF7D0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <div class="brand-text">
+          <span class="brand-title">进销存 · 业财一体中后台</span>
+          <span class="brand-sub">库存即账 · 业务即财</span>
+        </div>
+      </div>
 
-    <div class="login-shell">
-      <!-- 左侧：品牌展示区 -->
-      <section class="brand-panel">
-        <div class="brand-inner">
-          <div class="brand-logo">
-            <img src="/favicon.png" alt="进销存 · 业财一体中后台" />
-          </div>
-          <h1 class="brand-name">进销存 · 业财一体</h1>
-          <p class="brand-slogan">库存底座 + 业务财务一体化的中后台</p>
+      <nav class="header-nav">
+        <button class="nav-chip" type="button" @click="comingSoon('中文 / English 切换')">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="10" cy="10" r="7.5" />
+            <path d="M2.5 10h15M10 2.5c2.5 2.7 2.5 12.3 0 15M10 2.5c-2.5 2.7-2.5 12.3 0 15" />
+          </svg>
+          <span>简体中文</span>
+        </button>
+        <button class="nav-chip" type="button" @click="comingSoon('帮助中心')">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="10" cy="10" r="7.5" />
+            <path d="M8 7.5a2 2 0 1 1 2.6 1.9c-.6.25-1 .85-1 1.5v.35" stroke-linecap="round" />
+            <circle cx="10" cy="14" r="0.7" fill="currentColor" stroke="none" />
+          </svg>
+          <span>帮助</span>
+        </button>
+        <span class="nav-status" title="所有服务运行正常">
+          <span class="status-dot"></span>
+          <span>系统正常</span>
+        </span>
+      </nav>
+    </header>
 
-          <ul class="brand-features">
-            <li>
-              <el-icon><DataAnalysis /></el-icon>
-              <span>销售订单发货即生成应收,业务单据不重复记账</span>
+    <!-- ========== 主体分栏 ========== -->
+    <main class="page-main">
+      <!-- 左：品牌 & 价值主张 -->
+      <section class="hero-panel">
+        <div class="hero-bg-grid" aria-hidden="true"></div>
+        <div class="hero-bg-glow hero-glow-1" aria-hidden="true"></div>
+        <div class="hero-bg-glow hero-glow-2" aria-hidden="true"></div>
+
+        <div class="hero-content">
+          <p class="hero-eyebrow">
+            <span class="eyebrow-line"></span>
+            企业版 · 进销存 &nbsp;×&nbsp; 业财一体
+          </p>
+          <h1 class="hero-title">
+            让每一笔业务<br />
+            都自动沉淀为财务事实
+          </h1>
+          <p class="hero-desc">
+            以库存台账为底座，打通销售订单 → 出库发货 → 应收核销 → 经营分析的全链路，
+            为企业提供可审计、可追溯、可预测的业财中后台。
+          </p>
+
+          <ul class="feature-list">
+            <li class="feature-item">
+              <span class="feature-icon" aria-hidden="true">
+                <!-- 立方体：库存闭环 -->
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2z" />
+                  <path d="M4 7.2l8 4.2 8-4.2M12 11.4V21" />
+                </svg>
+              </span>
+              <div class="feature-body">
+                <div class="feature-title">库存全流程闭环</div>
+                <div class="feature-desc">入库 · 出库 · 批次效期 · 波次拣货 · 盘点调整，一物一账</div>
+              </div>
             </li>
-            <li>
-              <el-icon><Cpu /></el-icon>
-              <span>入库 / 出库 / 批次效期全流程库存闭环</span>
+            <li class="feature-item">
+              <span class="feature-icon" aria-hidden="true">
+                <!-- 折线图：业财联动 -->
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M3.5 18.5h17" />
+                  <path d="M4 15l5-5 4 4 7-8" />
+                  <path d="M20 6h-3.5M20 6v3.5" />
+                </svg>
+              </span>
+              <div class="feature-body">
+                <div class="feature-title">业务即财务</div>
+                <div class="feature-desc">销售发货即生成应收，收款核销自动回写，杜绝重复记账</div>
+              </div>
             </li>
-            <li>
-              <el-icon><Lock /></el-icon>
-              <span>收款核销 · 往来账龄 · 经营驾驶舱实时看数</span>
+            <li class="feature-item">
+              <span class="feature-icon" aria-hidden="true">
+                <!-- 盾牌 & 锁：企业级安全 -->
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M12 3l8 3v6c0 4.5-3.5 8.2-8 9-4.5-.8-8-4.5-8-9V6z" />
+                  <rect x="9" y="11" width="6" height="5" rx="1" />
+                  <path d="M10.5 11V9.5a1.5 1.5 0 0 1 3 0V11" />
+                </svg>
+              </span>
+              <div class="feature-body">
+                <div class="feature-title">企业级合规</div>
+                <div class="feature-desc">RBAC 权限、审计留痕、双人复核，满足内控与外审要求</div>
+              </div>
             </li>
           </ul>
 
-          <p class="brand-copyright">© 2026 进销存 · 业财一体中后台</p>
+          <!-- 数据背书条 -->
+          <div class="hero-stats">
+            <div class="stat">
+              <div class="stat-num">99.98<span class="stat-unit">%</span></div>
+              <div class="stat-label">服务可用性 SLA</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+              <div class="stat-num">1,200<span class="stat-unit">+</span></div>
+              <div class="stat-label">服务企业客户</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+              <div class="stat-num">3.6<span class="stat-unit">亿</span></div>
+              <div class="stat-label">年处理单据行</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-foot">
+          <span class="trust-badge">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+              <path d="M8 2l5.5 2v4.2c0 3.1-2.4 5.6-5.5 6.3-3.1-.7-5.5-3.2-5.5-6.3V4z" />
+              <path d="M5.5 8.2l1.8 1.8 3.2-3.6" stroke-linecap="round" />
+            </svg>
+            ISO 27001 认证
+          </span>
+          <span class="trust-badge">等保三级</span>
+          <span class="trust-badge">SOC 2 Type II</span>
         </div>
       </section>
 
-      <!-- 右侧：登录表单 -->
+      <!-- 右：登录表单 -->
       <section class="form-panel">
         <div class="form-card">
-          <h2 class="form-title">欢迎回来</h2>
-          <p class="form-subtitle">登录您的账号,进入业财一体中后台</p>
+          <div class="form-head">
+            <h2 class="form-title">登录业财一体中后台</h2>
+            <p class="form-subtitle">
+              请使用企业为您分配的账号登录
+              <span v-if="isMockEnv" class="demo-hint">演示账号：admin / admin123</span>
+            </p>
+          </div>
+
+          <!-- 登录方式切换 -->
+          <div class="login-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              class="tab"
+              :class="{ 'is-active': activeTab === 'password' }"
+              @click="activeTab = 'password'"
+            >账号密码</button>
+            <button
+              type="button"
+              role="tab"
+              class="tab"
+              :class="{ 'is-active': activeTab === 'sms' }"
+              @click="comingSoon('短信验证码登录')"
+            >短信验证</button>
+            <button
+              type="button"
+              role="tab"
+              class="tab"
+              :class="{ 'is-active': activeTab === 'sso' }"
+              @click="comingSoon('企业统一身份 SSO')"
+            >企业 SSO</button>
+          </div>
 
           <el-form
             ref="formRef"
@@ -103,38 +262,51 @@ const submit = async () => {
             size="large"
             @submit.prevent="submit"
           >
-            <el-form-item prop="username">
+            <el-form-item prop="username" label="企业账号">
               <el-input
                 v-model="form.username"
-                placeholder="用户名"
+                placeholder="请输入企业分配的账号"
                 clearable
                 autocomplete="username"
                 @keyup.enter="submit"
               >
                 <template #prefix>
-                  <el-icon><User /></el-icon>
+                  <!-- 账号图标：定制 SVG，人形 + 名牌 -->
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="10" cy="6.8" r="3" />
+                    <path d="M4 16.5c1.2-2.8 3.4-4.2 6-4.2s4.8 1.4 6 4.2" />
+                  </svg>
                 </template>
               </el-input>
             </el-form-item>
 
-            <el-form-item prop="password">
+            <el-form-item prop="password" label="登录密码">
               <el-input
                 v-model="form.password"
                 type="password"
-                placeholder="密码"
+                placeholder="请输入登录密码"
                 show-password
                 autocomplete="current-password"
                 @keyup.enter="submit"
               >
                 <template #prefix>
-                  <el-icon><Lock /></el-icon>
+                  <!-- 密码图标：定制 SVG，锁体 + 挂环 -->
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="9" width="12" height="8.5" rx="2" />
+                    <path d="M6.7 9V6.8a3.3 3.3 0 0 1 6.6 0V9" />
+                    <circle cx="10" cy="13.2" r="0.9" fill="currentColor" stroke="none" />
+                  </svg>
                 </template>
               </el-input>
             </el-form-item>
 
             <div class="form-options">
-              <el-checkbox v-model="remember">记住我</el-checkbox>
-              <el-link type="primary" underline="never" class="forgot-link">忘记密码？</el-link>
+              <el-checkbox v-model="remember">
+                <span class="opt-text">7 天内免登录</span>
+              </el-checkbox>
+              <el-link type="primary" underline="never" class="forgot-link" @click="comingSoon('密码找回')">
+                忘记密码？
+              </el-link>
             </div>
 
             <el-button
@@ -144,246 +316,686 @@ const submit = async () => {
               :loading="loading"
               :disabled="loading"
             >
-              {{ loading ? '登录中...' : '登 录' }}
+              {{ loading ? '正在验证身份…' : '登 录' }}
             </el-button>
           </el-form>
+
+          <!-- 安全提示 -->
+          <div class="security-tip">
+            <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 2.5l6.5 2.3v4.4c0 3.7-2.8 6.9-6.5 7.8-3.7-.9-6.5-4.1-6.5-7.8V4.8z" />
+              <path d="M7.3 10l1.9 1.9 3.5-3.9" />
+            </svg>
+            <span>本次登录将对 IP、设备指纹、账号来源进行风控审计</span>
+          </div>
+
+          <!-- SSO 快速入口 -->
+          <div class="sso-block">
+            <div class="sso-divider"><span>或使用企业统一身份登录</span></div>
+            <div class="sso-list">
+              <button type="button" class="sso-btn" @click="comingSoon('钉钉免登')">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                  <rect x="3" y="3" width="14" height="14" rx="3" />
+                  <path d="M7 10l2.5 2.5L14 8" stroke-linecap="round" />
+                </svg>
+                <span>钉钉</span>
+              </button>
+              <button type="button" class="sso-btn" @click="comingSoon('飞书授权登录')">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                  <path d="M4 15.5c4-1 7-3.5 9-7.5l3-6-6 3c-4 2-6.5 5-7.5 9z" />
+                  <path d="M4 15.5l4-4" stroke-linecap="round" />
+                </svg>
+                <span>飞书</span>
+              </button>
+              <button type="button" class="sso-btn" @click="comingSoon('企业微信扫码')">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                  <rect x="3.5" y="3.5" width="6" height="6" rx="1" />
+                  <rect x="10.5" y="3.5" width="6" height="6" rx="1" />
+                  <rect x="3.5" y="10.5" width="6" height="6" rx="1" />
+                  <path d="M10.5 10.5h3v3M16.5 13.5v3h-3" stroke-linecap="round" />
+                </svg>
+                <span>企业微信</span>
+              </button>
+              <button type="button" class="sso-btn" @click="comingSoon('扫码登录')">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                  <rect x="3" y="3" width="6" height="6" rx="0.8" />
+                  <rect x="11" y="3" width="6" height="6" rx="0.8" />
+                  <rect x="3" y="11" width="6" height="6" rx="0.8" />
+                  <path d="M11 11h2.5v2.5H11zM14.5 14.5H17V17h-2.5z" />
+                </svg>
+                <span>扫码</span>
+              </button>
+            </div>
+          </div>
+
+          <p class="form-foot-note">
+            还没有账号？
+            <el-link type="primary" underline="never" @click="comingSoon('开通企业租户')">申请企业试用</el-link>
+          </p>
         </div>
       </section>
-    </div>
+    </main>
+
+    <!-- ========== 底部信息条 ========== -->
+    <footer class="page-footer">
+      <div class="foot-left">
+        <span>© {{ year }} 进销存 · 业财一体中后台</span>
+        <span class="foot-sep">·</span>
+        <span>保留所有权利</span>
+      </div>
+      <div class="foot-right">
+        <a class="foot-link" @click="comingSoon('服务条款')">服务条款</a>
+        <span class="foot-sep">·</span>
+        <a class="foot-link" @click="comingSoon('隐私政策')">隐私政策</a>
+        <span class="foot-sep">·</span>
+        <a class="foot-link" @click="comingSoon('第三方服务信息')">第三方 SDK 目录</a>
+        <span class="foot-sep">·</span>
+        <a class="foot-link" @click="comingSoon('系统状态页')">系统状态</a>
+        <span class="foot-sep">·</span>
+        <span class="foot-ver">{{ APP_VERSION }}</span>
+      </div>
+    </footer>
   </div>
 </template>
 
 <style scoped>
-.login-wrap {
+/* ============ 设计令牌 ============ */
+.login-page {
+  --brand-50: #F1F5FF;
+  --brand-100: #E1EAFF;
+  --brand-500: #1E5EFF;
+  --brand-600: #1849CC;
+  --brand-700: #0F3399;
+  --hero-start: #0A1B3D;
+  --hero-mid: #12295F;
+  --hero-end: #1E4DA6;
+  --ink-900: #0B1533;
+  --ink-700: #1F2A44;
+  --ink-500: #4B5878;
+  --ink-400: #7C88A8;
+  --ink-300: #A3ACC1;
+  --line: #E4E8F0;
+  --line-soft: #EEF1F6;
+  --surface: #FFFFFF;
+  --surface-alt: #F7F9FC;
+  --success: #17A673;
+  --shadow-sm: 0 1px 2px rgba(15, 26, 55, 0.04);
+  --shadow-md: 0 6px 24px -8px rgba(15, 26, 55, 0.12), 0 2px 6px rgba(15, 26, 55, 0.04);
+
   position: relative;
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  background: linear-gradient(135deg, #0b1026 0%, #141f3d 50%, #0d2b45 100%);
-}
-
-/* ---------- 背景装饰 ---------- */
-.bg-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.55;
-  pointer-events: none;
-}
-.bg-orb-1 {
-  width: 480px;
-  height: 480px;
-  top: -120px;
-  left: -80px;
-  background: radial-gradient(circle, rgba(64, 156, 255, 0.55), transparent 70%);
-}
-.bg-orb-2 {
-  width: 520px;
-  height: 520px;
-  bottom: -160px;
-  right: -100px;
-  background: radial-gradient(circle, rgba(124, 77, 255, 0.5), transparent 70%);
-}
-.bg-orb-3 {
-  width: 360px;
-  height: 360px;
-  top: 45%;
-  left: 55%;
-  background: radial-gradient(circle, rgba(0, 210, 190, 0.35), transparent 70%);
-}
-.bg-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
-}
-
-/* ---------- 主体布局 ---------- */
-.login-shell {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: min(1080px, 94vw);
-  min-height: 600px;
-  border-radius: 24px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-/* ---------- 左侧品牌区 ---------- */
-.brand-panel {
-  flex: 1.15;
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding: 56px 48px;
-  background:
-    radial-gradient(ellipse at 20% 15%, rgba(64, 156, 255, 0.22), transparent 55%),
-    linear-gradient(160deg, rgba(20, 33, 66, 0.9), rgba(13, 30, 52, 0.9));
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-}
-.brand-inner {
-  max-width: 420px;
-}
-.brand-logo {
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 18px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  margin-bottom: 26px;
-}
-.brand-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-.brand-name {
-  margin: 0 0 10px;
-  font-size: 34px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 2px;
-}
-.brand-slogan {
-  margin: 0 0 40px;
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.65);
-  letter-spacing: 1px;
-}
-.brand-features {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
   flex-direction: column;
-  gap: 18px;
+  background: var(--surface);
+  color: var(--ink-900);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
 }
-.brand-features li {
+
+/* ============ 顶部导航 ============ */
+.page-header {
+  height: 60px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid var(--line-soft);
+  backdrop-filter: saturate(180%) blur(10px);
+  position: relative;
+  z-index: 5;
+}
+.brand-lockup {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 14px;
 }
-.brand-features .el-icon {
-  color: #66b1ff;
-  font-size: 18px;
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px -4px rgba(30, 94, 255, 0.5);
 }
-.brand-copyright {
-  position: absolute;
-  bottom: 28px;
-  left: 48px;
-  margin: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: 0.3px;
+}
+.brand-sub {
+  font-size: 11.5px;
+  color: var(--ink-400);
+  letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
-/* ---------- 右侧表单区 ---------- */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--ink-500);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.nav-chip:hover {
+  color: var(--brand-500);
+  background: var(--brand-50);
+  border-color: var(--brand-100);
+}
+.nav-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+  height: 32px;
+  font-size: 12.5px;
+  color: var(--ink-500);
+  border-left: 1px solid var(--line);
+  margin-left: 6px;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(23, 166, 115, 0.18);
+  animation: pulse 2.4s ease-out infinite;
+}
+@keyframes pulse {
+  0%, 60%, 100% { box-shadow: 0 0 0 3px rgba(23, 166, 115, 0.18); }
+  30% { box-shadow: 0 0 0 6px rgba(23, 166, 115, 0.05); }
+}
+
+/* ============ 主体两栏 ============ */
+.page-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* -------- 左：Hero 品牌区 -------- */
+.hero-panel {
+  flex: 1.1;
+  position: relative;
+  overflow: hidden;
+  color: #E8EEFB;
+  background:
+    radial-gradient(120% 80% at 80% 10%, rgba(76, 143, 255, 0.35), transparent 60%),
+    linear-gradient(160deg, var(--hero-start) 0%, var(--hero-mid) 45%, var(--hero-end) 100%);
+  padding: 60px 72px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  isolation: isolate;
+}
+.hero-bg-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse at 30% 30%, black 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 30% 30%, black 20%, transparent 78%);
+}
+.hero-bg-glow {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+.hero-glow-1 {
+  width: 520px; height: 520px;
+  top: -140px; left: -120px;
+  background: radial-gradient(circle, rgba(76, 143, 255, 0.45), transparent 70%);
+}
+.hero-glow-2 {
+  width: 420px; height: 420px;
+  bottom: -140px; right: -80px;
+  background: radial-gradient(circle, rgba(0, 210, 190, 0.28), transparent 70%);
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: rgba(220, 232, 255, 0.75);
+  margin: 0 0 24px;
+  font-weight: 500;
+}
+.eyebrow-line {
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(180, 210, 255, 0.85));
+}
+.hero-title {
+  margin: 0 0 20px;
+  font-size: 40px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+}
+.hero-desc {
+  margin: 0 0 44px;
+  max-width: 520px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: rgba(220, 232, 255, 0.7);
+}
+
+.feature-list {
+  list-style: none;
+  margin: 0 0 44px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 520px;
+}
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.feature-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: #A9CBFF;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.feature-body { flex: 1; min-width: 0; }
+.feature-title {
+  font-size: 14.5px;
+  color: #FFFFFF;
+  font-weight: 600;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+.feature-desc {
+  font-size: 13px;
+  color: rgba(220, 232, 255, 0.6);
+  line-height: 1.6;
+}
+
+.hero-stats {
+  display: flex;
+  align-items: stretch;
+  gap: 32px;
+  padding: 22px 28px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  max-width: 520px;
+}
+.stat { flex: 1; min-width: 0; }
+.stat-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1.15;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.stat-unit { font-size: 13px; margin-left: 2px; color: rgba(255, 255, 255, 0.7); font-weight: 500; }
+.stat-label {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(220, 232, 255, 0.55);
+  letter-spacing: 0.3px;
+}
+.stat-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hero-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 8px;
+}
+.trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  letter-spacing: 0.4px;
+  color: rgba(220, 232, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+/* -------- 右：登录表单 -------- */
 .form-panel {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 48px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 40px 56px;
+  background: var(--surface);
+  min-width: 460px;
 }
 .form-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 388px;
 }
+.form-head { margin-bottom: 22px; }
 .form-title {
   margin: 0 0 8px;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  color: #fff;
+  color: var(--ink-900);
+  letter-spacing: 0.3px;
 }
 .form-subtitle {
-  margin: 0 0 32px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-400);
+  line-height: 1.6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
+.demo-hint {
+  font-size: 12px;
+  color: var(--brand-600);
+  background: var(--brand-50);
+  border: 1px dashed var(--brand-100);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* 登录方式 tabs */
+.login-tabs {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--ink-500);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+.tab:hover { color: var(--brand-500); }
+.tab.is-active {
+  background: var(--surface);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+/* 表单控件精修 */
+.form-card :deep(.el-form-item) { margin-bottom: 20px; }
+.form-card :deep(.el-form-item__label) { display: none; }
+.form-card :deep(.el-input__wrapper) {
+  padding: 4px 12px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line) inset;
+  border-radius: 8px;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.form-card :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #C9D2E4 inset;
+}
+.form-card :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1.5px var(--brand-500) inset;
+  background: var(--surface);
+}
+.form-card :deep(.el-input__inner) {
+  color: var(--ink-900);
+  height: 40px;
+  line-height: 40px;
+  font-size: 14px;
+}
+.form-card :deep(.el-input__inner::placeholder) {
+  color: var(--ink-300);
+}
+.form-card :deep(.el-input__prefix),
+.form-card :deep(.el-input__suffix) { color: var(--ink-400); }
+.form-card :deep(.el-input__prefix) { display: inline-flex; align-items: center; }
+.form-card :deep(.el-input__prefix .el-icon) { display: inline-flex; align-items: center; }
+.form-card :deep(.el-form-item.is-error .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #F56C6C inset;
+}
+.form-card :deep(.el-form-item__error) {
+  padding-top: 4px;
+  font-size: 12px;
+  color: #DC2626;
+}
+
 .form-options {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 2px 0 24px;
+  margin: -2px 0 22px;
 }
-.forgot-link {
+.opt-text {
   font-size: 13px;
+  color: var(--ink-500);
 }
+.forgot-link { font-size: 13px; }
+.form-card :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: var(--brand-500);
+  border-color: var(--brand-500);
+}
+.form-card :deep(.el-checkbox__inner:hover) { border-color: var(--brand-500); }
+.form-card :deep(.el-link--primary) { color: var(--brand-500); }
+.form-card :deep(.el-link--primary:hover) { color: var(--brand-600); }
+
 .login-btn {
   width: 100%;
   height: 44px;
   font-size: 15px;
+  font-weight: 600;
   letter-spacing: 4px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #409eff 0%, #7c4dff 100%);
+  border-radius: 8px;
+  background: var(--brand-500);
   border: none;
+  box-shadow: 0 6px 20px -8px rgba(30, 94, 255, 0.55);
+  transition: all 0.18s ease;
 }
 .login-btn:hover,
 .login-btn:focus {
-  background: linear-gradient(135deg, #5aacff 0%, #8f63ff 100%);
+  background: var(--brand-600);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -8px rgba(30, 94, 255, 0.6);
+}
+.login-btn:active { transform: translateY(0); }
+:deep(.login-btn.el-button.is-loading) { letter-spacing: 2px; }
+
+.security-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 22px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  color: var(--ink-500);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.security-tip svg { color: var(--brand-500); flex-shrink: 0; }
+
+/* SSO */
+.sso-block { margin-top: 20px; }
+.sso-divider {
+  position: relative;
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.sso-divider::before,
+.sso-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 38%;
+  height: 1px;
+  background: var(--line-soft);
+}
+.sso-divider::before { left: 0; }
+.sso-divider::after { right: 0; }
+.sso-divider span { padding: 0 10px; background: var(--surface); position: relative; }
+
+.sso-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.sso-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 6px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--ink-500);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sso-btn:hover {
+  color: var(--brand-500);
+  border-color: var(--brand-100);
+  background: var(--brand-50);
 }
 
-/* 表单内部文字颜色适配深色背景 */
-.form-card :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
-  border-radius: 10px;
-}
-.form-card :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #409eff inset;
-  background: rgba(255, 255, 255, 0.12);
-}
-.form-card :deep(.el-input__inner) {
-  color: #fff;
-}
-.form-card :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.45);
-}
-.form-card :deep(.el-input__prefix .el-icon),
-.form-card :deep(.el-input__suffix .el-icon) {
-  color: rgba(255, 255, 255, 0.55);
-}
-.form-card :deep(.el-checkbox__label) {
-  color: rgba(255, 255, 255, 0.75);
+.form-foot-note {
+  margin: 22px 0 0;
+  text-align: center;
   font-size: 13px;
+  color: var(--ink-400);
 }
-.form-card :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background-color: #409eff;
-  border-color: #409eff;
+.form-foot-note :deep(.el-link) { font-size: 13px; margin-left: 2px; }
+
+/* ============ 底部信息 ============ */
+.page-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 40px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink-400);
 }
-.form-card :deep(.el-form-item__error) {
-  color: #ff7d8a;
+.foot-left { display: inline-flex; align-items: center; gap: 6px; }
+.foot-right { display: inline-flex; align-items: center; gap: 6px; }
+.foot-sep { color: var(--ink-300); }
+.foot-link {
+  color: var(--ink-500);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.foot-link:hover { color: var(--brand-500); }
+.foot-ver {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink-400);
+  padding: 2px 8px;
+  background: var(--surface-alt);
+  border-radius: 4px;
+  font-size: 11.5px;
 }
 
-/* ---------- 响应式 ---------- */
+/* ============ 响应式 ============ */
+@media (max-width: 1200px) {
+  .hero-panel { padding: 48px 56px 32px; }
+  .hero-title { font-size: 34px; }
+  .form-panel { padding: 40px 44px; min-width: 420px; }
+}
+@media (max-width: 1024px) {
+  .hero-panel { flex: 1; padding: 40px 44px 28px; }
+  .hero-title { font-size: 30px; }
+  .hero-desc { font-size: 14px; margin-bottom: 32px; }
+  .feature-list { gap: 16px; margin-bottom: 32px; }
+  .hero-stats { gap: 20px; padding: 18px 22px; }
+  .stat-num { font-size: 18px; }
+  .form-panel { min-width: 400px; padding: 40px; }
+}
 @media (max-width: 900px) {
-  .login-shell {
+  .page-header { padding: 0 20px; }
+  .nav-status { display: none; }
+  .page-main { flex-direction: column; }
+  .hero-panel {
+    flex: none;
+    padding: 32px 24px 24px;
     min-height: auto;
   }
-  .brand-panel {
-    display: none;
+  .hero-title { font-size: 22px; line-height: 1.35; }
+  .hero-desc, .feature-list, .hero-stats, .hero-foot { display: none; }
+  .form-panel { flex: 1; min-width: 0; padding: 32px 24px; }
+  .page-footer {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+    padding: 12px 20px;
   }
-  .form-panel {
-    padding: 48px 32px;
-  }
+}
+@media (max-width: 480px) {
+  .sso-list { grid-template-columns: repeat(2, 1fr); }
+  .brand-sub { display: none; }
+  .login-tabs { width: 100%; }
+  .tab { flex: 1; text-align: center; }
 }
 </style>
