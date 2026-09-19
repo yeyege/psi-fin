@@ -1,0 +1,44 @@
+# ===== Render Blueprint：一键部署 WMS 全栈 =====
+# 用法：推送到 GitHub 后，在 Render 后台 New > Blueprint 选中本仓库即可自动创建三个资源。
+# 免费说明：
+#   - PostgreSQL 免费版 30 天后会被回收，正式演示请升级到付费版。
+#   - 免费 Web Service 空闲 15 分钟会休眠，首次访问冷启动约 30~60s。
+
+services:
+  # ---- 数据库：持久化，替代本地临时 SQLite ----
+  - type: postgres
+    name: wms-db
+    plan: free
+    databaseName: wms
+    user: wms
+    version: "16"
+
+  # ---- 后端：FastAPI（Python 原生服务，读 requirements.txt）----
+  - type: web
+    name: wms-backend
+    runtime: python
+    plan: free
+    rootDir: backend-python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      # Render 自动注入 Postgres 连接串（scheme 为 postgresql://，SQLAlchemy 2.0 可直接识别）
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wms-db
+          property: connectionString
+
+  # ---- 前端：Vue SPA 静态托管（构建产物 dist）----
+  - type: static
+    name: wms-frontend
+    rootDir: frontend-vue
+    buildCommand: npm install && npm run build
+    publish: dist
+    envVars:
+      # ⚠️ 后端部署完成后，把下面地址替换成实际的 wms-backend 公网域名（保留 /api 后缀）
+      #    例：https://wms-backend-1234.onrender.com/api
+      - key: VITE_API_BASE
+        value: https://REPLACE_WITH_BACKEND_URL.onrender.com/api
