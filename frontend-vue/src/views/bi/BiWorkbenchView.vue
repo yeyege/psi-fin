@@ -54,7 +54,7 @@ const doExport = () => exportPanelCharts(containerRef.value, currentLabel.value)
     <!-- 顶栏 -->
     <div class="bi-topbar">
       <div class="bi-title">
-        WMS 数据工作台
+        业财数据工作台
         <small>{{ currentLabel }}</small>
         <span class="bi-mock-flag" title="除「经营财务」外均为可复现 Mock 数据，用于演示">演示数据</span>
       </div>

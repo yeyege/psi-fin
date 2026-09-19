@@ -913,7 +913,7 @@ const handleResize = () => {
             <div class="notice-item">
               <span class="notice-dot dot-blue"></span>
               <div class="notice-body">
-                <div class="notice-title">WMS MVP 已上线</div>
+                <div class="notice-title">业财一体中后台已上线</div>
                 <div class="notice-desc">支持客户分层管理、入库/出库/移库/调整全流程、批次与流水追溯。</div>
                 <div class="notice-time">2026-08-10</div>
               </div>

@@ -184,21 +184,21 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
             </li>
           </ul>
 
-          <!-- 数据背书条 -->
+          <!-- 数据背书条（均为项目真实、可核查指标） -->
           <div class="hero-stats">
             <div class="stat">
-              <div class="stat-num">99.98<span class="stat-unit">%</span></div>
-              <div class="stat-label">服务可用性 SLA</div>
+              <div class="stat-num">157<span class="stat-unit">+</span></div>
+              <div class="stat-label">自动化测试用例</div>
             </div>
             <div class="stat-divider"></div>
             <div class="stat">
-              <div class="stat-num">1,200<span class="stat-unit">+</span></div>
-              <div class="stat-label">服务企业客户</div>
+              <div class="stat-num">15</div>
+              <div class="stat-label">业务模块 API</div>
             </div>
             <div class="stat-divider"></div>
             <div class="stat">
-              <div class="stat-num">3.6<span class="stat-unit">亿</span></div>
-              <div class="stat-label">年处理单据行</div>
+              <div class="stat-num">5<span class="stat-unit">环</span></div>
+              <div class="stat-label">业财全链路闭环</div>
             </div>
           </div>
         </div>
@@ -209,10 +209,10 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
               <path d="M8 2l5.5 2v4.2c0 3.1-2.4 5.6-5.5 6.3-3.1-.7-5.5-3.2-5.5-6.3V4z" />
               <path d="M5.5 8.2l1.8 1.8 3.2-3.6" stroke-linecap="round" />
             </svg>
-            ISO 27001 认证
+            借贷平衡强制校验
           </span>
-          <span class="trust-badge">等保三级</span>
-          <span class="trust-badge">SOC 2 Type II</span>
+          <span class="trust-badge">全量流水可追溯</span>
+          <span class="trust-badge">行级锁防超卖</span>
         </div>
       </section>
 

@@ -57,7 +57,7 @@ export function exportPanelCharts(root: HTMLElement | null, panelName: string) {
     const inst = echarts.getInstanceByDom(node)
     if (!inst) return
     const url = inst.getDataURL({ pixelRatio: 2, backgroundColor: '#fff' })
-    downloadDataUrl(url, `WMS-BI-${panelName}-${i + 1}-${stamp()}.png`)
+    downloadDataUrl(url, `业财BI-${panelName}-${i + 1}-${stamp()}.png`)
   })
 }
 
