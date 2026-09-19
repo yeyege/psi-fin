@@ -457,7 +457,17 @@ export interface UserInfo {
 }
 
 export const login = (data: { username: string; password: string }) =>
-  api.post<any, { code: number; message: string; data: { token: string; user: UserInfo } }>('/auth/login', data)
+  // 演示后端为 Serverless：首个请求要等函数冷启动 + 数据库唤醒，故给到 60s，别在 10s 就 abort
+  api.post<any, { code: number; message: string; data: { token: string; user: UserInfo } }>(
+    '/auth/login', data, { timeout: 60_000 },
+  )
+
+/**
+ * 服务预热：登录页挂载时静默调用，让冷启动发生在用户输入账号密码的过程中。
+ * 后端 /health 刻意不查库；即便旧部署返回 404，也已证明函数实例被拉起。
+ */
+export const warmUpService = () =>
+  api.get<any, { code: number; data: { status: string } }>('/health', { timeout: 60_000 })
 
 export const logout = () =>
   api.post<any, { code: number; message: string }>('/auth/logout')

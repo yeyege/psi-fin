@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { warmUpService } from '@/api'
 
 const REMEMBER_KEY = 'psifin_remember_username'
 const APP_VERSION = 'v1.4.0'
+// 演示后端为 Serverless 按需拉起：首个请求要先付冷启动（函数解包 + 唤醒数据库）。
+// 下面两个阈值把「等待」拆成可解释的阶段，避免 2 秒后仍只显示「正在验证身份…」。
+const WAKE_HINT_AFTER_MS = 1200
+const PATIENT_HINT_AFTER_MS = 22_000
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -17,6 +22,31 @@ const remember = ref(true)
 const isMockEnv = import.meta.env.VITE_USE_MOCK === 'true'
 
 const form = reactive({ username: '', password: '' })
+
+// ---------- 服务预热：把冷启动消耗在用户输入账号密码的时间里 ----------
+type ServiceState = 'waking' | 'ready' | 'unknown'
+const serviceState = ref<ServiceState>(isMockEnv ? 'ready' : 'waking')
+
+const CHIP_LABEL: Record<ServiceState | 'demo', string> = {
+  waking: '正在唤醒服务', ready: '系统正常', unknown: '服务连接异常', demo: '演示模式',
+}
+const CHIP_TITLE: Record<ServiceState | 'demo', string> = {
+  waking: '演示环境按需拉起，首次访问需等待十余秒，期间可先输入账号密码',
+  ready: '所有服务运行正常',
+  unknown: '未拿到服务响应，点击登录时会自动重试唤醒',
+  demo: '纯前端演示，数据在浏览器内生成',
+}
+const chipState = computed(() => (isMockEnv ? 'demo' : serviceState.value))
+
+const wakeUpInBackground = async () => {
+  try {
+    await warmUpService()
+    serviceState.value = 'ready'
+  } catch (e: any) {
+    // 只要拿到 HTTP 响应（含旧部署未上线 /health 时的 404），就说明函数实例已经被拉起
+    serviceState.value = e?.response ? 'ready' : 'unknown'
+  }
+}
 
 const rules: FormRules = {
   username: [
@@ -31,20 +61,101 @@ const rules: FormRules = {
 
 const year = computed(() => new Date().getFullYear())
 
-// 记住我：勾选时缓存用户名，下次登录自动填充
+// 记住我：勾选时缓存用户名，下次登录自动填充；同时静默预热后端
 onMounted(() => {
   const saved = localStorage.getItem(REMEMBER_KEY)
   if (saved) {
     form.username = saved
     remember.value = true
   }
+  if (!isMockEnv) wakeUpInBackground()
 })
+
+// ---------- 提交阶段的时间轴与进度反馈 ----------
+const elapsedMs = ref(0)
+let ticker: number | undefined
+
+const stopTicker = () => {
+  if (ticker !== undefined) {
+    window.clearInterval(ticker)
+    ticker = undefined
+  }
+}
+const startTicker = () => {
+  stopTicker()
+  const startedAt = Date.now()
+  elapsedMs.value = 0
+  ticker = window.setInterval(() => { elapsedMs.value = Date.now() - startedAt }, 200)
+}
+onBeforeUnmount(stopTicker)
+
+const errorText = ref('')
+const failedStage = ref<'timeout' | 'offline' | ''>('')
+
+// 输入变更后清掉上一次的失败态，避免旧错误提示与新提交并存
+watch(() => [form.username, form.password], () => {
+  errorText.value = ''
+  failedStage.value = ''
+})
+
+type ProgressStage = 'idle' | 'verifying' | 'waking' | 'patient'
+// 前 1.2 秒只有按钮自身的转圈；只有「等得不对劲」时才在卡片里补一段解释，
+// 避免按钮与提示块说同一句话。
+const PROGRESS_COPY: Record<ProgressStage, { title: string; note: string; button: string }> = {
+  idle: { title: '', note: '', button: '登 录' },
+  verifying: { title: '', note: '', button: '正在验证身份…' },
+  waking: {
+    title: '首次访问正在拉起演示环境，通常 20 秒内完成',
+    note: '后端为 Serverless 按需冷启动：函数实例与数据库连接正在初始化，只需等待这一次。',
+    button: '正在唤醒服务…',
+  },
+  patient: {
+    title: '仍在唤醒中，请勿关闭页面',
+    note: '已超出常规耗时，多为数据库冷唤醒较慢；完成后会自动进入工作台。',
+    button: '唤醒中，请稍候',
+  },
+}
+
+const progressStage = computed<ProgressStage>(() => {
+  if (!loading.value) return 'idle'
+  if (elapsedMs.value >= PATIENT_HINT_AFTER_MS) return 'patient'
+  if (elapsedMs.value >= WAKE_HINT_AFTER_MS) return 'waking'
+  return 'verifying'
+})
+const copy = computed(() => PROGRESS_COPY[progressStage.value])
+const waitingService = computed(() => progressStage.value === 'waking' || progressStage.value === 'patient')
+const showProgress = computed(() => !!errorText.value || waitingService.value)
+const progressMeta = computed(() => {
+  const seconds = Math.floor(elapsedMs.value / 1000)
+  return progressStage.value === 'patient'
+    ? `已等待 ${seconds} 秒 · 完成后会自动进入工作台`
+    : `已等待 ${seconds} 秒 · 通常 20 秒内完成`
+})
+
+// 区分「服务没起来」与「账号密码错」——旧实现把超时也算成了密码错误
+const describeFailure = (e: any): { text: string; stage: 'timeout' | 'offline' | '' } => {
+  const status = e?.response?.status
+  if (status === 401 || status === 403 || status === 400) {
+    return { text: e?.response?.data?.detail || '账号或密码错误，请核对后重试', stage: '' }
+  }
+  if (e?.response) {
+    return { text: e?.response?.data?.detail || `服务返回异常（${status}），请稍后重试`, stage: '' }
+  }
+  const timedOut = e?.code === 'ECONNABORTED' || /timeout/i.test(e?.message || '')
+  return timedOut
+    ? { text: '服务唤醒超时：演示环境首次拉起偶尔会超过 1 分钟，账号密码已为你保留。', stage: 'timeout' }
+    : { text: '网络连接异常：无法访问后端服务，请确认网络可达后重试。', stage: 'offline' }
+}
 
 const submit = async () => {
   if (loading.value) return
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
+  errorText.value = ''
+  failedStage.value = ''
+  if (serviceState.value === 'unknown') serviceState.value = 'waking'
+  startTicker()
   try {
     await userStore.login(form.username.trim(), form.password)
     if (remember.value) {
@@ -52,11 +163,23 @@ const submit = async () => {
     } else {
       localStorage.removeItem(REMEMBER_KEY)
     }
+    serviceState.value = 'ready'
     ElMessage.success('登录成功，欢迎回来')
     router.push('/')
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '账号或密码错误，请重试或联系管理员')
+    const failure = describeFailure(e)
+    failedStage.value = failure.stage
+    errorText.value = failure.text
+    if (e?.response) {
+      // 拿到 4xx/5xx 说明服务已经活着，只是这次请求被拒
+      serviceState.value = 'ready'
+    } else {
+      // 没拿到响应：超时多半仍在唤醒，断网则标记连接异常
+      serviceState.value = failure.stage === 'timeout' ? 'waking' : 'unknown'
+    }
+    // 失败原因统一由卡片内的常驻提示承载（必要时带重试入口），不再叠一个转瞬即逝的 toast
   } finally {
+    stopTicker()
     loading.value = false
   }
 }
@@ -111,9 +234,9 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
           </svg>
           <span>帮助</span>
         </button>
-        <span class="nav-status" title="所有服务运行正常">
+        <span class="nav-status" :class="`nav-status--${chipState}`" :title="CHIP_TITLE[chipState]">
           <span class="status-dot"></span>
-          <span>系统正常</span>
+          <span>{{ CHIP_LABEL[chipState] }}</span>
         </span>
       </nav>
     </header>
@@ -289,9 +412,37 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
               :loading="loading"
               :disabled="loading"
             >
-              {{ loading ? '正在验证身份…' : '登 录' }}
+              {{ copy.button }}
             </el-button>
           </el-form>
+
+          <!-- 唤醒进度 / 失败兜底：把 Serverless 冷启动这段「看不见的等待」显性化 -->
+          <div
+            v-if="showProgress"
+            class="login-progress"
+            :class="failedStage ? 'login-progress--error' : 'login-progress--waiting'"
+          >
+            <div v-if="loading" class="progress-rail"></div>
+            <div class="progress-row">
+              <span v-if="loading" class="progress-spinner" aria-hidden="true"></span>
+              <span v-else class="progress-badge" aria-hidden="true">!</span>
+              <div class="progress-text">
+                <p class="progress-title" role="status" aria-live="polite">
+                  {{ errorText || copy.title }}
+                </p>
+                <p v-if="!errorText && copy.note" class="progress-note">{{ copy.note }}</p>
+                <p v-if="!errorText && progressMeta" class="progress-meta">{{ progressMeta }}</p>
+              </div>
+              <button
+                v-if="failedStage"
+                type="button"
+                class="progress-retry"
+                @click="submit"
+              >
+                {{ failedStage === 'timeout' ? '重新唤醒并重试' : '重试' }}
+              </button>
+            </div>
+          </div>
 
           <p class="form-foot-note">
             还没有账号？
@@ -437,6 +588,15 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
   color: var(--ink-500);
   border-left: 1px solid var(--line);
   margin-left: 6px;
+}
+.nav-status--waking .status-dot {
+  background: #D9822B;
+  box-shadow: 0 0 0 3px rgba(217, 130, 43, 0.18);
+}
+.nav-status--unknown .status-dot {
+  background: var(--ink-300);
+  box-shadow: 0 0 0 3px rgba(163, 172, 193, 0.2);
+  animation: none;
 }
 .status-dot {
   width: 8px;
@@ -746,6 +906,112 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
 }
 .login-btn:active { transform: translateY(0); }
 :deep(.login-btn.el-button.is-loading) { letter-spacing: 2px; }
+
+/* ============ 唤醒进度条 / 失败提示 ============ */
+.login-progress {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+.login-progress--error {
+  border-color: #F5C9C9;
+  background: #FEF4F3;
+}
+/* 不确定进度条：耗时无法预估，用往复扫描而非「假进度」 */
+.progress-rail {
+  position: relative;
+  height: 2px;
+  background: var(--brand-100);
+  overflow: hidden;
+}
+.progress-rail::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--brand-500), transparent);
+  animation: rail-sweep 1.6s ease-in-out infinite;
+}
+@keyframes rail-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+.progress-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.progress-spinner {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 2px solid var(--brand-100);
+  border-top-color: var(--brand-500);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress-badge {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: #DC2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.progress-text { flex: 1; min-width: 0; }
+.progress-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-700);
+  line-height: 1.6;
+}
+.login-progress--error .progress-title { color: #B42318; }
+.progress-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink-400);
+}
+.progress-meta {
+  margin: 5px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.progress-retry {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--brand-600);
+  background: var(--surface);
+  border: 1px solid var(--brand-100);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.progress-retry:hover {
+  color: #fff;
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-rail::after { width: 100%; animation: none; }
+  .progress-spinner { animation: none; border-top-color: var(--brand-100); }
+  .status-dot { animation: none; }
+}
 
 .form-foot-note {
   margin: 22px 0 0;

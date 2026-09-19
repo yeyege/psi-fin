@@ -72,3 +72,13 @@ app.include_router(executive.router)
 @app.get("/")
 def root():
     return {"message": "PSI-FIN API is running. Visit /docs for API documentation."}
+
+
+@app.get("/api/health")
+def health():
+    """存活探针：刻意不查库、不鉴权，供前端登录页预热与外部保活脚本使用。
+
+    Serverless 部署下，这个请求同样会触发一次冷启动——把它放在页面加载时发出，
+    用户点击「登录」时函数实例通常已经热了。
+    """
+    return {"code": 200, "message": "ok", "data": {"status": "up", "version": app.version}}
