@@ -1,7 +1,7 @@
 [project]
-name = "wms-backend"
+name = "psi-fin-backend"
 version = "1.0.0"
-description = "WMS Backend - FastAPI"
+description = "PSI-FIN Backend - 业财一体中后台 API (FastAPI)"
 requires-python = ">=3.11"
 
 dependencies = [

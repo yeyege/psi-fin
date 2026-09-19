@@ -1,4 +1,4 @@
-"""单据域模型 — 对标领星WMS（状态机流转）
+"""单据域模型 — 对标领星跨境仓储系统（状态机流转）
 
 - InboundOrder    入库单：PENDING(待收货) → COMPLETED(已收货上架，库存生效)
 - OutboundOrder   出库单：PENDING(待拣货) → PICKED(已拣货，库存锁定) → SHIPPED(已发货，扣减)

@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="进销存 + 业财一体中后台 API",
-    description="进销存与业财一体化中后台 API（库存底座对标领星WMS：批次库存 / 可用+锁定 / 全量流水 / 单据状态机；业财层：销售订单 → 发货生成应收 → 收款核销 → 经营驾驶舱）",
+    description="进销存与业财一体化中后台 API（库存底座对标领星跨境仓储系统：批次库存 / 可用+锁定 / 全量流水 / 单据状态机；业财层：销售订单 → 发货生成应收 → 收款核销 → 经营驾驶舱）",
     version="3.0.0",
     lifespan=lifespan,
 )
@@ -71,4 +71,4 @@ app.include_router(executive.router)
 
 @app.get("/")
 def root():
-    return {"message": "WMS API is running. Visit /docs for API documentation."}
+    return {"message": "PSI-FIN API is running. Visit /docs for API documentation."}

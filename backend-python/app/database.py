@@ -3,11 +3,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 # 数据库连接策略：
-# - 默认 SQLite（本地开发零配置，wms.db）
+# - 默认 SQLite（本地开发零配置，psi_fin.db）
 # - 设置 DATABASE_URL 环境变量可无缝切换 MySQL/PostgreSQL
-#   例如 Docker 编排：mysql+pymysql://wms:wms@mysql:3306/wms?charset=utf8mb4
+#   例如 Docker 编排：mysql+pymysql://psi_fin:psi_fin@mysql:3306/psi_fin?charset=utf8mb4
 # 生产环境可替换为 MySQL/PostgreSQL
-# DATABASE_URL = "mysql+pymysql://user:pass@localhost:3306/wms"
+# DATABASE_URL = "mysql+pymysql://user:pass@localhost:3306/psi_fin"
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
@@ -15,7 +15,7 @@ if DATABASE_URL:
     connect_args = {}
 else:
     # 使用相对于本文件的路径，避免 CWD 问题
-    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wms.db")
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "psi_fin.db")
     SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
     connect_args = {"check_same_thread": False}  # SQLite 需要
 

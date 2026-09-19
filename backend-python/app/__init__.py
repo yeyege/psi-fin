@@ -1,2 +1,2 @@
-# WMS Backend - FastAPI
+# PSI-FIN Backend - FastAPI
 

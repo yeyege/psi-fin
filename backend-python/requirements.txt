@@ -1,4 +1,4 @@
-# ===== WMS 后端依赖（Render / pip 部署用）=====
+# ===== PSI-FIN 后端依赖（Render / pip 部署用）=====
 # Render Python 服务通过本文件自动识别并安装依赖
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0

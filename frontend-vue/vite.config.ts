@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    // 部署子路径：默认 '/'；GitHub Pages 由 .env.pages 注入 '/wms/app/'
+    // 部署子路径：默认 '/'；GitHub Pages 由 .env.pages 注入 '/psi-fin/app/'
     base: env.VITE_BASE || '/',
     plugins: [vue()],
     resolve: {

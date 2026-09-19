@@ -1,4 +1,4 @@
-# ===== WMS 后端（FastAPI）=====
+# ===== PSI-FIN 后端（FastAPI）=====
 FROM python:3.11-slim
 
 WORKDIR /app

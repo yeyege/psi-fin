@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 仓库 / 库区 / 库位 管理（层级结构，对标领星WMS）
+ * 仓库 / 库区 / 库位 管理（层级结构，对标领星跨境仓储系统）
  */
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'

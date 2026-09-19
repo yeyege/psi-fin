@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 用户管理页（仅 admin）— 账号 CRUD / 重置密码 / 停用启用
- * 对标领星WMS：权限分层，操作员只能执行业务单据，管理员管理系统用户。
+ * 对标领星跨境仓储系统：权限分层，操作员只能执行业务单据，管理员管理系统用户。
  */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

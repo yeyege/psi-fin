@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 库存查询页（对标领星WMS：可用量 available + 锁定量 locked）
+ * 库存查询页（对标领星跨境仓储系统：可用量 available + 锁定量 locked）
  *
  * - 视图切换：按商品(product)汇总 / 按库位(location)明细（含批次）
  * - 过滤：商品名称/SKU 模糊搜索 + 仓库下拉 + 批次号

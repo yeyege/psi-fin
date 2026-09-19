@@ -1,6 +1,6 @@
 """pytest 公共夹具
 
-使用独立的临时 SQLite 数据库，与开发库 wms.db 隔离，测试互不影响。
+使用独立的临时 SQLite 数据库，与开发库 psi_fin.db 隔离，测试互不影响。
 基础数据：2 商品 + 1 仓库 + 1 库区 + 2 库位（新模型：Location 归属 Zone）。
 """
 import os

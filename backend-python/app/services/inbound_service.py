@@ -1,6 +1,6 @@
 """入库单服务 — 状态机：PENDING(待收货) → COMPLETED(已收货上架)
 
-对标领星WMS：创建入库单（到货通知）时不改变库存；
+对标领星跨境仓储系统：创建入库单（到货通知）时不改变库存；
 收货上架时才生成批次、累加可用库存并写流水。
 """
 from sqlalchemy.exc import IntegrityError

@@ -1,6 +1,6 @@
 """出库单服务 — 状态机：PENDING(待拣货) → PICKED(已拣货，库存锁定) → REVIEWED(已复核) → SHIPPED(已发货)
 
-对标领星WMS：
+对标领星跨境仓储系统：
 - 拣货(pick)：将 available 转为 locked（拣货暂存），原子操作防超卖；
 - 复核(review)：二次核对拣货明细数量（PICKED → REVIEWED）；
 - 发货(ship)：扣减 locked，写 OUTBOUND 流水；

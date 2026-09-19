@@ -1,6 +1,6 @@
 """移库服务 — 库位间库存转移
 
-对标领星WMS「移库」：源库位扣减可用量（MOVE_OUT），目标库位增加可用量（MOVE_IN），
+对标领星跨境仓储系统「移库」：源库位扣减可用量（MOVE_OUT），目标库位增加可用量（MOVE_IN），
 双向写流水。库存不足则整单回滚。
 """
 from sqlalchemy.exc import IntegrityError

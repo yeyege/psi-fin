@@ -1,4 +1,4 @@
-# ===== WMS 前端（Vue 3）=====
+# ===== PSI-FIN 前端（Vue 3）=====
 # 阶段一：Node 构建 dist
 FROM node:20-alpine AS build
 

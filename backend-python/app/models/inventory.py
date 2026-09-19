@@ -1,4 +1,4 @@
-"""库存域模型 — 对标领星WMS
+"""库存域模型 — 对标领星跨境仓储系统
 
 - Batch        批次：一次入库收货生成一个批次，支持有效期管理（简化版）
 - Inventory    库存行：product + location + batch 维度，可用量(available) 与 锁定量(locked) 分离

@@ -36,7 +36,7 @@ jobs:
         working-directory: frontend-vue
         run: npm ci
 
-      - name: Build SPA (mock mode, base=/wms/app/)
+      - name: Build SPA (mock mode, base=/psi-fin/app/)
         working-directory: frontend-vue
         run: npm run build:pages
 

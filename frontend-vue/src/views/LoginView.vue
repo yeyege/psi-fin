@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
-const REMEMBER_KEY = 'wms_remember_username'
+const REMEMBER_KEY = 'psifin_remember_username'
 const APP_VERSION = 'v1.4.0'
 
 const router = useRouter()

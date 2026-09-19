@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 dist/
 .venv/
+psi_fin.db
 wms.db
 preview
 

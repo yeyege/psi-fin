@@ -30,8 +30,8 @@ const router = createRouter({
 
 // 全局登录守卫：除 /login 外一律要求登录；/users 仅管理员
 router.beforeEach((to) => {
-  const token = localStorage.getItem('wms_token')
-  const user = JSON.parse(localStorage.getItem('wms_user') || 'null')
+  const token = localStorage.getItem('psifin_token')
+  const user = JSON.parse(localStorage.getItem('psifin_user') || 'null')
   if (to.path === '/login') {
     return token ? '/dashboard' : true
   }

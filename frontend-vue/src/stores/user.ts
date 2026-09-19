@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { login as apiLogin, logout as apiLogout, getMe, type UserInfo } from '@/api'
 
-const TOKEN_KEY = 'wms_token'
-const USER_KEY = 'wms_user'
+const TOKEN_KEY = 'psifin_token'
+const USER_KEY = 'psifin_user'
 
 interface UserState {
   token: string

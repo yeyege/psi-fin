@@ -1,6 +1,6 @@
 """出库单 Service 单元测试 — 状态机 PENDING → PICKED → SHIPPED（防超卖）
 
-对标领星WMS：
+对标领星跨境仓储系统：
 - 创建出库单（PENDING）不改变库存；
 - 拣货 pick：available → locked（原子锁定防超卖），库存不足整单回滚；
 - 发货 ship：扣减 locked，写 OUTBOUND 流水。

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WMS BI 数据看板 · Apple Store 风格</title>
+<title>业财 BI 数据看板 · Apple Store 风格</title>
 <!-- ========= CDN 依赖 ========= -->
 <script>
   window.CDN_READY = { chartjs: false, html2canvas: false };
@@ -820,7 +820,7 @@ html, body {
   <header class="topbar">
     <div class="topbar-left">
       <div class="topbar-logo">W</div>
-      <span class="topbar-title">WMS BI 数据看板</span>
+      <span class="topbar-title">业财 BI 数据看板</span>
     </div>
     <div class="topbar-center">
       <div class="search-box">
@@ -1937,7 +1937,7 @@ function exportPng() {
   html2canvas(target, { scale: 2, backgroundColor: '#f5f5f7', useCORS: true }).then(canvas => {
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = `WMS-BI-${pn}-${ts}.png`;
+    a.download = `业财BI-${pn}-${ts}.png`;
     a.click();
   }).catch(err => {
     console.error(err);

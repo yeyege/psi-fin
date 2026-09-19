@@ -1,6 +1,6 @@
 # 进销存 · 业财一体中后台
 
-一个「进销存 + 业财一体」中后台系统：库存底座对标领星 WMS（入库 / 出库 / 波次拣货 / 退货 / 移库调拨 / 盘点 / 批次），业务层新增**销售订单**与**财务应收**，打通 **销售订单 → 发货自动生成应收 → 收款核销（含部分核销/预收）→ 应收余额与账龄 → 经营驾驶舱** 的收入侧业财闭环。后端 Python + FastAPI，前端 Vue 3 + Element Plus + ECharts，支持 Docker 一键启动。
+一个「进销存 + 业财一体」中后台系统：库存底座对标领星跨境仓储系统（入库 / 出库 / 波次拣货 / 退货 / 移库调拨 / 盘点 / 批次），业务层新增**销售订单**与**财务应收**，打通 **销售订单 → 发货自动生成应收 → 收款核销（含部分核销/预收）→ 应收余额与账龄 → 经营驾驶舱** 的收入侧业财闭环。后端 Python + FastAPI，前端 Vue 3 + Element Plus + ECharts，支持 Docker 一键启动。
 
 - 后端测试：**126 用例**（pytest，全部通过）
 - 前端测试：**31 用例**（vitest，全部通过）
@@ -16,7 +16,7 @@
 - 前端：<https://psi-fin.vercel.app>
 - 后端 API：<https://wms-silk.vercel.app>（`/docs` 为在线接口文档）
 
-**纯前端 Mock 演示（GitHub Pages，无需后端）**：<https://yeyege.github.io/wms/>
+**纯前端 Mock 演示（GitHub Pages，无需后端）**：<https://yeyege.github.io/psi-fin/>
 
 | 路径 | 内容 |
 |---|---|
@@ -25,9 +25,9 @@
 | `/business-console-plan.html` | 业财一体中后台方案演示 |
 | `/apple-store-wms.html` | BI 数据看板演示 |
 
-- **构建**：`cd frontend-vue && npm run build:pages`（读取 `.env.pages`：`VITE_USE_MOCK=true`、`VITE_BASE=/wms/app/`）
+- **构建**：`cd frontend-vue && npm run build:pages`（读取 `.env.pages`：`VITE_USE_MOCK=true`、`VITE_BASE=/psi-fin/app/`）
 - **发布**：推送 `master` 后由 `.github/workflows/deploy-pages.yml` 自动「构建 SPA → 拷贝到 `site/app/` → 发布 `site/`」
-- **本地校验发布效果**：先 `npm run build:pages`，再 `npx vite preview --base=/wms/app/`，打开 `/wms/app/` 即可（与线上子路径一致）
+- **本地校验发布效果**：先 `npm run build:pages`，再 `npx vite preview --base=/psi-fin/app/`，打开 `/psi-fin/app/` 即可（与线上子路径一致）
 - **Mock 模式**：`src/api/mock/` 在浏览器内实现接口并复刻业务规则（发货才生成应收、部分核销与预收、账龄按到期日），未覆盖接口返回空数据兜底
 - **切真后端（后续）**：构建时注入 `VITE_API_BASE=https://<后端地址>/api` 并关闭 `VITE_USE_MOCK` 即可，页面代码无需改动
 
@@ -81,7 +81,7 @@
 ## 项目结构
 
 ```
-wms-test/
+psi-fin/
 ├── backend-python/           # FastAPI 后端
 │   ├── app/
 │   │   ├── models/           # SQLAlchemy 模型
@@ -145,7 +145,7 @@ uv run uvicorn app.main:app --port 8000     # 启动 http://localhost:8000（自
 uv run pytest                               # 运行测试（126 用例）
 ```
 
-> 使用 SQLite，零配置；如需切换 MySQL，设置 `DATABASE_URL=mysql+pymysql://wms:wms@localhost:3306/wms?charset=utf8mb4`。
+> 使用 SQLite，零配置；如需切换 MySQL，设置 `DATABASE_URL=mysql+pymysql://psi_fin:psi_fin@localhost:3306/psi_fin?charset=utf8mb4`。
 
 **前端（Vue 3）**
 

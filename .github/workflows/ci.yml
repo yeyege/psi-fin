@@ -57,10 +57,10 @@ jobs:
         with:
           context: ./backend-python
           push: false
-          tags: wms-backend:ci
+          tags: psi-fin-backend:ci
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-vue
           push: false
-          tags: wms-frontend:ci
+          tags: psi-fin-frontend:ci

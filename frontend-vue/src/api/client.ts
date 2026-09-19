@@ -17,7 +17,7 @@ if (import.meta.env.VITE_USE_MOCK === 'true') {
 
 // 请求拦截器：自动附加登录 token（Authorization: Bearer <token>）
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('wms_token')
+  const token = localStorage.getItem('psifin_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -29,8 +29,8 @@ api.interceptors.response.use(
   (res) => res.data,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('wms_token')
-      localStorage.removeItem('wms_user')
+      localStorage.removeItem('psifin_token')
+      localStorage.removeItem('psifin_user')
       if (window.location.hash !== '#/login') {
         window.location.hash = '#/login'
       }
