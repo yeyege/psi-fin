@@ -3,6 +3,7 @@
 
 结构：仓库 → 库区（正品区/残次品区）→ 库位（带优先级）→ 商品 SKU
 仅当商品表为空时执行，保证「一键启动」即可看到完整功能。
+会计科目表（COA）独立初始化：仅当 accounts 表为空时预置最小科目集。
 """
 from app.database import SessionLocal, Base, engine
 from app.models import Product, Customer, Warehouse, Zone, Location
@@ -99,6 +100,57 @@ def init_admin():
         db.close()
 
 
+# 预置最小科目集（spec: accounting-core「预置最小科目集」，管理会计口径）：
+# (code, name, category, direction, parent_code, aux_dimensions)
+_PRESET_ACCOUNTS = [
+    ("1001", "库存现金", "ASSET", "DEBIT", None, ""),
+    ("1002", "银行存款", "ASSET", "DEBIT", None, ""),
+    ("1122", "应收账款", "ASSET", "DEBIT", None, ""),
+    ("112201", "客户应收", "ASSET", "DEBIT", "1122", "CUSTOMER"),
+    ("1405", "库存商品", "ASSET", "DEBIT", None, "WAREHOUSE"),
+    ("2202", "应付账款", "LIABILITY", "CREDIT", None, ""),
+    ("220201", "外部供应商", "LIABILITY", "CREDIT", "2202", "SUPPLIER"),
+    ("220202", "入库暂估", "LIABILITY", "CREDIT", "2202", "SUPPLIER"),
+    ("2221", "应交税费", "LIABILITY", "CREDIT", None, ""),
+    ("222101", "待销项税额", "LIABILITY", "CREDIT", "2221", ""),
+    ("222102", "待进项税额", "LIABILITY", "CREDIT", "2221", ""),
+    ("4103", "本年利润", "EQUITY", "CREDIT", None, ""),
+    ("6001", "主营业务收入", "REVENUE", "CREDIT", None, ""),
+    ("6401", "主营业务成本", "EXPENSE", "DEBIT", None, ""),
+    ("6602", "管理费用", "EXPENSE", "DEBIT", None, ""),
+    ("660201", "工资福利", "EXPENSE", "DEBIT", "6602", ""),
+    ("660202", "办公费", "EXPENSE", "DEBIT", "6602", ""),
+    ("660203", "差旅费", "EXPENSE", "DEBIT", "6602", ""),
+]
+
+
+def init_coa():
+    """预置最小会计科目集，仅当 accounts 表为空时执行。"""
+    from app.models import Account
+    from app.services import accounting_service
+
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        if db.query(Account).count() > 0:
+            return
+        by_code = {}
+        for code, name, category, direction, parent_code, aux in _PRESET_ACCOUNTS:
+            parent = by_code.get(parent_code) if parent_code else None
+            account = accounting_service.create_account(
+                db, code=code, name=name, category=category,
+                direction=direction,
+                parent_id=parent.id if parent else None,
+                aux_dimensions=aux,
+            )
+            by_code[code] = account
+        db.commit()
+        print(f"会计科目表已预置 {len(_PRESET_ACCOUNTS)} 个科目")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     init_data()
     init_admin()
+    init_coa()

@@ -17,9 +17,10 @@ from app.routers import (
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时建表 + 初始化示例数据（仅当库为空时）。"""
     Base.metadata.create_all(bind=engine)
-    from init_data import init_data, init_admin
+    from init_data import init_data, init_admin, init_coa
     init_data()
     init_admin()
+    init_coa()
     yield
 
 
