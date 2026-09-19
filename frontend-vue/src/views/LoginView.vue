@@ -14,8 +14,6 @@ const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const remember = ref(true)
-type LoginTab = 'password' | 'sms' | 'sso'
-const activeTab = ref<LoginTab>('password')
 const isMockEnv = import.meta.env.VITE_USE_MOCK === 'true'
 
 const form = reactive({ username: '', password: '' })
@@ -229,31 +227,6 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
             </p>
           </div>
 
-          <!-- 登录方式切换 -->
-          <div class="login-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              class="tab"
-              :class="{ 'is-active': activeTab === 'password' }"
-              @click="activeTab = 'password'"
-            >账号密码</button>
-            <button
-              type="button"
-              role="tab"
-              class="tab"
-              :class="{ 'is-active': activeTab === 'sms' }"
-              @click="comingSoon('短信验证码登录')"
-            >短信验证</button>
-            <button
-              type="button"
-              role="tab"
-              class="tab"
-              :class="{ 'is-active': activeTab === 'sso' }"
-              @click="comingSoon('企业统一身份 SSO')"
-            >企业 SSO</button>
-          </div>
-
           <el-form
             ref="formRef"
             :model="form"
@@ -320,54 +293,6 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
             </el-button>
           </el-form>
 
-          <!-- 安全提示 -->
-          <div class="security-tip">
-            <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 2.5l6.5 2.3v4.4c0 3.7-2.8 6.9-6.5 7.8-3.7-.9-6.5-4.1-6.5-7.8V4.8z" />
-              <path d="M7.3 10l1.9 1.9 3.5-3.9" />
-            </svg>
-            <span>本次登录将对 IP、设备指纹、账号来源进行风控审计</span>
-          </div>
-
-          <!-- SSO 快速入口 -->
-          <div class="sso-block">
-            <div class="sso-divider"><span>或使用企业统一身份登录</span></div>
-            <div class="sso-list">
-              <button type="button" class="sso-btn" @click="comingSoon('钉钉免登')">
-                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
-                  <rect x="3" y="3" width="14" height="14" rx="3" />
-                  <path d="M7 10l2.5 2.5L14 8" stroke-linecap="round" />
-                </svg>
-                <span>钉钉</span>
-              </button>
-              <button type="button" class="sso-btn" @click="comingSoon('飞书授权登录')">
-                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
-                  <path d="M4 15.5c4-1 7-3.5 9-7.5l3-6-6 3c-4 2-6.5 5-7.5 9z" />
-                  <path d="M4 15.5l4-4" stroke-linecap="round" />
-                </svg>
-                <span>飞书</span>
-              </button>
-              <button type="button" class="sso-btn" @click="comingSoon('企业微信扫码')">
-                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
-                  <rect x="3.5" y="3.5" width="6" height="6" rx="1" />
-                  <rect x="10.5" y="3.5" width="6" height="6" rx="1" />
-                  <rect x="3.5" y="10.5" width="6" height="6" rx="1" />
-                  <path d="M10.5 10.5h3v3M16.5 13.5v3h-3" stroke-linecap="round" />
-                </svg>
-                <span>企业微信</span>
-              </button>
-              <button type="button" class="sso-btn" @click="comingSoon('扫码登录')">
-                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
-                  <rect x="3" y="3" width="6" height="6" rx="0.8" />
-                  <rect x="11" y="3" width="6" height="6" rx="0.8" />
-                  <rect x="3" y="11" width="6" height="6" rx="0.8" />
-                  <path d="M11 11h2.5v2.5H11zM14.5 14.5H17V17h-2.5z" />
-                </svg>
-                <span>扫码</span>
-              </button>
-            </div>
-          </div>
-
           <p class="form-foot-note">
             还没有账号？
             <el-link type="primary" underline="never" @click="comingSoon('开通企业租户')">申请企业试用</el-link>
@@ -380,8 +305,6 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
     <footer class="page-footer">
       <div class="foot-left">
         <span>© {{ year }} 进销存 · 业财一体中后台</span>
-        <span class="foot-sep">·</span>
-        <span>保留所有权利</span>
       </div>
       <div class="foot-right">
         <a class="foot-link" @click="comingSoon('服务条款')">服务条款</a>
@@ -745,36 +668,6 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
   border-radius: 4px;
 }
 
-/* 登录方式 tabs */
-.login-tabs {
-  display: inline-flex;
-  padding: 3px;
-  background: var(--surface-alt);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-.tab {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 6px 14px;
-  font-size: 13px;
-  color: var(--ink-500);
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.18s ease;
-  font-family: inherit;
-}
-.tab:hover { color: var(--brand-500); }
-.tab.is-active {
-  background: var(--surface);
-  color: var(--ink-900);
-  box-shadow: var(--shadow-sm);
-  font-weight: 600;
-}
-
 /* 表单控件精修 */
 .form-card :deep(.el-form-item) { margin-bottom: 20px; }
 .form-card :deep(.el-form-item__label) { display: none; }
@@ -854,71 +747,6 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
 .login-btn:active { transform: translateY(0); }
 :deep(.login-btn.el-button.is-loading) { letter-spacing: 2px; }
 
-.security-tip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  margin-top: 22px;
-  background: var(--surface-alt);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  color: var(--ink-500);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.security-tip svg { color: var(--brand-500); flex-shrink: 0; }
-
-/* SSO */
-.sso-block { margin-top: 20px; }
-.sso-divider {
-  position: relative;
-  text-align: center;
-  color: var(--ink-300);
-  font-size: 12px;
-  margin-bottom: 14px;
-}
-.sso-divider::before,
-.sso-divider::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 38%;
-  height: 1px;
-  background: var(--line-soft);
-}
-.sso-divider::before { left: 0; }
-.sso-divider::after { right: 0; }
-.sso-divider span { padding: 0 10px; background: var(--surface); position: relative; }
-
-.sso-list {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-.sso-btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 6px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: var(--ink-500);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.sso-btn:hover {
-  color: var(--brand-500);
-  border-color: var(--brand-100);
-  background: var(--brand-50);
-}
-
 .form-foot-note {
   margin: 22px 0 0;
   text-align: center;
@@ -993,9 +821,6 @@ const comingSoon = (name: string) => ElMessage.info(`${name} 正在集成中，�
   }
 }
 @media (max-width: 480px) {
-  .sso-list { grid-template-columns: repeat(2, 1fr); }
   .brand-sub { display: none; }
-  .login-tabs { width: 100%; }
-  .tab { flex: 1; text-align: center; }
 }
 </style>
