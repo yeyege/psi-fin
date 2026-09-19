@@ -1,17 +1,22 @@
-# 进销存 + 业财一体中后台
+# 进销存 · 业财一体中后台
 
 一个「进销存 + 业财一体」中后台系统：库存底座对标领星 WMS（入库 / 出库 / 波次拣货 / 退货 / 移库调拨 / 盘点 / 批次），业务层新增**销售订单**与**财务应收**，打通 **销售订单 → 发货自动生成应收 → 收款核销（含部分核销/预收）→ 应收余额与账龄 → 经营驾驶舱** 的收入侧业财闭环。后端 Python + FastAPI，前端 Vue 3 + Element Plus + ECharts，支持 Docker 一键启动。
 
-- 后端测试：**112 用例**（pytest，全部通过）
-- 前端测试：**22 用例**（vitest，全部通过）
-- E2E：Playwright 覆盖入库核心正向流程
+- 后端测试：**126 用例**（pytest，全部通过）
+- 前端测试：**31 用例**（vitest，全部通过）
+- 合计 **157+ 自动化测试**，另有 4 个 Playwright E2E 覆盖入库等核心正向流程
 - CI：GitHub Actions（pytest + 前端 build/vitest + docker build 校验）
 
 ---
 
-## 在线演示与部署（GitHub Pages）
+## 在线演示与部署
 
-线上站点：<https://yeyege.github.io/wms/>
+**真后端在线演示（Vercel Serverless + Neon PostgreSQL）**：
+
+- 前端：<https://psi-fin.vercel.app>
+- 后端 API：<https://wms-silk.vercel.app>（`/docs` 为在线接口文档）
+
+**纯前端 Mock 演示（GitHub Pages，无需后端）**：<https://yeyege.github.io/wms/>
 
 | 路径 | 内容 |
 |---|---|
@@ -80,12 +85,12 @@ wms-test/
 ├── backend-python/           # FastAPI 后端
 │   ├── app/
 │   │   ├── models/           # SQLAlchemy 模型
-│   │   ├── routers/           # API 路由（11 个模块）
+│   │   ├── routers/           # API 路由（15 个模块）
 │   │   ├── schemas/          # Pydantic 契约
 │   │   ├── services/         # 业务服务（库存变动统一入口）
 │   │   ├── common/           # 全局异常 / 通用响应
 │   │   └── main.py           # FastAPI 入口（lifespan 自动建表 + 种子数据）
-│   ├── tests/                # pytest 测试（80 用例）
+│   ├── tests/                # pytest 测试（126 用例）
 │   ├── init_data.py          # 示例数据初始化
 │   ├── Dockerfile
 │   └── pyproject.toml
@@ -137,7 +142,7 @@ docker compose up -d --build
 cd backend-python
 uv sync                                     # 安装依赖
 uv run uvicorn app.main:app --port 8000     # 启动 http://localhost:8000（自动建表 + 种子数据）
-uv run pytest                               # 运行测试（80 用例）
+uv run pytest                               # 运行测试（126 用例）
 ```
 
 > 使用 SQLite，零配置；如需切换 MySQL，设置 `DATABASE_URL=mysql+pymysql://wms:wms@localhost:3306/wms?charset=utf8mb4`。
@@ -148,7 +153,7 @@ uv run pytest                               # 运行测试（80 用例）
 cd frontend-vue
 npm install
 npm run dev         # 启动 http://localhost:5173（/api 代理到 8000）
-npm test            # 单元测试（14 用例）
+npm test            # 单元测试（31 用例）
 npm run test:e2e    # Playwright E2E（自动拉起前后端）
 ```
 
@@ -257,6 +262,4 @@ cd frontend-vue && npm run test:e2e
 
 ---
 
-## License
 
-本项目为全栈工程师测试交付物，仅供学习与评估用途。
