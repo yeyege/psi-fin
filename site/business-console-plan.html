@@ -353,7 +353,7 @@ footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size
 <!-- ================= Top Bar ================= -->
 <header class="topbar">
   <div class="topbar-logo">W</div>
-  <div class="topbar-title">业财一体中后台方案<small>SOLUTION DEMO · 电商 · 简道云落地版</small></div>
+  <div class="topbar-title">业财一体中后台方案<small>SOLUTION DEMO · 电商 · 自研系统落地版</small></div>
   <nav class="topbar-nav">
     <a href="#arch">整体设计</a>
     <a href="#menu">菜单蓝图</a>
@@ -373,7 +373,7 @@ footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size
   <div class="wrap">
     <div class="hero-badge"><i></i> 求职方案演示 · 从业务梳理到系统落地的完整思路</div>
     <h1>电商公司「业财一体」<br><span class="grad">中后台搭建方案</span></h1>
-    <p>以低代码平台(简道云)为核心载体,串联 销售、采购、库存、生产、财务、行政 六大业务线,让每一笔业务单据自动沉淀为财务与经营数据 —— 一套可分批落地、可逐步迭代的数字化中后台。</p>
+    <p>以自研业财一体化系统(FastAPI + Vue3)为核心载体,串联 销售、采购、库存、生产、财务、行政 六大业务线,让每一笔业务单据自动沉淀为财务与经营数据 —— 一套可分批落地、可逐步迭代的数字化中后台。</p>
     <div class="hero-actions">
       <a class="btn btn-primary" href="#menu">查看中后台菜单长什么样 ↓</a>
       <a class="btn btn-ghost" href="#demo">看板效果预览</a>
@@ -392,7 +392,7 @@ footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size
   <div class="wrap">
     <span class="sec-eyebrow">01 · 整体设计</span>
     <h2 class="sec-title">一句话架构:四层模型</h2>
-    <p class="sec-sub">上层用「菜单 + 门户」承接各角色入口;业务层用低代码「表单 / 流程」把线下台账和审批搬到线上;数据层用聚合表 / 数据库沉淀统一台账,让财务口径与业务口径同源;决策层用仪表盘把数据变成老板和管理者看得懂的经营指标。</p>
+    <p class="sec-sub">上层用「菜单 + 门户」承接各角色入口;业务层用自研的表单引擎与审批流把线下台账和审批搬到线上;数据层用统一数据库沉淀台账,让财务口径与业务口径同源;决策层用仪表盘把数据变成老板和管理者看得懂的经营指标。</p>
 
     <div class="layers" style="margin-top:26px;">
       <div class="layer">
@@ -439,7 +439,7 @@ footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size
   <div class="wrap">
     <span class="sec-eyebrow">02 · 菜单蓝图</span>
     <h2 class="sec-title">中后台「菜单长什么样」</h2>
-    <p class="sec-sub">按角色使用的菜单分组:左侧是真实的侧边栏菜单(可点击展开),右侧是对应模块的设计说明 —— 每个模块都标清了它用什么低代码能力实现(表单 / 流程 / 聚合表 / 仪表盘),以及它和财务、库存之间的衔接点。</p>
+    <p class="sec-sub">按角色使用的菜单分组:左侧是真实的侧边栏菜单(可点击展开),右侧是对应模块的设计说明 —— 每个模块都标清了它靠什么能力实现(表单 / 流程 / 统计 / 仪表盘),以及它和财务、库存之间的衔接点。</p>
 
     <div class="menu-stage">
       <!-- 左侧菜单模拟器 -->
@@ -521,7 +521,7 @@ footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size
       </div>
       <div class="card">
         <div class="c-title" style="font-size:15px;">同步台账自动化</div>
-        <div class="c-body">通过平台开放 API / 批量导入定时把外部数据同步进简道云台账,与内部单据同库汇总,报表直接引用,无需人工搬运。</div>
+        <div class="c-body">通过系统开放 API / 批量导入定时把外部数据同步进自研系统台账,与内部单据同库汇总,报表直接引用,无需人工搬运。</div>
       </div>
     </div>
   </div>
@@ -543,7 +543,7 @@ footer { text-align: center; padding: 34px 20px; color: var(--text-3); font-size
   <div class="wrap">
     <span class="sec-eyebrow">06 · 效果预览</span>
     <h2 class="sec-title">决策层看板,长这样</h2>
-    <p class="sec-sub">以下是同类中后台「经营驾驶舱」的实际实现效果(自研可交互 Demo,数据为模拟):时间范围切换、仓库筛选、图表联动、点击下钻、一键导出,全部可操作。在简道云中,同样的看板用「仪表盘 + 聚合表」承载。</p>
+    <p class="sec-sub">以下是同类中后台「经营驾驶舱」的实际实现效果(自研可交互 Demo,数据为模拟):时间范围切换、仓库筛选、图表联动、点击下钻、一键导出,全部可操作。该看板即为自研前端(Vue3 + ECharts)实现,数据与业务库同源。</p>
 
     <div class="window">
       <div class="window-bar">
@@ -645,7 +645,7 @@ const MENU = [
   ]},
   { group: '系统管理', role: '管理员', icon: 'settings', items: [
     { name: '组织与权限', type: '系统', desc: '部门、角色、权限点统一配置。', points: ['表单级 + 数据级双层权限', '财务数据隔离,销售只看自己的单'], link: '权限是「业财一体」能安全运行的保障。' },
-    { name: '流程设计', type: '系统', desc: '审批流可视化配置,调整无需改代码。', points: ['条件分支、多人会签、抄送', '流程版本管理'], link: '业务规则变化时,低代码改配置即可。' },
+    { name: '流程设计', type: '系统', desc: '审批流可视化配置,调整无需改代码。', points: ['条件分支、多人会签、抄送', '流程版本管理'], link: '业务规则变化时,参数化配置即可生效。' },
     { name: '数据字典与日志', type: '系统', desc: '枚举项统一维护,操作留痕可审计。', points: ['客户类型 / 订单状态 / 费用类型统一', '关键单据操作日志'], link: '配合财务审计与问题追溯。' },
   ]},
 ];
@@ -706,7 +706,7 @@ function renderDetail(gi, ii) {
       <h3>${esc(g.group)} · ${esc(it.name)}</h3>
       <div class="detail-meta">
         <span class="tag ${st.cls}">${it.type}实现</span>
-        <span class="tag">低代码组件</span>
+        <span class="tag">自研组件</span>
         <span class="tag">角色:${g.role || '按权限'}</span>
       </div>
     </div>
@@ -720,7 +720,7 @@ function renderDetail(gi, ii) {
    业财链路数据
 ============================================================ */
 const CHAIN_SALES = [
-  { n: '客户下单', d: '线下合同 / 平台订单', im: '简道云:表单' },
+  { n: '客户下单', d: '线下合同 / 平台订单', im: '自研:表单' },
   { n: '销售订单', d: '带出价格 / 账期 / 信用校验', im: '流程表单 + 数据联动' },
   { n: '仓库发货', d: '生成出库单,扣减批次库存', im: '流程 + 聚合表' },
   { n: '物流签收', d: '签收后回传状态', im: '表单更新' },
@@ -764,7 +764,7 @@ const PIPELINE = [
   { n: '数据采集', d: '爬虫(Requests / BS4 / Scrapy)抓取公开数据;内部单据表单录入;Excel / API 导入', tag: 'Python 爬虫', c: '#0071e3' },
   { n: '清洗规整', d: '去重、格式统一、缺失补全、同义词归一,结构化入库', tag: '数据清洗', c: '#34c759' },
   { n: '本地存储', d: 'MySQL 统一存储原始与清洗后数据,保留历史可追溯', tag: 'MySQL', c: '#ff9500' },
-  { n: '同步入云', d: '按定时任务通过开放 API / 批量导入同步到简道云统一台账', tag: 'API 对接', c: '#af52de' },
+  { n: '同步入台账', d: '按定时任务通过系统开放 API / 批量导入同步到自研系统统一台账', tag: 'API 对接', c: '#af52de' },
   { n: '报表消费', d: '聚合表汇总,仪表盘呈现,支撑统计 / 复盘 / 决策', tag: '仪表盘', c: '#ff3b30' },
 ];
 function renderPipeline() {
@@ -807,10 +807,10 @@ function renderTimeline() {
    能力对照
 ============================================================ */
 const FIT = [
-  { duty: '简道云全流程搭建与定制', where: '架构四层模型 + 30+ 模块的「表单 → 流程 → 聚合表 → 仪表盘」落地设计,权限与数据联动贯穿其中', how: '先画业务流,再拆表单字段与流程节点,颗粒度到字段级' },
-  { duty: '对接各业务线,梳理流程落低代码应用', where: '按销售 / 采购 / 库存 / 生产 / 财务 / 行政六大域拆解,每个域=台账+审批+统计三件套', how: '需求访谈输出流程图与字段清单,方案先评审再搭建' },
+  { duty: '自研系统全流程开发与定制', where: '架构四层模型 + 30+ 模块的「表单 → 流程 → 台账 → 仪表盘」落地设计,权限与数据联动贯穿其中', how: '先画业务流,再拆表单字段与流程节点,颗粒度到字段级' },
+  { duty: '对接各业务线,梳理流程落自研应用', where: '按销售 / 采购 / 库存 / 生产 / 财务 / 行政六大域拆解,每个域=台账+审批+统计三件套', how: '需求访谈输出流程图与字段清单,方案先评审再搭建' },
   { duty: '数据爬虫开发与维护', where: '数据接入层的采集 — 清洗 — 去重 — 规整链路', how: 'Requests / BS4 / Scrapy 分层封装,重试与增量采集保证稳定' },
-  { duty: '爬虫数据与业务系统对接、统一台账', where: '爬虫数据 + 内部单据汇入同一套聚合台账,供统计与决策', how: 'MySQL 中转 + 平台 API 定时同步,对账差异可查' },
+  { duty: '爬虫数据与业务系统对接、统一台账', where: '爬虫数据 + 内部单据汇入同一套聚合台账,供统计与决策', how: 'MySQL 中转 + 系统 API 定时同步,对账差异可查' },
   { duty: '上线应用运维、优化、持续迭代', where: '四期路线图每期带验收标准;权限、字典、日志集中管理', how: '按业务反馈排迭代,操作手册 + 使用培训同步交付' },
 ];
 
