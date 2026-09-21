@@ -7,7 +7,6 @@ dist/
 psi_fin.db
 wms.db
 preview
-
 # ====== Java / Maven ======
 target/
 *.class
@@ -50,3 +49,5 @@ playwright-report/
 
 # 本机浏览器下载目录（Playwright sandbox 限制时使用，不入库）
 .playwright-browsers/
+# 静态资源目录
+assets
