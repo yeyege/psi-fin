@@ -232,7 +232,7 @@
 
 ## 十二、提交检查清单
 
-> 交付验证明细（测试实测结果 / 一键启动 / Docker / E2E / 任务完成度对照）见 [docs/VERIFICATION.md](./docs/VERIFICATION.md)。
+> 交付验证明细（测试实测结果 / 一键启动 / Docker / E2E / 任务完成度对照）见 [VERIFICATION.md](./VERIFICATION.md)。
 
 - [x] 必做任务 1（入库单创建，状态机+事务）后端 + 前端
 - [x] 必做任务 2（库存查询：可用/锁定、低库存高亮）后端 + 前端

@@ -2,8 +2,8 @@
 
 > 定位：本文件记录项目**实际完成了什么、正在做什么**，所有条目以仓库真实代码与测试为准，可逐条核查。
 > 历史说明：根目录旧版 TASKS.md 是最初面试题的题面，与项目实际演进已严重脱节（"待实现"项早已完成或过时），
-> 原文已归档至 [docs/interview/TASKS-原始题面.md](./docs/interview/TASKS-原始题面.md)，仅作历史叙事保留，**不再作为进度依据**。
-> 待办总入口见 [docs/ROADMAP_TODO.md](./docs/ROADMAP_TODO.md)，本文不重复维护待办清单。
+> 原文已归档至本地 `docs/interview/TASKS-原始题面.md`（历史私密材料，未入库），仅作历史叙事保留，**不再作为进度依据**。
+> 待办总入口见本地规划文档 `docs/ROADMAP_TODO.md`（暂未入库），本文不重复维护待办清单。
 
 ---
 
@@ -39,9 +39,9 @@
 
 ## 二、当前进行中
 
-- **P0-2 严格批次 FIFO + 效期管理（FEFO）**：规划四件套已完成（`openspec/changes/p0-2-strict-fifo-expiry/`），实施 0/13，按 `tasks.md` 推进。
+- **P0-2 严格批次 FIFO + 效期管理（FEFO）**：规划已完成（openspec change `p0-2-strict-fifo-expiry`），实施 0/13，按其 tasks.md 推进。
 
-后续阶段（P0-3 复核扫码、P0-4 实时对账、P1/P2/P3）统一见 [docs/ROADMAP_TODO.md](./docs/ROADMAP_TODO.md)。
+后续阶段（P0-3 复核扫码、P0-4 实时对账、P1/P2/P3）统一见本地规划文档 `docs/ROADMAP_TODO.md`（暂未入库）。
 
 ---
 

@@ -3,8 +3,8 @@
 > 定位：本文是 **MVP 阶段（M1-M7）的设计文档**，当时按「活文档」维护。M1-M7 已全部交付完成，
 > 本文转为**历史设计记录**：保留至今仍然有效的架构设计与开发规范，移除已过时的进度快照与面试交付期内容。
 > - 当前任务与进展 → [TASKS.md](./TASKS.md)（进展实录）
-> - 待办与阶段规划总入口 → [docs/ROADMAP_TODO.md](./docs/ROADMAP_TODO.md)
-> - 面试交付期检查清单、2026-08 进度快照原文 → [docs/interview/MVP_DESIGN-历史归档.md](./docs/interview/MVP_DESIGN-历史归档.md)
+> - 待办与阶段规划总入口 → 本地规划文档 `docs/ROADMAP_TODO.md`（暂未入库）
+> - 面试交付期检查清单、2026-08 进度快照原文 → 本地归档 `docs/interview/MVP_DESIGN-历史归档.md`（未入库）
 
 ---
 
@@ -64,4 +64,4 @@ User ── Role
 ## 四、当年预留、尚未实现的方向（以 ROADMAP 为准）
 
 MVP 设计时在 P1/P2 预留过：计费与多货主、箱级库存、物流商对接（`erp_adapter`/`carrier_adapter`）、PDA 移动端、
-Redis 缓存 / MQ 削峰、多语言时区等。**这些是否推进、优先级如何，一律以 [docs/ROADMAP_TODO.md](./docs/ROADMAP_TODO.md) 的 P0-P3 表为准**，本文不再维护待办。
+Redis 缓存 / MQ 削峰、多语言时区等。**这些是否推进、优先级如何，一律以本地规划文档 `docs/ROADMAP_TODO.md` 的 P0-P3 表为准**，本文不再维护待办。
