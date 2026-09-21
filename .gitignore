@@ -13,7 +13,11 @@ target/
 *.jar
 *.war
 !.mvn/wrapper/maven-wrapper.jar
-docs
+# ====== docs：仅公开正经文档，其余（历史归档/残留页）不入库 ======
+docs/*
+!docs/API_SPEC.md
+!docs/PRD.md
+!docs/ROADMAP_TODO.md
 # ====== Node / Frontend ======
 node_modules/
 dist/
