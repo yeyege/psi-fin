@@ -146,3 +146,64 @@ def test_counts_camelcase_and_complete_flow(client):
         assert sum(x.available_qty for x in rows) == 60
     finally:
         s2.close()
+
+
+def test_inventory_endpoints_camelcase(client):
+    """库存查询 / 流水 / 批次：camelCase 契约（service 改为 Schema 序列化后回归保障）。
+
+    重点回归：view=product 不得多出 locationCode/batchNo 键；view=location 必须含库位/批次明细。
+    """
+    from datetime import datetime
+
+    from app.models import Batch, Location, Product, Warehouse, Zone
+    from app.services import inventory_service
+
+    c, Session = client
+    s = Session()
+    s.add_all([
+        Warehouse(id=1, code="WH-INV", name="库存仓"),
+        Zone(id=1, warehouse_id=1, code="Z-G", name="正品区", zone_type="GOODS"),
+        Location(id=1, zone_id=1, warehouse_id=1, code="LOC-01", priority=5),
+        Product(id=3, name="库存商品", sku="CT-INV-1", unit="个"),
+    ])
+    b = Batch(batch_no="INV-B-1", product_id=3, inbound_date=datetime.now())
+    s.add(b)
+    s.flush()
+    inventory_service.add_stock(
+        s, product_id=3, location_code="LOC-01", batch_id=b.id, quantity=40,
+        flow_type=inventory_service.FLOW_TYPE_INBOUND,
+        order_type=inventory_service.ORDER_TYPE_INBOUND, order_no="INV-SEED")
+    s.commit()
+    s.close()
+
+    h = _auth(c)
+
+    # 按库位明细视图：含 locationCode / batchNo
+    r = c.get("/api/inventory", params={"view": "location"}, headers=h)
+    assert r.status_code == 200
+    loc_item = r.json()["data"]["list"][0]
+    assert loc_item["availableQty"] == 40 and loc_item["sku"] == "CT-INV-1"
+    assert "locationCode" in loc_item and "batchNo" in loc_item and "warehouseName" in loc_item
+    assert "location_code" not in loc_item and "available_qty" not in loc_item
+
+    # 按产品汇总视图：不得多出 locationCode / batchNo（保持原响应字节结构）
+    r = c.get("/api/inventory", params={"view": "product"}, headers=h)
+    assert r.status_code == 200
+    prod_item = r.json()["data"]["list"][0]
+    assert "totalQty" in prod_item and prod_item["totalQty"] == 40
+    assert "locationCode" not in prod_item and "batchNo" not in prod_item
+
+    # 流水
+    r = c.get("/api/inventory/flows", headers=h)
+    assert r.status_code == 200
+    flow_item = r.json()["data"]["list"][0]
+    assert flow_item["flowType"] == "INBOUND" and flow_item["orderNo"] == "INV-SEED"
+    assert "createdAt" in flow_item and "flow_type" not in flow_item
+
+    # 批次
+    r = c.get("/api/inventory/batches", headers=h)
+    assert r.status_code == 200
+    batch_item = r.json()["data"]["list"][0]
+    assert batch_item["batchNo"] == "INV-B-1"
+    assert "productName" in batch_item and "sku" in batch_item and "inboundDate" in batch_item
+    assert "product_name" not in batch_item

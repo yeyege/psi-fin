@@ -2,6 +2,14 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
+# 本地开发：若存在 .env 则先加载（Render/Vercel 由平台注入环境变量，无 .env 时静默跳过）。
+# 必须早于下方 os.getenv("DATABASE_URL")，否则 .env 中的配置读不到。
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:  # python-dotenv 未安装时不影响运行
+    pass
+
 # 数据库连接策略：
 # - 默认 SQLite（本地开发零配置，psi_fin.db）
 # - 设置 DATABASE_URL 环境变量可无缝切换 MySQL/PostgreSQL

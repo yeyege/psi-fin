@@ -1,0 +1,20 @@
+schema_version: 1
+module_path: ""
+title: PSI-FIN 业财一体中后台（全栈根工程）
+scope:
+    - README.md
+    - NOTES.md
+    - docker-compose.yml
+    - render.yaml
+    - package.json
+    - package-lock.json
+    - .env.example
+    - .gitignore
+    - MVP_DESIGN.md
+    - TASKS.md
+    - VERIFICATION.md
+    - apple-store-wms.html
+    - index.html
+source_files: []
+depends_on: []
+related_to: []

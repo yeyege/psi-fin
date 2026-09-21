@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: backend_python
+title: PSI-FIN 业财一体中后台 API
+scope:
+    - backend-python/
+source_files: []
+depends_on: []
+related_to: []

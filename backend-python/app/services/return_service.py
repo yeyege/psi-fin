@@ -12,16 +12,17 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import ReturnOrder, ReturnOrderItem, Product, Location, Customer, Batch
+from app.models.enums import OrderStatus, Disposition
 from app.services import inventory_service
 
-ORDER_STATUS_PENDING = "PENDING"
-ORDER_STATUS_RECEIVED = "RECEIVED"
-ORDER_STATUS_DONE = "DONE"
+ORDER_STATUS_PENDING = OrderStatus.PENDING
+ORDER_STATUS_RECEIVED = OrderStatus.RECEIVED
+ORDER_STATUS_DONE = OrderStatus.DONE
 
 # 收货后需要累加库存的处置方式
-DISPOSITIONS_ADD_STOCK = ("RESELL", "RELABEL")
+DISPOSITIONS_ADD_STOCK = (Disposition.RESELL, Disposition.RELABEL)
 
 
 def _build_order_response(order: ReturnOrder) -> dict:
@@ -173,5 +174,4 @@ def list_return_orders(db: Session, status: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_order_response(o) for o in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_order_response(o) for o in rows], total, page, page_size)

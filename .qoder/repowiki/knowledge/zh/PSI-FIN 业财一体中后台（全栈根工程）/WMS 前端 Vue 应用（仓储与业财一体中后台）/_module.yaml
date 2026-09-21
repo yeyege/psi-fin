@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: frontend_vue
+title: WMS 前端 Vue 应用（仓储与业财一体中后台）
+scope:
+    - frontend-vue/
+source_files: []
+depends_on: []
+related_to: []

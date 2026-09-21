@@ -6,12 +6,13 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import InboundOrder, InboundOrderItem, Product, Location, Batch
+from app.models.enums import OrderStatus
 from app.services import inventory_service
 
-ORDER_STATUS_PENDING = "PENDING"
-ORDER_STATUS_COMPLETED = "COMPLETED"
+ORDER_STATUS_PENDING = OrderStatus.PENDING
+ORDER_STATUS_COMPLETED = OrderStatus.COMPLETED
 
 
 def _build_order_response(order: InboundOrder) -> dict:
@@ -145,5 +146,4 @@ def list_inbound_orders(db: Session, status: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_order_response(o) for o in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_order_response(o) for o in rows], total, page, page_size)

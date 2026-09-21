@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_python/customers_products
+title: 客户与商品管理 API
+scope:
+    - backend-python/app/routers/customers.py
+    - backend-python/app/routers/products.py
+    - backend-python/app/services/customer_service.py
+source_files: []
+depends_on: []
+related_to: []

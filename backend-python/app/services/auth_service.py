@@ -14,6 +14,7 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
+from app.common.pagination import page_result
 from app.database import get_db
 from app.models import User, AuthToken
 from app.models.auth import ROLE_ADMIN, STATUS_ACTIVE, STATUS_INACTIVE
@@ -68,8 +69,7 @@ def list_users(db: Session, page: int = 1, page_size: int = 20) -> dict:
     query = db.query(User)
     total = query.count()
     rows = query.order_by(User.id.asc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"list": [_build_user_response(u) for u in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_user_response(u) for u in rows], total, page, page_size)
 
 
 def update_user(db: Session, user_id: int, data) -> User:

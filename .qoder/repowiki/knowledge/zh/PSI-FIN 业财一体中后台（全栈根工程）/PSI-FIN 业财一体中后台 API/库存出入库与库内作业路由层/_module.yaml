@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_python/inventory_operations
+title: 库存出入库与库内作业路由层
+scope:
+    - backend-python/app/routers/inbound.py
+    - backend-python/app/routers/outbound.py
+    - backend-python/app/routers/transfers.py
+source_files: []
+depends_on: []
+related_to: []

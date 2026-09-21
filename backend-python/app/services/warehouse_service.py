@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
 from app.models import Warehouse, Zone, Location
+from app.models.enums import ActiveStatus
 
 
 # ============ 仓库 ============
 
 def list_warehouses(db: Session) -> list[Warehouse]:
-    return db.query(Warehouse).filter(Warehouse.status == "ACTIVE").all()
+    return db.query(Warehouse).filter(Warehouse.status == ActiveStatus.ACTIVE).all()
 
 
 def create_warehouse(db: Session, data) -> Warehouse:

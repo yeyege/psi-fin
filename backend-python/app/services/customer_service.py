@@ -7,7 +7,9 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
+from app.common.pagination import page_result
 from app.models import Customer
+from app.models.enums import ActiveStatus
 
 
 def list_customers(db: Session, keyword: str | None = None,
@@ -23,7 +25,7 @@ def list_customers(db: Session, keyword: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": rows, "total": total, "page": page, "pageSize": page_size}
+    return page_result(rows, total, page, page_size)
 
 
 def get_customer(db: Session, customer_id: int) -> Customer:
@@ -56,5 +58,5 @@ def update_customer(db: Session, customer_id: int, data) -> Customer:
 def delete_customer(db: Session, customer_id: int) -> None:
     """软删除客户（保留历史出库/退货单可追溯）"""
     c = get_customer(db, customer_id)
-    c.status = "INACTIVE"
+    c.status = ActiveStatus.INACTIVE
     db.commit()

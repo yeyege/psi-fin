@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: frontend_vue/bi_dashboard
+title: BI 仪表盘通用图表、弹窗与全局状态
+scope:
+    - frontend-vue/src/components/BiChart.vue
+    - frontend-vue/src/components/BiModal.vue
+    - frontend-vue/src/composables/useBiState.ts
+source_files: []
+depends_on: []
+related_to: []

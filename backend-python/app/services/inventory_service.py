@@ -12,22 +12,29 @@ from sqlalchemy import func, or_, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.common.errors import BusinessError
+from app.common.pagination import page_result
 from app.models import Batch, Inventory, InventoryFlow, Location, Product, Warehouse
+from app.models.enums import FlowType, OrderType
+from app.schemas import (
+    BatchResponse, InventoryFlowResponse,
+    InventoryProductViewResponse, InventoryRowResponse,
+)
 
-FLOW_TYPE_INBOUND = "INBOUND"        # 入库（+available）
-FLOW_TYPE_OUTBOUND = "OUTBOUND"      # 出库发货（-locked）
-FLOW_TYPE_PICK_LOCK = "PICK_LOCK"    # 拣货锁定（-available +locked）
-FLOW_TYPE_MOVE_OUT = "MOVE_OUT"      # 移库出（-available）
-FLOW_TYPE_MOVE_IN = "MOVE_IN"        # 移库入（+available）
-FLOW_TYPE_ADJUST_IN = "ADJUST_IN"    # 调整盘盈（+available）
-FLOW_TYPE_ADJUST_OUT = "ADJUST_OUT"  # 调整盘亏（-available）
-FLOW_TYPE_RETURN_IN = "RETURN_IN"    # 退货收货（+available）
+# 库存流水 / 来源单据类型：统一取自 enums（单一事实来源），保留模块级别名供其他 service 引用。
+FLOW_TYPE_INBOUND = FlowType.INBOUND          # 入库（+available）
+FLOW_TYPE_OUTBOUND = FlowType.OUTBOUND        # 出库发货（-locked）
+FLOW_TYPE_PICK_LOCK = FlowType.PICK_LOCK      # 拣货锁定（-available +locked）
+FLOW_TYPE_MOVE_OUT = FlowType.MOVE_OUT        # 移库出（-available）
+FLOW_TYPE_MOVE_IN = FlowType.MOVE_IN          # 移库入（+available）
+FLOW_TYPE_ADJUST_IN = FlowType.ADJUST_IN      # 调整盘盈（+available）
+FLOW_TYPE_ADJUST_OUT = FlowType.ADJUST_OUT    # 调整盘亏（-available）
+FLOW_TYPE_RETURN_IN = FlowType.RETURN_IN      # 退货收货（+available）
 
-ORDER_TYPE_INBOUND = "INBOUND"
-ORDER_TYPE_OUTBOUND = "OUTBOUND"
-ORDER_TYPE_TRANSFER = "TRANSFER"
-ORDER_TYPE_ADJUSTMENT = "ADJUSTMENT"
-ORDER_TYPE_RETURN = "RETURN"
+ORDER_TYPE_INBOUND = OrderType.INBOUND
+ORDER_TYPE_OUTBOUND = OrderType.OUTBOUND
+ORDER_TYPE_TRANSFER = OrderType.TRANSFER
+ORDER_TYPE_ADJUSTMENT = OrderType.ADJUSTMENT
+ORDER_TYPE_RETURN = OrderType.RETURN
 
 
 def _get_or_create_inventory(db: Session, product_id: int, location_code: str,
@@ -324,25 +331,33 @@ def query_inventory(
     )
     rows = rows.offset((page - 1) * page_size).limit(page_size).all()
 
-    list_data = []
-    for r in rows:
-        item = {
-            "productId": r.product_id,
-            "productName": r.product_name,
-            "sku": r.sku,
-            "availableQty": r.available_qty,
-            "lockedQty": r.locked_qty,
-            "totalQty": (r.available_qty or 0) + (r.locked_qty or 0),
-            "warehouseId": r.warehouse_id,
-            "warehouseName": r.warehouse_name,
-            "updatedAt": r.updated_at,
-        }
-        if view == "location":
-            item["locationCode"] = r.location_code
-            item["batchNo"] = r.batch_no
-        list_data.append(item)
+    if view == "product":
+        list_data = [
+            InventoryProductViewResponse(
+                product_id=r.product_id, product_name=r.product_name, sku=r.sku,
+                warehouse_id=r.warehouse_id, warehouse_name=r.warehouse_name,
+                available_qty=r.available_qty, locked_qty=r.locked_qty,
+                total_qty=(r.available_qty or 0) + (r.locked_qty or 0),
+                updated_at=r.updated_at,
+            )
+            for r in rows
+        ]
+    else:
+        list_data = [
+            InventoryRowResponse(
+                product_id=r.product_id, product_name=r.product_name, sku=r.sku,
+                location_code=r.location_code,
+                warehouse_id=r.warehouse_id, warehouse_name=r.warehouse_name,
+                batch_no=r.batch_no,
+                available_qty=r.available_qty, locked_qty=r.locked_qty,
+                total_qty=(r.available_qty or 0) + (r.locked_qty or 0),
+                updated_at=r.updated_at,
+            )
+            for r in rows
+        ]
 
-    return {"list": list_data, "total": total, "page": page, "pageSize": page_size}
+    list_data = [m.model_dump(by_alias=True) for m in list_data]
+    return page_result(list_data, total, page, page_size)
 
 
 def query_flows(
@@ -380,25 +395,20 @@ def query_flows(
         .limit(page_size)
         .all()
     )
-    list_data = []
-    for f in rows:
-        list_data.append({
-            "id": f.id,
-            "flowType": f.flow_type,
-            "orderType": f.order_type,
-            "orderNo": f.order_no,
-            "productId": f.product_id,
-            "productName": f.product.name,
-            "sku": f.product.sku,
-            "locationCode": f.location_code,
-            "batchNo": f.batch.batch_no if f.batch else None,
-            "quantity": f.quantity,
-            "beforeQty": f.before_qty,
-            "afterQty": f.after_qty,
-            "remark": f.remark,
-            "createdAt": f.created_at,
-        })
-    return {"list": list_data, "total": total, "page": page, "pageSize": page_size}
+    list_data = [
+        InventoryFlowResponse(
+            id=f.id, flow_type=f.flow_type, order_type=f.order_type, order_no=f.order_no,
+            product_id=f.product_id,
+            product_name=f.product.name if f.product else "",
+            sku=f.product.sku if f.product else "",
+            location_code=f.location_code,
+            batch_no=f.batch.batch_no if f.batch else None,
+            quantity=f.quantity, before_qty=f.before_qty, after_qty=f.after_qty,
+            remark=f.remark, created_at=f.created_at,
+        )
+        for f in rows
+    ]
+    return page_result([m.model_dump(by_alias=True) for m in list_data], total, page, page_size)
 
 
 def query_batches(db: Session, keyword: str | None = None,
@@ -421,16 +431,13 @@ def query_batches(db: Session, keyword: str | None = None,
         .all()
     )
     list_data = [
-        {
-            "id": b.id,
-            "batchNo": b.batch_no,
-            "productId": b.product_id,
-            "productName": b.product.name if b.product else "",
-            "sku": b.product.sku if b.product else "",
-            "inboundDate": b.inbound_date,
-            "manufactureDate": b.manufacture_date,
-            "expiryDate": b.expiry_date,
-        }
+        BatchResponse(
+            id=b.id, batch_no=b.batch_no, product_id=b.product_id,
+            product_name=b.product.name if b.product else "",
+            sku=b.product.sku if b.product else "",
+            inbound_date=b.inbound_date,
+            manufacture_date=b.manufacture_date, expiry_date=b.expiry_date,
+        )
         for b in rows
     ]
-    return {"list": list_data, "total": total, "page": page, "pageSize": page_size}
+    return page_result([m.model_dump(by_alias=True) for m in list_data], total, page, page_size)

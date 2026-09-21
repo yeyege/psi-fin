@@ -4,6 +4,7 @@ from app.services.auth_service import get_current_user
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.schemas import ApiResponse, PageResult, InventoryFlowResponse, BatchResponse
 from app.services import inventory_service
 
 router = APIRouter(tags=["库存"], dependencies=[Depends(get_current_user)])
@@ -31,7 +32,7 @@ def query_inventory(
     return {"code": 200, "message": "success", "data": result}
 
 
-@router.get("/api/inventory/flows")
+@router.get("/api/inventory/flows", response_model=ApiResponse[PageResult[InventoryFlowResponse]])
 def query_flows(
     order_no: str | None = Query(default=None, alias="orderNo"),
     product_id: int | None = Query(default=None, alias="productId"),
@@ -49,7 +50,7 @@ def query_flows(
     return {"code": 200, "message": "success", "data": result}
 
 
-@router.get("/api/inventory/batches")
+@router.get("/api/inventory/batches", response_model=ApiResponse[PageResult[BatchResponse]])
 def query_batches(
     keyword: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),

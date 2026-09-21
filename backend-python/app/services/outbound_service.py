@@ -9,14 +9,15 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import OutboundOrder, OutboundOrderItem, Product, Location
+from app.models.enums import OrderStatus
 from app.services import inventory_service
 
-STATUS_PENDING = "PENDING"
-STATUS_PICKED = "PICKED"
-STATUS_REVIEWED = "REVIEWED"
-STATUS_SHIPPED = "SHIPPED"
+STATUS_PENDING = OrderStatus.PENDING
+STATUS_PICKED = OrderStatus.PICKED
+STATUS_REVIEWED = OrderStatus.REVIEWED
+STATUS_SHIPPED = OrderStatus.SHIPPED
 
 
 def _build_order_response(order: OutboundOrder) -> dict:
@@ -191,5 +192,4 @@ def list_outbound_orders(db: Session, status: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_order_response(o) for o in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_order_response(o) for o in rows], total, page, page_size)

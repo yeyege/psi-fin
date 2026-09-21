@@ -1,0 +1,22 @@
+schema_version: 1
+module_path: frontend_vue/other_warehouse_views
+title: 业务视图页面集合（进销存与业财一体中后台）
+scope:
+    - frontend-vue/src/views/AdjustmentsView.vue
+    - frontend-vue/src/views/BatchesView.vue
+    - frontend-vue/src/views/CountsView.vue
+    - frontend-vue/src/views/CustomersView.vue
+    - frontend-vue/src/views/DashboardView.vue
+    - frontend-vue/src/views/ExecutiveView.vue
+    - frontend-vue/src/views/FinanceView.vue
+    - frontend-vue/src/views/FlowsView.vue
+    - frontend-vue/src/views/LoginView.vue
+    - frontend-vue/src/views/ProductsView.vue
+    - frontend-vue/src/views/SalesOrdersView.vue
+    - frontend-vue/src/views/TransfersView.vue
+    - frontend-vue/src/views/UsersView.vue
+    - frontend-vue/src/views/WarehousesView.vue
+    - frontend-vue/src/views/WavesView.vue
+source_files: []
+depends_on: []
+related_to: []

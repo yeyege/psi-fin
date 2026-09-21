@@ -3,7 +3,9 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.common.errors import BusinessError
+from app.common.pagination import page_result
 from app.models import Product
+from app.models.enums import ActiveStatus
 
 
 def list_products(db: Session, keyword: str | None = None,
@@ -19,7 +21,7 @@ def list_products(db: Session, keyword: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": rows, "total": total, "page": page, "pageSize": page_size}
+    return page_result(rows, total, page, page_size)
 
 
 def get_product(db: Session, product_id: int) -> Product:
@@ -64,5 +66,5 @@ def delete_product(db: Session, product_id: int) -> None:
     )
     if has_stock:
         raise BusinessError(f"商品「{p.name}」仍有库存，无法删除")
-    p.status = "INACTIVE"  # 软删除，保留历史流水可追溯
+    p.status = ActiveStatus.INACTIVE  # 软删除，保留历史流水可追溯
     db.commit()

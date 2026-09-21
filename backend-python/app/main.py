@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,9 +43,11 @@ async def business_error_handler(request: Request, exc: BusinessError):
 
 
 # CORS（前端经 vite/nginx 代理同源访问，无 cookie 场景，无需 allow_credentials）
+# 生产如需收紧来源，设环境变量 CORS_ORIGINS="https://a.com,https://b.com"（逗号分隔）；缺省保持 "*"。
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()] or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Product, Customer, Inventory, InboundOrder, OutboundOrder,
 )
+from app.models.enums import OrderStatus, ActiveStatus
 
 
 def dashboard_summary(db: Session) -> dict:
@@ -40,10 +41,10 @@ def dashboard_summary(db: Session) -> dict:
     return {
         "todayInboundCount": _today_count(InboundOrder),
         "todayOutboundCount": _today_count(OutboundOrder),
-        "pendingInboundCount": _status_count(InboundOrder, ["PENDING"]),
-        "pendingOutboundCount": _status_count(OutboundOrder, ["PENDING", "PICKED"]),
+        "pendingInboundCount": _status_count(InboundOrder, [OrderStatus.PENDING]),
+        "pendingOutboundCount": _status_count(OutboundOrder, [OrderStatus.PENDING, OrderStatus.PICKED]),
         "totalInventoryQty": int(total_qty),
         "lowStockProductCount": int(low_stock_products),
-        "activeProductCount": db.query(Product).filter(Product.status == "ACTIVE").count(),
-        "activeCustomerCount": db.query(Customer).filter(Customer.status == "ACTIVE").count(),
+        "activeProductCount": db.query(Product).filter(Product.status == ActiveStatus.ACTIVE).count(),
+        "activeCustomerCount": db.query(Customer).filter(Customer.status == ActiveStatus.ACTIVE).count(),
     }

@@ -13,34 +13,35 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import (
     CycleCount, CycleCountItem, StockAdjustment, StockAdjustmentItem,
     Product, Location, Zone, Inventory,
 )
+from app.models.enums import OrderStatus, CountScope
 from app.services import inventory_service
 
-STATUS_PENDING = "PENDING"
-STATUS_COMPLETED = "COMPLETED"
+STATUS_PENDING = OrderStatus.PENDING
+STATUS_COMPLETED = OrderStatus.COMPLETED
 
 
 def _validate_scope(db: Session, scope_type: str, scope_value: str | None) -> None:
     """校验盘点范围：范围值必填且对应基础数据存在（ALL 除外）。"""
-    if scope_type == "ALL":
+    if scope_type == CountScope.ALL:
         return
     if not scope_value:
         raise BusinessError("请填写盘点范围值", 400)
-    if scope_type == "LOCATION":
+    if scope_type == CountScope.LOCATION:
         if not db.query(Location).filter(Location.code == scope_value).first():
             raise BusinessError(f"库位不存在: {scope_value}", 404)
-    elif scope_type == "ZONE":
+    elif scope_type == CountScope.ZONE:
         try:
             zone_id = int(scope_value)
         except ValueError:
             raise BusinessError("库区ID必须为数字", 400)
         if not db.query(Zone).filter(Zone.id == zone_id).first():
             raise BusinessError(f"库区不存在: {zone_id}", 404)
-    elif scope_type == "PRODUCT":
+    elif scope_type == CountScope.PRODUCT:
         try:
             product_id = int(scope_value)
         except ValueError:
@@ -52,12 +53,12 @@ def _validate_scope(db: Session, scope_type: str, scope_value: str | None) -> No
 def _scope_inventory_query(db: Session, scope_type: str, scope_value: str | None):
     """构造范围内库存行的查询（不限定批次，仅用于快照聚合）。"""
     query = db.query(Inventory)
-    if scope_type == "LOCATION":
+    if scope_type == CountScope.LOCATION:
         query = query.filter(Inventory.location_code == scope_value)
-    elif scope_type == "ZONE":
+    elif scope_type == CountScope.ZONE:
         query = query.join(Location, Location.code == Inventory.location_code).filter(
             Location.zone_id == int(scope_value))
-    elif scope_type == "PRODUCT":
+    elif scope_type == CountScope.PRODUCT:
         query = query.filter(Inventory.product_id == int(scope_value))
     # ALL：全部库存
     return query
@@ -231,7 +232,7 @@ def complete_count(db: Session, count_id: int) -> CycleCount:
         if diff_map:
             adjustment = StockAdjustment(
                 order_no=generate_order_no(db, StockAdjustment, "ADJ"),
-                status="COMPLETED",
+                status=STATUS_COMPLETED,
                 count_id=count.id,
                 remark=f"盘点单 {count.count_no} 差异自动调整",
             )
@@ -293,5 +294,4 @@ def list_counts(db: Session, status: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_response(c) for c in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_response(c) for c in rows], total, page, page_size)

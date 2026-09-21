@@ -7,8 +7,9 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import StockAdjustment, StockAdjustmentItem, Product, Location
+from app.models.enums import OrderStatus
 from app.services import inventory_service
 
 
@@ -54,7 +55,7 @@ def create_adjustment(db: Session, data) -> StockAdjustment:
         try:
             adj = StockAdjustment(
                 order_no=order_no,
-                status="COMPLETED",
+                status=OrderStatus.COMPLETED,
                 remark=data.remark,
             )
             db.add(adj)
@@ -118,5 +119,4 @@ def list_adjustments(db: Session, page: int = 1, page_size: int = 20) -> dict:
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_response(a) for a in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_response(a) for a in rows], total, page, page_size)

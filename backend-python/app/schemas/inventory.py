@@ -8,6 +8,8 @@ class BatchResponse(CamelModel):
     id: int
     batch_no: str
     product_id: int
+    product_name: str = ""
+    sku: str = ""
     inbound_date: datetime
     manufacture_date: datetime | None = None
     expiry_date: datetime | None = None
@@ -21,7 +23,6 @@ class InventoryRowResponse(CamelModel):
     location_code: str
     warehouse_id: int
     warehouse_name: str
-    zone_name: str | None = None
     batch_no: str | None = None
     available_qty: int
     locked_qty: int

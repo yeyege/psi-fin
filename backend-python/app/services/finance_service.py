@@ -12,19 +12,20 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import (
     Customer, Product, SalesOrder, SalesOrderItem,
     FinanceEntry, FinanceSettlement,
 )
+from app.models.enums import SalesOrderStatus
 
 # ============ 常量 ============
 
-ORDER_DRAFT = "DRAFT"
-ORDER_CONFIRMED = "CONFIRMED"
-ORDER_SHIPPED = "SHIPPED"
-ORDER_COMPLETED = "COMPLETED"
-ORDER_CANCELLED = "CANCELLED"
+ORDER_DRAFT = SalesOrderStatus.DRAFT
+ORDER_CONFIRMED = SalesOrderStatus.CONFIRMED
+ORDER_SHIPPED = SalesOrderStatus.SHIPPED
+ORDER_COMPLETED = SalesOrderStatus.COMPLETED
+ORDER_CANCELLED = SalesOrderStatus.CANCELLED
 
 ENTRY_RECEIVABLE = "RECEIVABLE"
 ENTRY_PAYABLE = "PAYABLE"
@@ -191,8 +192,7 @@ def list_sales_orders(db: Session, status: str | None = None, customer_id: int |
         query.order_by(SalesOrder.created_at.desc(), SalesOrder.id.desc())
         .offset((page - 1) * page_size).limit(page_size).all()
     )
-    return {"list": [order_response(o) for o in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([order_response(o) for o in rows], total, page, page_size)
 
 
 def update_sales_order(db: Session, order_id: int, data) -> SalesOrder:
@@ -460,8 +460,7 @@ def list_receivables(db: Session, partner_name: str | None = None, status: str |
     total = len(rows)
     start = (page - 1) * page_size
     page_rows = rows[start:start + page_size]
-    return {"list": [entry_response(e, today) for e in page_rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([entry_response(e, today) for e in page_rows], total, page, page_size)
 
 
 def _aging_bucket(due_date: date | None, today: date) -> str:

@@ -6,8 +6,9 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import StockTransfer, StockTransferItem, Product, Location
+from app.models.enums import OrderStatus
 from app.services import inventory_service
 
 
@@ -58,7 +59,7 @@ def create_transfer(db: Session, data) -> StockTransfer:
         try:
             transfer = StockTransfer(
                 order_no=order_no,
-                status="COMPLETED",
+                status=OrderStatus.COMPLETED,
                 remark=data.remark,
             )
             db.add(transfer)
@@ -122,5 +123,4 @@ def list_transfers(db: Session, page: int = 1, page_size: int = 20) -> dict:
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_response(t) for t in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_response(t) for t in rows], total, page, page_size)

@@ -12,19 +12,20 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError
+from app.common import generate_order_no, BusinessError, page_result
 from app.models import (
     Wave, PickingOrder, PickingOrderItem,
     OutboundOrder, OutboundOrderItem, Product, Location,
 )
+from app.models.enums import WaveStatus, PickingStatus
 from app.services import inventory_service, outbound_service
 
-WAVE_STATUS_CREATED = "CREATED"
-WAVE_STATUS_PICKING = "PICKING"
-WAVE_STATUS_COMPLETED = "COMPLETED"
+WAVE_STATUS_CREATED = WaveStatus.CREATED
+WAVE_STATUS_PICKING = WaveStatus.PICKING
+WAVE_STATUS_COMPLETED = WaveStatus.COMPLETED
 
-PICK_STATUS_CREATED = "CREATED"
-PICK_STATUS_PICKED = "PICKED"
+PICK_STATUS_CREATED = PickingStatus.CREATED
+PICK_STATUS_PICKED = PickingStatus.PICKED
 
 
 def _build_wave_response(wave: Wave) -> dict:
@@ -212,8 +213,7 @@ def list_waves(db: Session, status: str | None = None,
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_wave_response(w) for w in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_wave_response(w) for w in rows], total, page, page_size)
 
 
 def list_picking_orders(db: Session, wave_id: int | None = None, status: str | None = None,
@@ -233,5 +233,4 @@ def list_picking_orders(db: Session, wave_id: int | None = None, status: str | N
         .limit(page_size)
         .all()
     )
-    return {"list": [_build_picking_response(p) for p in rows], "total": total,
-            "page": page, "pageSize": page_size}
+    return page_result([_build_picking_response(p) for p in rows], total, page, page_size)
