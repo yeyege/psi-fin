@@ -110,7 +110,7 @@ psi-fin/
 ├── .github/workflows/ci.yml  # GitHub Actions CI
 ├── docker-compose.yml         # 一键启动全栈
 ├── NOTES.md                  # 开发说明（AI 使用 / Bug / 方案 / 测试）
-├── MVP_DESIGN.md             # MVP 设计路线图
+├── MVP_DESIGN.md             # MVP 里程碑设计（历史文档）
 └── README.md
 ```
 
@@ -175,7 +175,7 @@ npm start           # concurrently 同时拉起后端 + 前端
 
 ### 选做任务
 - **出库单 + 防超卖**：锁定机制 + 原子扣减 + 整单回滚（含并发双线程防超卖测试）
-- **单元测试**：后端 80 + 前端 14 用例
+- **单元测试**：后端 126 + 前端 31 用例
 - **前端性能优化**：服务端分页 + 搜索防抖（300ms）+ 筛选逻辑抽离纯函数
 
 ### MVP 扩展（M1-M7）
@@ -216,10 +216,10 @@ npm start           # concurrently 同时拉起后端 + 前端
 ## 测试
 
 ```bash
-# 后端单元测试（80 用例，不连真实数据库）
+# 后端单元测试（126 用例，不连真实数据库）
 cd backend-python && uv run pytest
 
-# 前端单元测试（14 用例）
+# 前端单元测试（31 用例）
 cd frontend-vue && npm test
 
 # 前端 E2E（Playwright，自动拉起前后端）
@@ -256,9 +256,9 @@ cd frontend-vue && npm run test:e2e
 ## 文档
 
 - [NOTES.md](./NOTES.md) — 开发说明（AI 使用 / Bug 修复 / 方案选型 / 测试覆盖）
-- [MVP_DESIGN.md](./MVP_DESIGN.md) — MVP 设计路线图
+- [MVP_DESIGN.md](./MVP_DESIGN.md) — MVP 里程碑设计（M1-M7 历史文档，含仍有效的架构设计与开发规范）
 - [docs/API_SPEC.md](./docs/API_SPEC.md) — API 接口规范
-- [TASKS.md](./TASKS.md) — 任务清单
+- [TASKS.md](./TASKS.md) — 任务与进展实录
 
 ---
 
