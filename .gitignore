@@ -23,7 +23,17 @@ node_modules/
 dist/
 # Pages 站点内的 SPA 构建产物（由 CI 生成，不入库）
 site/app/
-.claude
+# ===== .claude：只放行 opsx 命令与 openspec skills =====
+# 这两项是 .qoder/skills/ 里 grilling / code-review 引用的事实源，必须真实入库；
+# 但 .claude 下还有个人求职材料（interview-prep-from-jd），按 docs/interview/ 的隔离规则不入库。
+# gitignore 无法在父目录被排除后再放行其内容，所以逐层排除目录内容、再逐层放行。
+.claude/*
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/opsx/
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/openspec-*/
 # ====== IDE ======
 .idea/
 *.iml
@@ -44,8 +54,9 @@ Thumbs.db
 # ===== 本地求职/面试材料(不入库) =====
 docs/interview/
 
-# ===== 本地规划工具产物(不入库,仅本地保留) =====
-openspec/
+# ===== 本地规划工具产物 =====
+# openspec/ 不再忽略：changes/<name>/{proposal,design,specs,tasks} 是 code-review skill
+# Spec 轴的事实源，也是「实现是否忠实于 spec」的唯一可核对依据；clean clone 上必须存在。
 
 # ===== Playwright E2E =====
 test-results/
