@@ -94,6 +94,14 @@ account_mapping(id, event_type, dimension, account_code)  -- 维度值 → 科�
 
 - 现状冲突：存量 `FinanceEntry` 等业务表为 Float + round(2)（历史「演示口径」）——业务域暂不改动以免破坏存量 112 用例；2.4 凭证引擎接入时应收/应付金额以 Decimal 边界转换，两套口径的转换点写入 docs
 - 备选：整数存分（cents）→ 跨币种/税率乘除麻烦，Numeric 在 MySQL 即 DECIMAL，放弃
+- **2026-09-26 修正（范围已扩大，本条取代上面的「暂不改动」）**：业务域一并迁移，不再保留两套口径。
+  理由是「以免破坏存量 112 用例」这个顾虑已被实测证伪 —— 全量迁移后 130 用例全绿，未出现预期的大面积适配。
+  两套口径共存的代价比预期高：`Decimal` 与 `float` 混算不是精度问题而是 `TypeError`，只要应收/应付仍是 Float，
+  任何跨域汇总（驾驶舱、账龄、未来的凭证生成）都要在边界手工转换，转换点本身就是 bug 温床。
+  落地：7 个金额列走 `models.base.Money`（`Numeric(18,2)`），量化入口 `app/common/money.py::money()`
+  统一 `ROUND_HALF_UP`（取代 `round()` 的银行家舍入，属有意的业务口径变更），EPS 与两处 `1e-9` 容差删除；
+  存量库由迁移 `0002_money_numeric` 转换，`backend-python/scripts/check_money_columns.py` 负责向数据库本身核对列类型；
+  对外契约不变（`jsonable_encoder` 仍把 Decimal 输出为 JSON number），已用真实 HTTP 链路实测。
 
 ### D11: 迁移策略 —— Alembic 接线，废除裸 create_all
 
@@ -101,6 +109,20 @@ account_mapping(id, event_type, dimension, account_code)  -- 维度值 → 科�
 1. `alembic init` + 生成基线 migration（覆盖全部存量表）
 2. 启动流程改跑 `alembic upgrade head`（Docker Compose backend entrypoint / 本地脚本），`Base.metadata.create_all` 仅保留给 pytest 临时库与开发便利
 3. autogenerate 与模型一致性纳入 CI：`alembic check` 漂移即红
+
+- **2026-09-26 进度（部分完成，勿整体视为已交付）**：
+  - ①已完成：`alembic.ini` + `migrations/env.py`（只认 `DATABASE_URL`，缺失即退出，不静默回退 SQLite）；
+    基线 `0001_baseline` 用 `Base.metadata.create_all(bind=op.get_bind())` 实现「覆盖全部存量表」，
+    对存量库天然 no-op，因此不需要 `alembic stamp`；另加 `0002_money_numeric`（见 D10）。
+    `alembic check` 在 SQLite 上实跑为「No new upgrade operations detected」，即模型与迁移零漂移。
+  - ②未完成：`main.py` 的 lifespan 仍在启动时 `create_all`，compose 的 backend entrypoint 也没接
+    `alembic upgrade head` —— 目前迁移由操作者显式执行。保留 lifespan 建表是为了不重写测试与
+    全新环境冷启动路径，与「废除裸 create_all」尚有距离，收口时需要决定：是彻底移除 lifespan 建表
+    （则新库必须先 upgrade），还是保留但明确它只建空表、不承担 ALTER（当前 AGENTS.md §4 采用后一种口径）。
+  - ③未完成：`alembic check` 未进 CI。CI 目前只新增了一个 PostgreSQL 上的迁移可跑性 job
+    （`backend-migrate-postgres`：空库 upgrade → 核对列类型 → downgrade → 再 upgrade），不等同于漂移检测。
+- 注意：D10 修正后新增的列类型迁移证明了一件事 —— 只改模型不写迁移时，`create_all` 对已存在的表是 no-op，
+  「测试库对了」与「线上库对了」是两个独立结论，必须分别取证
 
 ### D12: 数据库连接与引擎配置
 
