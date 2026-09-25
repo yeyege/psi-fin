@@ -7,7 +7,7 @@ description: "Diagnosis loop for hard bugs and performance regressions in this W
 
 A discipline for hard bugs. Skip phases only when explicitly justified.
 
-When exploring the codebase, read `.qoder/repowiki/knowledge/zh/业务术语表/业务术语表.md` for the module map in the project's own vocabulary, `AGENTS.md` for the invariants the bug may have already broken, and the relevant `openspec/changes/<name>/specs/**/spec.md` for what the behavior was supposed to be.
+When exploring the codebase, read `docs/GLOSSARY.md` for the module map in the project's own vocabulary — its 防超卖 / 方言三态 / 金额口径 entries are the ones that most often explain an "impossible" bug — `AGENTS.md` for the invariants the bug may have already broken, and the relevant `openspec/changes/<name>/specs/**/spec.md` for what the behavior was supposed to be.
 
 ## The dialect trap — check this first
 

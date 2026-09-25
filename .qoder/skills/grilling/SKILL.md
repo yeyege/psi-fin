@@ -27,7 +27,7 @@ Each round the user answers reshapes the tree: settled decisions push the fronti
 
 Read these so the questions are asked in the project's own language and against its real constraints:
 
-- `.qoder/repowiki/knowledge/zh/业务术语表/业务术语表.md` — the domain vocabulary. Use its terms (`available_qty`/`locked_qty` 分离, 防超卖, 会计内核, 波次拣货, CamelModel 契约) rather than paraphrasing them.
+- `docs/GLOSSARY.md` — the prescriptive domain vocabulary. Use its terms (`available_qty`/`locked_qty` 分离, 防超卖, 会计内核, 波次拣货, CamelModel 契约, 金额口径, seam, 方言三态) rather than paraphrasing them. It is a curated, committed document — not the IDE's regenerated `.qoder/repowiki/` output, which is git-ignored and shifts on every rebuild.
 - `AGENTS.md` — the hard rules. A decision that would violate one is not an open question; say so and ask the user to re-scope. Read §1–§4 fresh from the file rather than recalling them from this skill: nothing here restates them, because a copy in two places is the drift `AGENTS.md` §6 forbids.
 - `openspec/changes/<change-name>/` if a change is already in flight — read `proposal.md` and `design.md` so you do not re-ask what is already settled.
 

@@ -1,7 +1,7 @@
 # AGENTS.md
 
 进销存 · 业财一体中后台（FastAPI + Vue 3）的开发约束。本文件固化所有 AI 工具与新同事
-**必须遵守的硬规则**；细节背景见 `.qoder/repowiki/`、`docs/PRD.md`、`docs/API_SPEC.md`、`NOTES.md`。
+**必须遵守的硬规则**；术语与模块地图见 `docs/GLOSSARY.md`，细节背景见 `docs/PRD.md`、`docs/API_SPEC.md`、`NOTES.md`。
 
 ## 1. 四层架构铁律（routers → services → models/schemas）
 
@@ -75,7 +75,7 @@ uv run python scripts/check_money_columns.py   # 问数据库本身，而不是�
 - 优先一 cycle 一 seam 一测试：先 red 后 green，不无目的地横向铺测试；
   但上一节列出的财务不变量（借贷平衡/幂等/锁账拒写）属于必须成套覆盖的，允许一次补齐多个 seam。
 - 优先复用已存在的 seam；确需新增时选在尽可能高的位置，跨项目 seam 越少越好。
-- 命名用业务术语表（`.qoder/repowiki/knowledge/zh/业务术语表/`）的词，使测试名读起来像规格。
+- 命名用业务术语表（`docs/GLOSSARY.md`）的词，使测试名读起来像规格。
 
 ## 6. 配套的 agent skills
 

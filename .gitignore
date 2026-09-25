@@ -18,11 +18,18 @@ docs/*
 !docs/API_SPEC.md
 !docs/PRD.md
 !docs/ROADMAP_TODO.md
+!docs/GLOSSARY.md
 # ====== Node / Frontend ======
 node_modules/
 dist/
 # Pages 站点内的 SPA 构建产物（由 CI 生成，不入库）
 site/app/
+# ====== Qoder 自动重建的知识卡目录（repowiki）======
+# 2026-09-23 已决定不入库（远端提交 50e330d 删除了整个目录）。它是自动重建产物，
+# 入库后会反复产生假 diff 与 modify/delete 冲突（本仓库已因此冲突过一次）。
+# 术语与模块地图的入库事实源是 docs/GLOSSARY.md，grilling / diagnosing-bugs / AGENTS.md 均指向它。
+# 只忽略这个子目录：`.qoder/skills/` 必须继续入库。
+.qoder/repowiki/
 # ===== .claude：只放行 opsx 命令与 openspec skills =====
 # 注意理由：这不是 .qoder/skills/ 的依赖——指向另一个 harness 的跨侧引用已于 2026-09-26 清除
 # （grilling 不再写 /opsx:propose，AGENTS.md 只做描述），Qoder 也不加载这个目录。
