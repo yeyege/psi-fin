@@ -79,13 +79,20 @@ uv run python scripts/check_money_columns.py   # 问数据库本身，而不是�
 
 ## 6. 配套的 agent skills
 
-`.qoder/skills/` 下三个 model-invoked skill，会在对应场景自动触发，也可显式调用：
+skill 目录按 harness 分治，**互不可见**：Qoder 只加载 `.qoder/skills/`；Claude Code 只加载
+`.claude/skills/` 与 `.claude/commands/`。`.qoder/` 下没有 `commands`，所以 `/opsx:*` 这类
+slash command 在 Qoder 里打不出来。因此约定：**本文件与各 skill 只写动作与文件路径，
+不写只有另一个 harness 才有的命令名**，否则指针指向一个够不到的入口，白占上下文。
 
-| Skill | 何时用 |
-|---|---|
-| `grilling` | 动手前把设计决策问完、问到底，收敛到没有隐含假设。与 `/opsx:explore`（发散探索）互补 |
-| `code-review` | 双轴评审：Standards 轴以本文件为事实源，Spec 轴以 `openspec/changes/<name>/` 为事实源；默认评审未提交的工作区改动，也可给 `<fixed point>` 评审已提交区间 |
-| `diagnosing-bugs` | 难 bug / 性能回退：先建 tight 且 red-capable 的反馈回路，才允许提假设 |
+| Skill | 位置 | 何时用 |
+|---|---|---|
+| `grilling` | `.qoder/skills/` | 动手前把设计决策问完、问到底，收敛到没有隐含假设。需要发散时显式说明「本轮只探索不收敛」，不要指望某个 explore skill 自动接棒 |
+| `code-review` | `.qoder/skills/` | 双轴评审：Standards 轴以本文件为事实源，Spec 轴以 `openspec/changes/<name>/` 为事实源；默认评审未提交的工作区改动，也可给 `<fixed point>` 评审已提交区间 |
+| `diagnosing-bugs` | `.qoder/skills/` | 难 bug / 性能回退：先建 tight 且 red-capable 的反馈回路，才允许提假设 |
+| `openspec-*` | `.claude/skills/` | Claude Code 专用：spec 生成/实施/归档/同步。Qoder 侧等价路径是直接读写 `openspec/changes/<name>/`，`openspec` CLI 本身可用（`validate` 已装） |
+
+三个 model-invoked skill 的 `description` 常驻上下文，会在对应场景自动触发，也可显式调用；
+装得多付的窗口就多，新增前先问这个边界是否真的需要。
 
 评审与诊断的判定标准以本文件为准；本文件与 skill 冲突时，改本文件，不要在各 skill 里重复一套规则。
 

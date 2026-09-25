@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or change before implementing. Use when the user wants to stress-test their thinking, uses any 'grill' trigger phrase, or a change is being designed for this WMS/finance system and its decisions are not yet all settled. Distinct from openspec-explore, which diverges; this one converges until nothing is silently assumed.
+description: Grill the user relentlessly about a plan, decision, or change before implementing. Use when the user wants to stress-test their thinking, uses any 'grill' trigger phrase, or a change is being designed for this WMS/finance system and its decisions are not yet all settled. Distinct from open-ended exploration, which diverges; this one converges until nothing is silently assumed.
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
@@ -57,4 +57,8 @@ A very long session usually means the scope was too big — say so plainly and p
 
 ## Where the answers land
 
-Once confirmed, hand the settled tree to the spec stage rather than letting it evaporate from context: point the user at `/opsx:propose` (or, if a change already exists, offer to write the decisions into its `design.md`). Do not open a second source of truth for the same decision.
+Once confirmed, hand the settled tree to the spec stage rather than letting it evaporate from context. The landing spot is the repo's own spec directory, never this conversation or the commit message: the next reader looks there, and a decision recorded twice is a decision that will eventually disagree with itself.
+
+- A change already exists under `openspec/changes/<name>/`: write the decisions into its `design.md` as a **dated amendment that names the decision it supersedes**, then split the affected `tasks.md` items so only genuinely finished work is checked — leave the parent unchecked while any sub-item remains. Silently contradicting the old decision is the failure mode; the amendment line is what prevents it.
+- No change exists yet: create one there (`proposal.md` / `design.md` / `specs/**/spec.md` / `tasks.md`). Use your harness's openspec tooling when it has it; when it does not, write those files directly — the directory layout is the contract, not the command.
+- Finish with `openspec validate <change-name> --strict` if the CLI is installed. Report what it says, including warnings you did not introduce: a pre-existing failure you discovered mid-write belongs in the report, not in silence.
