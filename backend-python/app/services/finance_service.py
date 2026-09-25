@@ -2,17 +2,19 @@
 
 业务口径(见 openspec/changes/add-business-finance/design.md):
 - 应收在【发货】动作内生成,到期日 = 发货日期 + 账期
+- 金额一律 Decimal,只经 app.common.money.money() 量化到 2 位;状态推导/核销额度用精确比较
 - 幂等三层:服务层预查 + DB 唯一约束(source_order_no, entry_type) + IntegrityError 兜底
 - 核销支持部分核销;收款可大于已核销金额,差额为未核销余额(预收)
 - 账龄以【到期日】为基准实时分段,不落库
 """
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.common import generate_order_no, BusinessError, page_result
+from app.common import generate_order_no, BusinessError, page_result, money, ZERO
 from app.models import (
     Customer, Product, SalesOrder, SalesOrderItem,
     FinanceEntry, FinanceSettlement,
@@ -43,21 +45,17 @@ RECEIVABLE_TYPES = (ENTRY_RECEIVABLE, ENTRY_PAYABLE)
 SETTLEMENT_TYPES = (ENTRY_RECEIPT, ENTRY_PAYMENT)
 
 
-def _r(value) -> float:
-    """金额统一保留 2 位小数"""
-    return round(float(value or 0), 2)
-
-
-def _derive_status(amount: float, settled: float) -> str:
+def _derive_status(amount: Decimal, settled: Decimal) -> str:
+    """由「已核销 vs 金额」精确推导,不再用容差兜浮点残差。"""
     if settled <= 0:
         return ENTRY_OPEN
-    if settled + 1e-9 >= amount:
+    if settled >= amount:
         return ENTRY_SETTLED
     return ENTRY_PARTIAL
 
 
-def _outstanding(entry: FinanceEntry) -> float:
-    return _r(entry.amount - entry.settled_amount)
+def _outstanding(entry: FinanceEntry) -> Decimal:
+    return money(entry.amount - entry.settled_amount)
 
 
 # ============ 响应构造 ============
@@ -70,7 +68,7 @@ def order_response(order: SalesOrder) -> dict:
         "customerName": order.customer_name,
         "status": order.status,
         "creditDays": order.credit_days,
-        "totalAmount": _r(order.total_amount),
+        "totalAmount": money(order.total_amount),
         "outboundOrderNo": order.outbound_order_no,
         "shippedAt": order.shipped_at,
         "remark": order.remark,
@@ -79,8 +77,8 @@ def order_response(order: SalesOrder) -> dict:
                 "productId": it.product_id,
                 "productName": it.product_name,
                 "quantity": it.quantity,
-                "unitPrice": _r(it.unit_price),
-                "amount": _r(it.amount),
+                "unitPrice": money(it.unit_price),
+                "amount": money(it.amount),
             }
             for it in order.items
         ],
@@ -98,8 +96,8 @@ def entry_response(entry: FinanceEntry, today: date | None = None) -> dict:
         "partnerId": entry.partner_id,
         "partnerName": entry.partner_name,
         "sourceOrderNo": entry.source_order_no,
-        "amount": _r(entry.amount),
-        "settledAmount": _r(entry.settled_amount),
+        "amount": money(entry.amount),
+        "settledAmount": money(entry.settled_amount),
         "outstanding": _outstanding(entry),
         "occurredDate": entry.occurred_date,
         "dueDate": entry.due_date,
@@ -130,7 +128,7 @@ def create_sales_order(db: Session, data) -> SalesOrder:
     if missing:
         raise BusinessError(f"商品不存在: {sorted(missing)}", 404)
 
-    total = _r(sum(_r(i.quantity * i.unit_price) for i in data.items))
+    total = money(sum(money(i.quantity * i.unit_price) for i in data.items))
 
     for _ in range(5):
         order_no = _gen_no_with_retry(db, SalesOrder, "SO")
@@ -152,8 +150,8 @@ def create_sales_order(db: Session, data) -> SalesOrder:
                     product_id=i.product_id,
                     product_name=products[i.product_id].name,
                     quantity=i.quantity,
-                    unit_price=_r(i.unit_price),
-                    amount=_r(i.quantity * i.unit_price),
+                    unit_price=money(i.unit_price),
+                    amount=money(i.quantity * i.unit_price),
                 ))
             db.commit()
             db.refresh(order)
@@ -222,10 +220,10 @@ def update_sales_order(db: Session, order_id: int, data) -> SalesOrder:
                 product_id=i.product_id,
                 product_name=products[i.product_id].name,
                 quantity=i.quantity,
-                unit_price=_r(i.unit_price),
-                amount=_r(i.quantity * i.unit_price),
+                unit_price=money(i.unit_price),
+                amount=money(i.quantity * i.unit_price),
             ))
-        order.total_amount = _r(sum(_r(i.quantity * i.unit_price) for i in data.items))
+        order.total_amount = money(sum(money(i.quantity * i.unit_price) for i in data.items))
 
     db.commit()
     db.refresh(order)
@@ -313,8 +311,8 @@ def _generate_receivable(db: Session, order: SalesOrder) -> FinanceEntry:
             partner_id=order.customer_id,
             partner_name=order.customer_name,
             source_order_no=order.order_no,
-            amount=_r(order.total_amount),
-            settled_amount=0,
+            amount=money(order.total_amount),
+            settled_amount=ZERO,
             occurred_date=occurred,
             due_date=due,
             status=ENTRY_OPEN,
@@ -338,18 +336,18 @@ def generate_receivable_for_order(db: Session, order: SalesOrder) -> FinanceEntr
 
 # ============ 收款与核销 ============
 
-def _validate_allocations(db: Session, allocations, available: float) -> None:
+def _validate_allocations(db: Session, allocations, available: Decimal) -> None:
     """核销前校验(只读,不写库):目标存在 / 类型正确 / 金额为正 / 不超单张未结 / 合计不超可核销余额。
 
     先校验后写入,避免依赖嵌套事务(SQLite/pysqlite 对 SAVEPOINT 支持不可靠)。
     """
     if not allocations:
         return
-    total = _r(sum(_r(a.amount) for a in allocations))
-    if total > _r(available) + 1e-9:
-        raise BusinessError(f"核销金额 {total} 超过可核销余额 {_r(available)}")
+    total = money(sum(money(a.amount) for a in allocations))
+    if total > money(available):
+        raise BusinessError(f"核销金额 {total} 超过可核销余额 {money(available)}")
     for alloc in allocations:
-        if _r(alloc.amount) <= 0:
+        if money(alloc.amount) <= 0:
             raise BusinessError("核销金额必须大于 0")
         target = db.query(FinanceEntry).filter(FinanceEntry.id == alloc.target_entry_id).first()
         if not target:
@@ -357,9 +355,9 @@ def _validate_allocations(db: Session, allocations, available: float) -> None:
         if target.entry_type not in RECEIVABLE_TYPES:
             raise BusinessError("只能核销到应收/应付流水")
         outstanding = _outstanding(target)
-        if _r(alloc.amount) > outstanding + 1e-9:
+        if money(alloc.amount) > outstanding:
             raise BusinessError(
-                f"核销金额 {_r(alloc.amount)} 超过应收 {target.entry_no} 未结余额 {outstanding}"
+                f"核销金额 {money(alloc.amount)} 超过应收 {target.entry_no} 未结余额 {outstanding}"
             )
 
 
@@ -367,18 +365,18 @@ def _apply_settlements(db: Session, receipt: FinanceEntry, allocations) -> None:
     """把核销明细写入并更新收款与目标状态(调用前应已通过 _validate_allocations)。"""
     if not allocations:
         return
-    total_alloc = _r(sum(_r(a.amount) for a in allocations))
+    total_alloc = money(sum(money(a.amount) for a in allocations))
     for alloc in allocations:
         target = db.query(FinanceEntry).filter(FinanceEntry.id == alloc.target_entry_id).first()
         db.add(FinanceSettlement(
             receipt_entry_id=receipt.id,
             target_entry_id=target.id,
-            amount=_r(alloc.amount),
+            amount=money(alloc.amount),
         ))
-        target.settled_amount = _r(target.settled_amount + _r(alloc.amount))
+        target.settled_amount = money(target.settled_amount + money(alloc.amount))
         target.status = _derive_status(target.amount, target.settled_amount)
 
-    receipt.settled_amount = _r(receipt.settled_amount + total_alloc)
+    receipt.settled_amount = money(receipt.settled_amount + total_alloc)
     receipt.status = _derive_status(receipt.amount, receipt.settled_amount)
 
 
@@ -391,8 +389,8 @@ def _create_settlement_entry(db: Session, entry_type: str, prefix: str, data) ->
             partner_id=data.partner_id,
             partner_name=data.partner_name,
             source_order_no=None,
-            amount=_r(data.amount),
-            settled_amount=0,
+            amount=money(data.amount),
+            settled_amount=ZERO,
             occurred_date=data.occurred_date or date.today(),
             due_date=None,
             status=ENTRY_OPEN,
@@ -410,12 +408,12 @@ def _create_settlement_entry(db: Session, entry_type: str, prefix: str, data) ->
 
 def register_receipt(db: Session, data) -> FinanceEntry:
     """登记收款并核销(可选)。收款金额可大于核销金额,差额保留为未核销余额(预收)。"""
-    if _r(data.amount) <= 0:
+    if money(data.amount) <= 0:
         raise BusinessError("收款金额必须大于 0")
 
     allocations = data.allocations or []
     # 先校验(只读),校验不过就不落任何数据
-    _validate_allocations(db, allocations, _r(data.amount))
+    _validate_allocations(db, allocations, money(data.amount))
 
     receipt = _create_settlement_entry(db, ENTRY_RECEIPT, "RC", data)
     _apply_settlements(db, receipt, allocations)
@@ -432,7 +430,7 @@ def allocate_receipt(db: Session, receipt_entry_id: int, allocations) -> Finance
     if receipt.entry_type not in SETTLEMENT_TYPES:
         raise BusinessError("只有收款/付款流水可以执行核销")
     # 先校验(只读),校验不过就不做任何改动
-    _validate_allocations(db, allocations, _r(receipt.amount - receipt.settled_amount))
+    _validate_allocations(db, allocations, money(receipt.amount - receipt.settled_amount))
     _apply_settlements(db, receipt, allocations)
     db.commit()
     db.refresh(receipt)
@@ -491,15 +489,15 @@ def receivable_aging(db: Session) -> list[dict]:
             continue
         row = result.setdefault(e.partner_name, {
             "partnerName": e.partner_name,
-            "receivableTotal": 0.0,
-            "settledTotal": 0.0,
-            "balance": 0.0,
-            "notDue": 0.0, "days1to30": 0.0, "days31to60": 0.0, "days60plus": 0.0,
+            "receivableTotal": ZERO,
+            "settledTotal": ZERO,
+            "balance": ZERO,
+            "notDue": ZERO, "days1to30": ZERO, "days31to60": ZERO, "days60plus": ZERO,
         })
-        row["receivableTotal"] = _r(row["receivableTotal"] + e.amount)
-        row["settledTotal"] = _r(row["settledTotal"] + e.settled_amount)
-        row["balance"] = _r(row["balance"] + outstanding)
-        row[_aging_bucket(e.due_date, today)] = _r(row[_aging_bucket(e.due_date, today)] + outstanding)
+        row["receivableTotal"] = money(row["receivableTotal"] + e.amount)
+        row["settledTotal"] = money(row["settledTotal"] + e.settled_amount)
+        row["balance"] = money(row["balance"] + outstanding)
+        row[_aging_bucket(e.due_date, today)] = money(row[_aging_bucket(e.due_date, today)] + outstanding)
     rows = list(result.values())
     rows.sort(key=lambda r: r["balance"], reverse=True)
     return rows
@@ -509,18 +507,18 @@ def receivable_aging(db: Session) -> list[dict]:
 
 def executive_summary(db: Session) -> dict:
     receivables = db.query(FinanceEntry).filter(FinanceEntry.entry_type == ENTRY_RECEIVABLE).all()
-    receivable_total = _r(sum(e.amount for e in receivables))
-    received_total = _r(sum(e.settled_amount for e in receivables))
-    outstanding_total = _r(sum(_outstanding(e) for e in receivables))
+    receivable_total = money(sum(e.amount for e in receivables))
+    received_total = money(sum(e.settled_amount for e in receivables))
+    outstanding_total = money(sum(_outstanding(e) for e in receivables))
 
     today = date.today()
-    overdue_total = _r(sum(
+    overdue_total = money(sum(
         _outstanding(e) for e in receivables
         if e.due_date and e.due_date < today and _outstanding(e) > 0
     ))
 
     order_count = db.query(SalesOrder).filter(SalesOrder.status != ORDER_CANCELLED).count()
-    order_amount = _r(
+    order_amount = money(
         db.query(func.coalesce(func.sum(SalesOrder.total_amount), 0))
         .filter(SalesOrder.status != ORDER_CANCELLED).scalar()
     )
@@ -537,17 +535,17 @@ def executive_summary(db: Session) -> dict:
 
 def receivable_top(db: Session, limit: int = 5) -> list[dict]:
     rows = receivable_aging(db)[:limit]
-    return [{"partnerName": r["partnerName"], "balance": r["balance"], "overdue": _r(
+    return [{"partnerName": r["partnerName"], "balance": r["balance"], "overdue": money(
         r["days1to30"] + r["days31to60"] + r["days60plus"])} for r in rows]
 
 
 def aging_distribution(db: Session) -> dict:
     rows = receivable_aging(db)
     return {
-        "notDue": _r(sum(r["notDue"] for r in rows)),
-        "days1to30": _r(sum(r["days1to30"] for r in rows)),
-        "days31to60": _r(sum(r["days31to60"] for r in rows)),
-        "days60plus": _r(sum(r["days60plus"] for r in rows)),
+        "notDue": money(sum(r["notDue"] for r in rows)),
+        "days1to30": money(sum(r["days1to30"] for r in rows)),
+        "days31to60": money(sum(r["days31to60"] for r in rows)),
+        "days60plus": money(sum(r["days60plus"] for r in rows)),
     }
 
 
@@ -561,28 +559,28 @@ def trends(db: Session, days: int = 30) -> list[dict]:
         .filter(SalesOrder.status != ORDER_CANCELLED, SalesOrder.created_at >= datetime.combine(start, datetime.min.time()))
         .all()
     )
-    order_by_day: dict[str, float] = {}
+    order_by_day: dict[str, Decimal] = {}
     for o in order_rows:
         key = o.created_at.date().isoformat()
-        order_by_day[key] = _r(order_by_day.get(key, 0) + o.total_amount)
+        order_by_day[key] = money(order_by_day.get(key, ZERO) + o.total_amount)
 
     receipt_rows = (
         db.query(FinanceEntry)
         .filter(FinanceEntry.entry_type == ENTRY_RECEIPT, FinanceEntry.occurred_date >= start)
         .all()
     )
-    receipt_by_day: dict[str, float] = {}
+    receipt_by_day: dict[str, Decimal] = {}
     for e in receipt_rows:
         key = e.occurred_date.isoformat()
-        receipt_by_day[key] = _r(receipt_by_day.get(key, 0) + e.amount)
+        receipt_by_day[key] = money(receipt_by_day.get(key, ZERO) + e.amount)
 
     series = []
     for i in range(days):
         day = (start + timedelta(days=i)).isoformat()
         series.append({
             "date": day,
-            "orderAmount": _r(order_by_day.get(day, 0)),
-            "receiptAmount": _r(receipt_by_day.get(day, 0)),
+            "orderAmount": money(order_by_day.get(day, ZERO)),
+            "receiptAmount": money(receipt_by_day.get(day, ZERO)),
         })
     return series
 

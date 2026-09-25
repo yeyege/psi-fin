@@ -6,7 +6,7 @@
 - closed 期间拒写凭证(409);反结账仅允许按期间倒序
 
 凭证号沿用单据号体系:JV-YYYYMMDD-XXX(generate_order_no)。
-金额服务层统一 round(...,2),借贷平衡比较用 EPS 容差。
+金额一律 Decimal,统一经 app.common.money.money() 量化到 2 位;借贷平衡用精确比较(不留容差)。
 """
 from calendar import monthrange
 from datetime import date, datetime
@@ -14,6 +14,7 @@ from datetime import date, datetime
 from sqlalchemy import func
 
 from app.common.errors import BusinessError
+from app.common.money import ZERO, money
 from app.common.order_no import generate_order_no
 from app.models.accounting import (
     Account, Period, Voucher, VoucherLine,
@@ -21,8 +22,6 @@ from app.models.accounting import (
     VOUCHER_DRAFT, VOUCHER_POSTED, VOUCHER_REVERSED,
     PERIOD_OPEN, PERIOD_CLOSED, SOURCE_MANUAL,
 )
-
-EPS = 1e-6
 
 
 # ============ 科目表(COA) ============
@@ -185,7 +184,7 @@ def create_voucher(db, *, voucher_date: date, lines: list[dict],
         if direction not in LINE_DIRECTIONS:
             raise BusinessError(f"第 {seq} 行分录方向不合法: {direction}(应为 D/C)")
         account = assert_postable(db, line["accountId"])
-        amount = round(float(line.get("amount", 0)), 2)
+        amount = money(line.get("amount", 0))
         if amount == 0:
             raise BusinessError(f"第 {seq} 行分录金额不得为 0")
         prepared.append((seq, account, direction, amount, line))
@@ -228,11 +227,11 @@ def post_voucher(db, voucher_id: int) -> Voucher:
 
     if len(voucher.lines) < 2:
         raise BusinessError(f"凭证 {voucher.voucher_no} 至少需要两条分录,不得单边挂账")
-    total_debit = sum(l.amount for l in voucher.lines if l.direction == LINE_DEBIT)
-    total_credit = sum(l.amount for l in voucher.lines if l.direction == LINE_CREDIT)
-    if abs(total_debit - total_credit) > EPS:
+    total_debit = money(sum(l.amount for l in voucher.lines if l.direction == LINE_DEBIT))
+    total_credit = money(sum(l.amount for l in voucher.lines if l.direction == LINE_CREDIT))
+    if total_debit != total_credit:
         raise BusinessError(
-            f"凭证借贷不平衡: 借 {round(total_debit, 2)} ≠ 贷 {round(total_credit, 2)}",
+            f"凭证借贷不平衡: 借 {total_debit} ≠ 贷 {total_credit}",
             status=422,
         )
     voucher.status = VOUCHER_POSTED
@@ -309,7 +308,7 @@ def account_balances(db, period_code: str | None = None) -> dict[int, dict]:
         db.query(
             VoucherLine.account_id,
             VoucherLine.direction,
-            func.coalesce(func.sum(VoucherLine.amount), 0.0),
+            func.coalesce(func.sum(VoucherLine.amount), 0),
         )
         .join(Voucher, VoucherLine.voucher_id == Voucher.id)
         .filter(Voucher.status.in_([VOUCHER_POSTED, VOUCHER_REVERSED]))
@@ -320,7 +319,7 @@ def account_balances(db, period_code: str | None = None) -> dict[int, dict]:
 
     balances: dict[int, dict] = {}
     for account_id, direction, total in rows:
-        bucket = balances.setdefault(account_id, {"debit": 0.0, "credit": 0.0})
+        bucket = balances.setdefault(account_id, {"debit": ZERO, "credit": ZERO})
         key = "debit" if direction == LINE_DEBIT else "credit"
-        bucket[key] = round(bucket[key] + float(total), 2)
+        bucket[key] = money(bucket[key] + money(total))
     return balances

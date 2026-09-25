@@ -5,8 +5,10 @@
 - 非明细科目与停用科目拒绝挂分录(422)
 - 凭证借贷平衡、单边挂账拦截、posted 禁改删(409)、红字冲销双向关联
 - closed 期间拒写(409)、结账前草稿检查、反结账倒序约束
+- 金额口径(AGENTS.md §4):分录金额为 Decimal、四舍五入到分,借贷平衡用精确比较不留容差
 """
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
@@ -197,13 +199,42 @@ def test_reverse_voucher_creates_negative_twins_with_bidirectional_link(db_sessi
     red_lines = sorted(red.lines, key=lambda l: l.seq)
     assert [(l.account_id, l.direction, l.amount) for l in red_lines] == \
            [(l.account_id, l.direction, -l.amount) for l in origin_lines]
-    # 冲销对余额净影响为零
+    # 冲销对余额净影响为零 — 金额是 Decimal,靠精确相等对冲,不靠近似容差
     balances = svc.account_balances(db_session)
-    assert balances[coa["salary"].id]["debit"] == pytest.approx(0.0)
-    assert balances[coa["bank"].id]["credit"] == pytest.approx(0.0)
+    assert balances[coa["salary"].id]["debit"] == Decimal("0.00")
+    assert balances[coa["bank"].id]["credit"] == Decimal("0.00")
 
     with pytest.raises(BusinessError, match="不得重复冲销"):
         svc.reverse_voucher(db_session, origin.id)
+
+
+def test_voucher_lines_are_decimal_quantized_half_up(db_session, coa):
+    """spec(AGENTS.md §4): 分录金额落库为 Decimal 并四舍五入到分。
+
+    800.005 用浮点 round() 会得 800.0(银行家舍入),业务口径 HALF_UP 应为 800.01。
+    """
+    v = _balanced_payment_voucher(db_session, coa, amount=Decimal("800.005"))
+    v = svc.post_voucher(db_session, v.id)
+
+    assert [type(l.amount) for l in v.lines] == [Decimal, Decimal]
+    assert [l.amount for l in sorted(v.lines, key=lambda l: l.seq)] == [
+        Decimal("800.01"), Decimal("800.01")]
+
+    balances = svc.account_balances(db_session)
+    assert balances[coa["salary"].id]["debit"] == Decimal("800.01")
+
+
+def test_one_cent_imbalance_rejected_without_tolerance(db_session, coa):
+    """spec(AGENTS.md §4): 过账比较不留 EPS,借贷差 1 分即拒。"""
+    v = svc.create_voucher(
+        db_session, voucher_date=date(2026, 9, 15),
+        lines=[_line(coa["salary"], "D", Decimal("100.00")),
+               _line(coa["bank"], "C", Decimal("99.99"))],
+    )
+    with pytest.raises(BusinessError) as ei:
+        svc.post_voucher(db_session, v.id)
+    assert ei.value.status == 422
+    assert "借贷不平衡" in ei.value.message
 
 
 # ============ 期间与结账锁定 ============

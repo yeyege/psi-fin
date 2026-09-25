@@ -6,19 +6,20 @@
 - FinanceSettlement 核销明细: 一笔收款核销到某张应收(支持部分核销/预收)
 
 设计要点(见 openspec/changes/add-business-finance/design.md):
-- 金额字段用 Float(演示口径),服务层统一 round(...,2)
+- 金额列统一 Numeric(18,2) + Decimal(见 models.base.Money 与 app.common.money),服务层不得用浮点算金额
 - finance_entries 对 (source_order_no, entry_type) 建唯一约束,作为应收生成的幂等兜底
 - 收款流水的 amount 是到账金额、settled_amount 是已核销金额,差额即未核销余额(预收)
 """
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Date, Float, ForeignKey,
+    Column, Integer, String, DateTime, Date, ForeignKey,
     UniqueConstraint, Index,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.models.base import Money
 
 
 # ============ 销售订单 ============
@@ -36,7 +37,7 @@ class SalesOrder(Base):
     customer_name = Column(String(200), nullable=False)  # 冗余:便于列表查询与业财核对
     status = Column(String(20), default="DRAFT", nullable=False)
     credit_days = Column(Integer, default=0, nullable=False)  # 账期(天):发货后用于算应收到期日
-    total_amount = Column(Float, default=0, nullable=False)
+    total_amount = Column(Money, default=0, nullable=False)
     outbound_order_no = Column(String(50), nullable=True)  # 预留:关联出库单号(一期可为空)
     shipped_at = Column(DateTime, nullable=True)           # 发货时间
     remark = Column(String(200), nullable=True)
@@ -59,8 +60,8 @@ class SalesOrderItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     product_name = Column(String(200), nullable=False)  # 冗余:单据留痕,避免商品改名后失真
     quantity = Column(Integer, nullable=False)
-    unit_price = Column(Float, nullable=False)
-    amount = Column(Float, nullable=False)  # quantity × unit_price
+    unit_price = Column(Money, nullable=False)
+    amount = Column(Money, nullable=False)  # quantity × unit_price
 
     order = relationship("SalesOrder", back_populates="items")
     product = relationship("Product")
@@ -92,8 +93,8 @@ class FinanceEntry(Base):
     partner_id = Column(Integer, nullable=True)
     partner_name = Column(String(200), nullable=False)
     source_order_no = Column(String(50), nullable=True)  # 来源业务单据号
-    amount = Column(Float, nullable=False)
-    settled_amount = Column(Float, default=0, nullable=False)  # 已核销金额
+    amount = Column(Money, nullable=False)
+    settled_amount = Column(Money, default=0, nullable=False)  # 已核销金额
     occurred_date = Column(Date, nullable=False)   # 发生日期
     due_date = Column(Date, nullable=True)         # 到期日(应收/应付)
     status = Column(String(20), default="OPEN", nullable=False)
@@ -112,5 +113,5 @@ class FinanceSettlement(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     receipt_entry_id = Column(Integer, ForeignKey("finance_entries.id"), nullable=False)
     target_entry_id = Column(Integer, ForeignKey("finance_entries.id"), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Money, nullable=False)
     created_at = Column(DateTime, default=datetime.now)

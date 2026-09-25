@@ -5,8 +5,10 @@
 - 部分核销与结清、预收余额复用、单张超额拦截
 - 账龄以到期日为基准分段
 - 驾驶舱金额与财务流水同源
+- 金额口径(AGENTS.md §4):一律 Decimal 精确比较,不产生浮点残差
 """
 from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 
@@ -50,9 +52,32 @@ def test_create_order_amount_is_sum_of_items(db_session):
 
     assert order.order_no.startswith("SO-")
     assert order.status == finance_service.ORDER_DRAFT
-    assert order.total_amount == pytest.approx(81.0)  # 2*10.5 + 3*20
+    assert order.total_amount == Decimal("81.00")  # 2*10.5 + 3*20
     # 未发货:不得有应收
     assert _receivables(db_session) == []
+
+
+def test_order_amount_is_decimal_without_float_residue(db_session):
+    """spec(AGENTS.md §4): 金额是 Decimal 并四舍五入到分,不出现浮点残差。
+
+    3 × 0.1 浮点会得 0.30000000000000004;1 × 0.125 用 round() 得 0.12(银行家舍入),
+    业务口径 HALF_UP 应为 0.13。
+    """
+    req = SalesOrderCreate(customerId=1, items=[
+        SalesOrderItemRequest(productId=1, quantity=3, unitPrice=0.1),
+        SalesOrderItemRequest(productId=2, quantity=1, unitPrice=0.125),
+    ])
+    order = finance_service.create_sales_order(db_session, req)
+
+    assert isinstance(order.total_amount, Decimal)
+    assert [it.amount for it in sorted(order.items, key=lambda i: i.product_id)] == [
+        Decimal("0.30"), Decimal("0.13")]
+    assert order.total_amount == Decimal("0.43")
+
+    # 发货生成的应收与订单金额精确相等,不是“约等”
+    finance_service.confirm_sales_order(db_session, order.id)
+    finance_service.ship_sales_order(db_session, order.id)
+    assert _receivables(db_session)[0].amount == order.total_amount
 
 
 def test_create_order_rejects_unknown_customer(db_session):
@@ -66,7 +91,7 @@ def test_update_order_recalculates_amount_only_in_draft(db_session):
     order = finance_service.create_sales_order(db_session, _order_req(qty=2, price=100.0))
     updated = finance_service.update_sales_order(db_session, order.id, SalesOrderUpdate(
         items=[SalesOrderItemRequest(productId=1, quantity=5, unitPrice=100.0)]))
-    assert updated.total_amount == pytest.approx(500.0)
+    assert updated.total_amount == Decimal("500.00")
 
     finance_service.confirm_sales_order(db_session, order.id)
     with pytest.raises(BusinessError):
@@ -102,10 +127,10 @@ def test_ship_generates_receivable_with_due_date(db_session):
     entries = _receivables(db_session)
     assert len(entries) == 1
     entry = entries[0]
-    assert entry.amount == pytest.approx(200.0)
+    assert entry.amount == Decimal("200.00")
     assert entry.source_order_no == order.order_no
     assert entry.status == finance_service.ENTRY_OPEN
-    assert entry.settled_amount == 0
+    assert entry.settled_amount == Decimal("0.00")
     assert entry.due_date == shipped.shipped_at.date() + timedelta(days=30)
 
 
@@ -137,15 +162,15 @@ def test_partial_then_full_settlement(db_session):
 
     db_session.refresh(entry)
     assert entry.status == finance_service.ENTRY_PARTIAL
-    assert entry.settled_amount == pytest.approx(600.0)
-    assert finance_service._outstanding(entry) == pytest.approx(400.0)
+    assert entry.settled_amount == Decimal("600.00")
+    assert finance_service._outstanding(entry) == Decimal("400.00")
 
     finance_service.register_receipt(db_session, ReceiptCreate(
         partnerName="测试客户", amount=400,
         allocations=[SettlementAllocation(targetEntryId=entry.id, amount=400)]))
     db_session.refresh(entry)
     assert entry.status == finance_service.ENTRY_SETTLED
-    assert finance_service._outstanding(entry) == pytest.approx(0.0)
+    assert finance_service._outstanding(entry) == Decimal("0.00")
 
 
 def test_prepayment_balance_can_be_reused(db_session):
@@ -160,15 +185,15 @@ def test_prepayment_balance_can_be_reused(db_session):
         partnerName="测试客户", amount=1000,
         allocations=[SettlementAllocation(targetEntryId=e1.id, amount=600)]))
     db_session.refresh(receipt)
-    assert receipt.settled_amount == pytest.approx(600.0)
-    assert finance_service._outstanding(receipt) == pytest.approx(400.0)
+    assert receipt.settled_amount == Decimal("600.00")
+    assert finance_service._outstanding(receipt) == Decimal("400.00")
 
     # 用预收余额核销第二张应收
     finance_service.allocate_receipt(db_session, receipt.id, [
         SettlementAllocation(targetEntryId=e2.id, amount=400)])
     db_session.refresh(receipt)
     db_session.refresh(e2)
-    assert finance_service._outstanding(receipt) == pytest.approx(0.0)
+    assert finance_service._outstanding(receipt) == Decimal("0.00")
     assert e2.status == finance_service.ENTRY_SETTLED
 
 
@@ -210,14 +235,14 @@ def test_aging_buckets_by_due_date(db_session):
 
     aging = {r["partnerName"]: r for r in finance_service.receivable_aging(db_session)}
     row = aging["账龄客户"]
-    assert row["notDue"] == pytest.approx(100.0)
-    assert row["days1to30"] == pytest.approx(200.0)
-    assert row["days31to60"] == pytest.approx(300.0)
-    assert row["days60plus"] == pytest.approx(400.0)
-    assert row["balance"] == pytest.approx(1000.0)
+    assert row["notDue"] == Decimal("100.00")
+    assert row["days1to30"] == Decimal("200.00")
+    assert row["days31to60"] == Decimal("300.00")
+    assert row["days60plus"] == Decimal("400.00")
+    assert row["balance"] == Decimal("1000.00")
 
     dist = finance_service.aging_distribution(db_session)
-    assert sum(dist.values()) == pytest.approx(1000.0)
+    assert sum(dist.values()) == Decimal("1000.00")
 
 
 def test_executive_summary_matches_finance_entries(db_session):

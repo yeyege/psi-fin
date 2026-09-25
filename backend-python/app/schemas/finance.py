@@ -1,5 +1,9 @@
-"""业财一体 Schema — 销售订单 / 财务流水 / 核销 / 驾驶舱"""
+"""业财一体 Schema — 销售订单 / 财务流水 / 核销 / 驾驶舱
+
+金额字段统一 Decimal(与 Numeric(18,2) 对齐,见 AGENTS.md §4);服务层再过 money() 量化到 2 位。
+"""
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import Field
 
@@ -11,7 +15,7 @@ from app.schemas.base import CamelModel
 class SalesOrderItemRequest(CamelModel):
     product_id: int = Field(..., gt=0)
     quantity: int = Field(..., gt=0, description="数量")
-    unit_price: float = Field(..., ge=0, description="单价")
+    unit_price: Decimal = Field(..., ge=0, description="单价")
 
 
 class SalesOrderCreate(CamelModel):
@@ -37,8 +41,8 @@ class SalesOrderItemResponse(CamelModel):
     product_id: int
     product_name: str
     quantity: int
-    unit_price: float
-    amount: float
+    unit_price: Decimal
+    amount: Decimal
 
 
 class SalesOrderResponse(CamelModel):
@@ -48,7 +52,7 @@ class SalesOrderResponse(CamelModel):
     customer_name: str
     status: str
     credit_days: int
-    total_amount: float
+    total_amount: Decimal
     outbound_order_no: str | None = None
     shipped_at: datetime | None = None
     remark: str | None = None
@@ -60,14 +64,14 @@ class SalesOrderResponse(CamelModel):
 
 class SettlementAllocation(CamelModel):
     target_entry_id: int = Field(..., gt=0, description="目标应收/应付流水 ID")
-    amount: float = Field(..., gt=0, description="本次核销金额")
+    amount: Decimal = Field(..., gt=0, description="本次核销金额")
 
 
 class ReceiptCreate(CamelModel):
     partner_type: str = Field(default="CUSTOMER", pattern="^(CUSTOMER|SUPPLIER)$")
     partner_id: int | None = Field(default=None, gt=0)
     partner_name: str = Field(..., min_length=1, max_length=200)
-    amount: float = Field(..., gt=0, description="到账金额（可大于核销金额，差额为预收）")
+    amount: Decimal = Field(..., gt=0, description="到账金额（可大于核销金额，差额为预收）")
     occurred_date: date | None = Field(default=None, description="收款日期，默认今天")
     remark: str | None = Field(default=None, max_length=200)
     allocations: list[SettlementAllocation] = Field(default_factory=list)
@@ -85,9 +89,9 @@ class FinanceEntryResponse(CamelModel):
     partner_id: int | None = None
     partner_name: str
     source_order_no: str | None = None
-    amount: float
-    settled_amount: float
-    outstanding: float
+    amount: Decimal
+    settled_amount: Decimal
+    outstanding: Decimal
     occurred_date: date
     due_date: date | None = None
     status: str
@@ -98,27 +102,27 @@ class FinanceEntryResponse(CamelModel):
 
 class AgingRowResponse(CamelModel):
     partner_name: str
-    receivable_total: float
-    settled_total: float
-    balance: float
-    not_due: float
-    days1to30: float
-    days31to60: float
-    days60plus: float
+    receivable_total: Decimal
+    settled_total: Decimal
+    balance: Decimal
+    not_due: Decimal
+    days1to30: Decimal
+    days31to60: Decimal
+    days60plus: Decimal
 
 
 # ============ 经营驾驶舱 ============
 
 class ExecutiveSummaryResponse(CamelModel):
-    receivable_total: float
-    received_total: float
-    outstanding_total: float
-    overdue_total: float
+    receivable_total: Decimal
+    received_total: Decimal
+    outstanding_total: Decimal
+    overdue_total: Decimal
     order_count: int
-    order_amount: float
+    order_amount: Decimal
 
 
 class TrendPointResponse(CamelModel):
     date: str
-    order_amount: float
-    receipt_amount: float
+    order_amount: Decimal
+    receipt_amount: Decimal

@@ -5,10 +5,14 @@
 """
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Numeric
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+# 金额列唯一类型：与 app.common.money.MONEY_SCALE（2 位小数）对齐，见 AGENTS.md §4。
+# 新增金额列一律用 Money，禁止 Float（尺寸/重量不是金额，保持 Float）。
+Money = Numeric(18, 2)
 
 
 class Product(Base):

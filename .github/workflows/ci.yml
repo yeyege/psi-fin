@@ -26,6 +26,46 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+  # ===== 后端：迁移在真实 PostgreSQL 上跑通（单测的 SQLite 不构成这类证据）=====
+  # AGENTS.md §4：create_all 不会 ALTER 已存在的表；列类型/锁相关行为必须以真库为准。
+  # 这里做三件事：空库 upgrade head → 核对 7 个金额列真是 numeric(18,2) → downgrade 再 upgrade（可逆且幂等）。
+  backend-migrate-postgres:
+    name: Backend alembic on PostgreSQL
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-python
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: psi_fin
+          POSTGRES_PASSWORD: psi_fin
+          POSTGRES_DB: psi_fin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U psi_fin" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://psi_fin:psi_fin@localhost:5432/psi_fin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Upgrade to head on an empty database
+        run: alembic upgrade head
+      - name: Assert money columns are numeric(18,2)
+        run: python scripts/check_money_columns.py
+      - name: Downgrade then re-upgrade (reversible and idempotent)
+        run: |
+          alembic downgrade 0001_baseline
+          alembic upgrade head
+          python scripts/check_money_columns.py
+
   # ===== 前端：编译校验 + 单元测试（vitest）=====
   frontend-build:
     name: Frontend build + vitest

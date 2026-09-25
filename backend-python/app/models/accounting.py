@@ -9,17 +9,18 @@
 
 设计要点(见 design.md D3/D4):
 - 冲销凭证通过 reverses_voucher_no 指向被冲销原凭证,原凭证以 reversed_voucher_no 回指,双向关联
-- 金额字段沿用项目口径 Float + 服务层 round(...,2)(管理会计演示口径)
+- 金额列统一 Numeric(18,2) + Decimal(见 models.base.Money),借贷平衡用精确比较
 """
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Float, ForeignKey, Integer,
+    Boolean, Column, Date, DateTime, ForeignKey, Integer,
     Index, String, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.models.base import Money
 
 
 # ============ 枚举常量(字符串存储,与单据状态机风格一致) ============
@@ -148,7 +149,7 @@ class VoucherLine(Base):
     seq = Column(Integer, nullable=False)  # 分录行号,凭证内递增
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
     direction = Column(String(1), nullable=False)  # D 借 / C 贷
-    amount = Column(Float, nullable=False)         # 负数即红字
+    amount = Column(Money, nullable=False)         # 负数即红字
     aux_type = Column(String(20), nullable=True)   # CUSTOMER / SUPPLIER / WAREHOUSE
     aux_id = Column(Integer, nullable=True)
     aux_name = Column(String(200), nullable=True)  # 冗余留痕,主数据改名不失真
