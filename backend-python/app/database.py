@@ -16,7 +16,26 @@ except ImportError:  # python-dotenv 未安装时不影响运行
 #   例如 Docker 编排：mysql+pymysql://psi_fin:psi_fin@mysql:3306/psi_fin?charset=utf8mb4
 # 生产环境可替换为 MySQL/PostgreSQL
 # DATABASE_URL = "mysql+pymysql://user:pass@localhost:3306/psi_fin"
-DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+def normalize_database_url(raw: str | None) -> str | None:
+    """把平台注入的裸 PG scheme 钉成显式驱动，空值原样返回（由调用方回退 SQLite）。
+
+    必要原因：Render / Neon / Vercel 发的都是 `postgresql://` 或旧别名 `postgres://`，
+    而本项目只装了 psycopg2-binary。SQLAlchemy 2.0 在 psycopg(3) 缺失时会隐式回退 psycopg2，
+    **2.1 起这个回退没了**，裸串会在 `create_engine` 阶段直接 ModuleNotFoundError
+    （依赖未锁版时，本地 uv.lock 在 2.0.x 一切正常、CI/线上装到 2.1 就挂）。
+    已写明驱动的串（`postgresql+psycopg2://` / `+asyncpg://`）与其他方言一律不动。
+    """
+    if not raw:
+        return raw
+    for prefix in ("postgresql://", "postgres://"):
+        if raw.startswith(prefix):
+            return "postgresql+psycopg2://" + raw[len(prefix):]
+    return raw
+
+
+DATABASE_URL = normalize_database_url(os.getenv("DATABASE_URL"))
 
 if DATABASE_URL:
     SQLALCHEMY_DATABASE_URL = DATABASE_URL

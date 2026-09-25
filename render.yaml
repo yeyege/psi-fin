@@ -25,7 +25,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
-      # Render 自动注入 Postgres 连接串（scheme 为 postgresql://，SQLAlchemy 2.0 可直接识别）
+      # Render 自动注入 Postgres 连接串（scheme 为裸 postgresql://）。
+      # 注意：不能假设“SQLAlchemy 直接识别”—— 2.1 起裸串只解析 psycopg(3)，
+      # 本项目驱动是 psycopg2-binary。`app/database.py::normalize_database_url()`
+      # 会把裸 postgresql:// / postgres:// 钉成 postgresql+psycopg2://，因此无需在此改写 scheme。
       - key: DATABASE_URL
         fromDatabase:
           name: psi-fin-db
