@@ -12,8 +12,15 @@ CI 里在 postgres:16 上跑，见 .github/workflows/ci.yml 的 backend-migrate-
 """
 import os
 import sys
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
+
+# 本文件以 `python scripts/check_money_columns.py` 运行时，sys.path[0] 是 scripts/，
+# 父目录不在路径上 —— 而下面要复用 app 的归一化函数，不能自己再抄一份 scheme 规则。
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.database import normalize_database_url  # noqa: E402
 
 # 与 app/models/finance.py、app/models/accounting.py 的金额列一一对应
 MONEY_COLUMNS = [
@@ -72,7 +79,9 @@ def check_sqlite(conn) -> list[str]:
 
 
 def main() -> int:
-    url = os.getenv("DATABASE_URL")
+    # 必须过 normalize_database_url：裸 postgresql:// 在 SQLAlchemy 2.1 上会直接
+    # ModuleNotFoundError（CI 的 Assert 步骤踩过），与 app 与 alembic 共用同一个归一化入口。
+    url = normalize_database_url(os.getenv("DATABASE_URL"))
     if not url:
         print("DATABASE_URL 未设置：拒绝在未知的库上给出「迁移已生效」的结论。")
         return 2
