@@ -18,7 +18,7 @@
 | 架构 / 可维护性（后端） | 🟩 | 四层解耦 + 枚举/信封/Schema 收敛已落地 |
 | 架构 / 可维护性（前端） | 🟨 | 超大组件、api 层手写无 codegen、双看板碎片 + 孤儿文件 |
 | CI/CD / 部署 | 🟨 | 缺 lint/E2E 阶段、docker build 缺 buildx |
-| 文档一致性 | 🟥 | VERIFICATION.md 严重过期、README 数字漂移、openspec 资产对外不可见 |
+| 文档一致性 | 🟨 | VERIFICATION.md 严重过期（README 数字漂移与 openspec 可见性已于 2026-09-26 处理，见 Q13/Q14） |
 
 ---
 
@@ -57,9 +57,9 @@
 
 | # | 项目 | 现状与证据 | 验收标准（DoD） |
 |---|---|---|---|
-| Q12 | **更新 VERIFICATION.md** | [VERIFICATION.md](../VERIFICATION.md) 写「80 passed / wms.db / 旧测试清单」，实际 127 例、`psi_fin.db` | 重跑测试刷新分文件用例表、DB 文件名、环境；与 README 对齐 |
-| Q13 | **README 数字对齐** | [README.md](../README.md) 写「后端 126 / 合计 157+」，加本轮 inventory 契约测试后为 127 / 158 | 以后端实际 pytest 数为准，消除与 VERIFICATION 的矛盾 |
-| Q14 | **openspec 资产可见性策略** | [.gitignore](../.gitignore) 忽略 `openspec/`、`preview/`，但本文档（入库）大量引用 | 决定：或提交 openspec 规范产物（或导出摘要入 docs），或在文档中标注「本地规划资产，不随仓库分发」 |
+| Q12 | **更新 VERIFICATION.md** | [VERIFICATION.md](../VERIFICATION.md) 写「80 passed / wms.db / 旧测试清单」，实际 130 例、`psi_fin.db`（金额迁移后新增 3 条回归） | 重跑测试刷新分文件用例表、DB 文件名、环境；补上 PostgreSQL 迁移轨与 `scripts/check_money_columns.py` 取证口径；与 README 对齐 |
+| Q13 | ~~README 数字对齐~~ **已处理（2026-09-26）** | [README.md](../README.md) 原写「后端 126 / 合计 157+ / 4 个 E2E」；金额迁移后实测为后端 130、前端 31、E2E 12 | 已按实测值刷新，并补上 CI 的 PostgreSQL 迁移轨与 `migrations/` 目录说明。DoD：每个数字都来自一次真实运行，不再手抄 |
+| Q14 | **openspec 资产可见性策略** → **已决策：入库** | 原 [.gitignore](../.gitignore) 忽略 `openspec/` 与 `.claude`，但 `code-review` 的 Spec 轴必须以 `openspec/changes/<name>/` 为事实源，clean clone 上不能悬空 | 2026-09-26 提交 `08e034d`：`openspec/` 全量入库；`.claude` 改为逐层白名单（只放行 `commands/opsx/` 与 `skills/openspec-*/`，个人求职材料仍忽略）。**遗留**：`preview`、`assets` 两条无前导斜杠的全局匹配仍不改（会翻转大量文件的跟踪状态），单独开一轮 |
 | Q15 | **清理死文件 wms.db** | [backend-python/wms.db](../backend-python/wms.db) 上轮尝试删除被进程占用失败（已被 gitignore，仅本地） | 关闭占用进程后删除；确认无脚本引用（[database.py](../backend-python/app/database.py) 仅用 psi_fin.db） |
 
 ---
@@ -114,13 +114,14 @@
 
 ## 三、openspec change 资产状态
 
-> 注：`openspec/` 当前被 gitignore（本地规划资产，对外不可见，见 A 轨 Q14）。
+> 注：`openspec/` 已于 2026-09-26 随 `08e034d` 入库（Q14 的决策），不再是本地专有资产；
+> 本节表格只列当时在飞的 change，完整清单以 `openspec/changes/` 目录为准。
 
 | change | 范围 | 规划产物 | 实施进度 | 状态 |
 |---|---|---|---|---|
 | `bi-dashboard-apple-style` | Apple 风格 BI 看板 | ✅ | 23/23 | complete；**待 archive 沉淀主 specs** |
 | `business-console-demo` | 业财中后台演示页 | ✅ | 6/8 | in-progress（剩 2.2 文案 QA、2.3 窄屏） |
-| `p0-2-strict-fifo-expiry` | 严格 FIFO + 效期 | ✅ | 0/13 | 规划完成，**待 /opsx:apply 实施** |
+| `p0-2-strict-fifo-expiry` | 严格 FIFO + 效期 | ✅ | 0/13 | 规划完成，**待按 `tasks.md` 逐项实施** |
 
 ---
 

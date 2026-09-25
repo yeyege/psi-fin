@@ -24,7 +24,12 @@ dist/
 # Pages 站点内的 SPA 构建产物（由 CI 生成，不入库）
 site/app/
 # ===== .claude：只放行 opsx 命令与 openspec skills =====
-# 这两项是 .qoder/skills/ 里 grilling / code-review 引用的事实源，必须真实入库；
+# 注意理由：这不是 .qoder/skills/ 的依赖——指向另一个 harness 的跨侧引用已于 2026-09-26 清除
+# （grilling 不再写 /opsx:propose，AGENTS.md 只做描述），Qoder 也不加载这个目录。
+# 保留入库的理由是：这些是 openspec 官方模板（MIT），别人 clone 后若用 Claude Code 跑
+# spec 流程需要它们；它们本身也是给人读的工作流说明书。
+# 真正的硬依赖是 `openspec/` 目录本身（code-review 的 Spec 轴要读其中的 specs/tasks），
+# 不是这里的工具包装。
 # 但 .claude 下还有个人求职材料（interview-prep-from-jd），按 docs/interview/ 的隔离规则不入库。
 # gitignore 无法在父目录被排除后再放行其内容，所以逐层排除目录内容、再逐层放行。
 .claude/*
