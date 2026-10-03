@@ -17,7 +17,7 @@ target/
 docs/*
 !docs/API_SPEC.md
 !docs/PRD.md
-!docs/ROADMAP_TODO.md
+!docs/roadmap/
 !docs/GLOSSARY.md
 # ====== Node / Frontend ======
 node_modules/

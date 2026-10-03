@@ -2,6 +2,7 @@
 
 > 本文档是项目级**总待办入口**，双轨并行：**A 轨 = 工程质量验收整改**（对照软件工程标准），**B 轨 = 核心业务功能 P0-P3**。
 > 详细单点方案见对应 openspec change 或 NOTES.md。
+> 主干与对外视图见同级 [`./README.md`](./README.md)（本文件为内部执行明细）。
 > 维护约定：每完成一个阶段或 change 后同步更新本表；测试/文档数字以**仓库真实运行结果**为准。
 > 最近一次全面代码审核：2026-09-22（后端 pytest **127** 例全绿、前端 vitest **31** 例全绿、Playwright E2E 4 spec）。
 
@@ -31,16 +32,16 @@
 
 | # | 项目 | 现状与证据 | 验收标准（DoD） |
 |---|---|---|---|
-| Q1 | **落地 Alembic 迁移** | 依赖含 `alembic` 但无 `alembic.ini` / `versions/`，schema 仅靠 [main.py](../backend-python/app/main.py) lifespan 的 `create_all` | 初始化 alembic；生成 baseline 迁移；CI 增加 `alembic upgrade head` 冒烟；后续任何列变更走迁移脚本。**是 B 轨 #17（退货关联）前置** |
-| Q2 | **金额 float → Decimal/Numeric(18,2)** | [models/finance.py](../backend-python/app/models/finance.py) `total_amount/unit_price/amount=Float`；[finance_service.py](../backend-python/app/services/finance_service.py) `round(float,2)`；accounting 同 | 模型列改 `Numeric(18,2)`、服务层用 `Decimal` 计算、序列化稳定两位小数；补金额累加/借贷平衡的精度单测；对齐记忆「财务金额精度规范」 |
-| Q3 | **扣减/锁定循环加次数上限** | [inventory_service.py](../backend-python/app/services/inventory_service.py) `deduct_stock`/`lock_stock`/`ship_stock` 的 `while remaining>0` + `rowcount==0: continue` 无 attempt cap | 加最大重试次数与明确失败抛出（BusinessError 409）；补一个并发压力用例证明不死循环 |
+| Q1 | **落地 Alembic 迁移** | 依赖含 `alembic` 但无 `alembic.ini` / `versions/`，schema 仅靠 [main.py](../../backend-python/app/main.py) lifespan 的 `create_all` | 初始化 alembic；生成 baseline 迁移；CI 增加 `alembic upgrade head` 冒烟；后续任何列变更走迁移脚本。**是 B 轨 #17（退货关联）前置** |
+| Q2 | **金额 float → Decimal/Numeric(18,2)** | [models/finance.py](../../backend-python/app/models/finance.py) `total_amount/unit_price/amount=Float`；[finance_service.py](../../backend-python/app/services/finance_service.py) `round(float,2)`；accounting 同 | 模型列改 `Numeric(18,2)`、服务层用 `Decimal` 计算、序列化稳定两位小数；补金额累加/借贷平衡的精度单测；对齐记忆「财务金额精度规范」 |
+| Q3 | **扣减/锁定循环加次数上限** | [inventory_service.py](../../backend-python/app/services/inventory_service.py) `deduct_stock`/`lock_stock`/`ship_stock` 的 `while remaining>0` + `rowcount==0: continue` 无 attempt cap | 加最大重试次数与明确失败抛出（BusinessError 409）；补一个并发压力用例证明不死循环 |
 
 ### A-P1 可观测性与 CI 守门（高价值）
 
 | # | 项目 | 现状与证据 | 验收标准（DoD） |
 |---|---|---|---|
 | Q4 | **结构化日志 + 请求中间件** | 全后端仅 `print`（init_data）、无 `logging`；前端仅 console | 引入标准库 `logging`（JSON formatter），FastAPI 请求日志中间件带 request-id / 耗时 / 状态；错误路径统一记录 BusinessError |
-| Q5 | **CI 补 lint 阶段** | [ci.yml](../.github/workflows/ci.yml) 无 lint；后端无 ruff、前端无 eslint、[package.json](../frontend-vue/package.json) 无 `lint` 脚本 | 后端加 `ruff check`（pyproject 配 `[tool.ruff]`）、前端加 eslint + `npm run lint`，均纳入 CI |
+| Q5 | **CI 补 lint 阶段** | [ci.yml](../../.github/workflows/ci.yml) 无 lint；后端无 ruff、前端无 eslint、[package.json](../../frontend-vue/package.json) 无 `lint` 脚本 | 后端加 `ruff check`（pyproject 配 `[tool.ruff]`）、前端加 eslint + `npm run lint`，均纳入 CI |
 | Q6 | **CI 补 Playwright E2E 阶段** | 有 `e2e/*.spec.ts` 与 `npm run test:e2e`，但 CI 不跑 → 静默腐化 | CI 增 job：起后端+前端（或 Mock 模式）跑 e2e；产物上传 `playwright-report` |
 | Q7 | **修复 docker-build job** | ci.yml 用 `docker/build-push-action@v5` 但未 `docker/setup-buildx-action` | 补 buildx 初始化；或改回 `docker build`；确认 CI 该 job 实际通过 |
 | Q8 | **测试覆盖率门槛（选做）** | 无覆盖率报告/门 | `pytest-cov` + vitest coverage，设阈值并出报告 |
@@ -49,18 +50,18 @@
 
 | # | 项目 | 现状与证据 | 验收标准（DoD） |
 |---|---|---|---|
-| Q9 | **拆分超大单文件组件** | [DashboardView.vue](../frontend-vue/src/views/DashboardView.vue) 1555 行、[LoginView.vue](../frontend-vue/src/views/LoginView.vue) 1092 行，视图/图表配置/Mock 混杂 | 抽出子组件与 `composables`；Mock 数据移到 `src/api/mock` 或 fixture；单组件目标 < 400 行；行为/视觉不变 |
-| Q10 | **收敛双看板 + 删孤儿** | 路由 [index.ts](../frontend-vue/src/router/index.ts) 中 `/dashboard`(DashboardView 仓储看板) 与 `/bi`(BiWorkbenchView) 并存；`ExecutiveView.vue` 154 行已无引用（`/executive` 重定向到 `/bi`） | 明确两者定位（保留则去重、共用图表主题），**删除孤儿 `ExecutiveView.vue`**；[router/index.ts](../frontend-vue/src/router/index.ts) 守卫 `JSON.parse` 加 try/catch |
-| Q11 | **API 层去手写样板** | [api/index.ts](../frontend-vue/src/api/index.ts) 718 行集中手写、类型与后端 camel 手工对齐 | 按域拆分子模块（`api/inventory.ts` 等）+ 统一 client；探索从 OpenAPI 生成 TS 类型（后端已有 `/docs` schema），消除契约漂移 |
+| Q9 | **拆分超大单文件组件** | [DashboardView.vue](../../frontend-vue/src/views/DashboardView.vue) 1555 行、[LoginView.vue](../../frontend-vue/src/views/LoginView.vue) 1092 行，视图/图表配置/Mock 混杂 | 抽出子组件与 `composables`；Mock 数据移到 `src/api/mock` 或 fixture；单组件目标 < 400 行；行为/视觉不变 |
+| Q10 | **收敛双看板 + 删孤儿** | 路由 [index.ts](../../frontend-vue/src/router/index.ts) 中 `/dashboard`(DashboardView 仓储看板) 与 `/bi`(BiWorkbenchView) 并存；`ExecutiveView.vue` 154 行已无引用（`/executive` 重定向到 `/bi`） | 明确两者定位（保留则去重、共用图表主题），**删除孤儿 `ExecutiveView.vue`**；[router/index.ts](../../frontend-vue/src/router/index.ts) 守卫 `JSON.parse` 加 try/catch |
+| Q11 | **API 层去手写样板** | [api/index.ts](../../frontend-vue/src/api/index.ts) 718 行集中手写、类型与后端 camel 手工对齐 | 按域拆分子模块（`api/inventory.ts` 等）+ 统一 client；探索从 OpenAPI 生成 TS 类型（后端已有 `/docs` schema），消除契约漂移 |
 
 ### A-P2 文档与仓库一致性
 
 | # | 项目 | 现状与证据 | 验收标准（DoD） |
 |---|---|---|---|
-| Q12 | **更新 VERIFICATION.md** | [VERIFICATION.md](../VERIFICATION.md) 写「80 passed / wms.db / 旧测试清单」，实际 130 例、`psi_fin.db`（金额迁移后新增 3 条回归） | 重跑测试刷新分文件用例表、DB 文件名、环境；补上 PostgreSQL 迁移轨与 `scripts/check_money_columns.py` 取证口径；与 README 对齐 |
-| Q13 | ~~README 数字对齐~~ **已处理（2026-09-26）** | [README.md](../README.md) 原写「后端 126 / 合计 157+ / 4 个 E2E」；金额迁移后实测为后端 130、前端 31、E2E 12 | 已按实测值刷新，并补上 CI 的 PostgreSQL 迁移轨与 `migrations/` 目录说明。DoD：每个数字都来自一次真实运行，不再手抄 |
-| Q14 | **openspec 资产可见性策略** → **已决策：入库** | 原 [.gitignore](../.gitignore) 忽略 `openspec/` 与 `.claude`，但 `code-review` 的 Spec 轴必须以 `openspec/changes/<name>/` 为事实源，clean clone 上不能悬空 | 2026-09-26 提交 `08e034d`：`openspec/` 全量入库；`.claude` 改为逐层白名单（只放行 `commands/opsx/` 与 `skills/openspec-*/`，个人求职材料仍忽略）。**遗留**：`preview`、`assets` 两条无前导斜杠的全局匹配仍不改（会翻转大量文件的跟踪状态），单独开一轮 |
-| Q15 | **清理死文件 wms.db** | [backend-python/wms.db](../backend-python/wms.db) 上轮尝试删除被进程占用失败（已被 gitignore，仅本地） | 关闭占用进程后删除；确认无脚本引用（[database.py](../backend-python/app/database.py) 仅用 psi_fin.db） |
+| Q12 | **更新 VERIFICATION.md** | [VERIFICATION.md](../../VERIFICATION.md) 写「80 passed / wms.db / 旧测试清单」，实际 130 例、`psi_fin.db`（金额迁移后新增 3 条回归） | 重跑测试刷新分文件用例表、DB 文件名、环境；补上 PostgreSQL 迁移轨与 `scripts/check_money_columns.py` 取证口径；与 README 对齐 |
+| Q13 | ~~README 数字对齐~~ **已处理（2026-09-26）** | [README.md](../../README.md) 原写「后端 126 / 合计 157+ / 4 个 E2E」；金额迁移后实测为后端 130、前端 31、E2E 12 | 已按实测值刷新，并补上 CI 的 PostgreSQL 迁移轨与 `migrations/` 目录说明。DoD：每个数字都来自一次真实运行，不再手抄 |
+| Q14 | **openspec 资产可见性策略** → **已决策：入库** | 原 [.gitignore](../../.gitignore) 忽略 `openspec/` 与 `.claude`，但 `code-review` 的 Spec 轴必须以 `openspec/changes/<name>/` 为事实源，clean clone 上不能悬空 | 2026-09-26 提交 `08e034d`：`openspec/` 全量入库；`.claude` 改为逐层白名单（只放行 `commands/opsx/` 与 `skills/openspec-*/`，个人求职材料仍忽略）。**遗留**：`preview`、`assets` 两条无前导斜杠的全局匹配仍不改（会翻转大量文件的跟踪状态），单独开一轮 |
+| Q15 | **清理死文件 wms.db** | [backend-python/wms.db](../../backend-python/wms.db) 上轮尝试删除被进程占用失败（已被 gitignore，仅本地） | 关闭占用进程后删除；确认无脚本引用（[database.py](../../backend-python/app/database.py) 仅用 psi_fin.db） |
 
 ---
 
@@ -107,8 +108,8 @@
 
 | # | 项目 | 优先级 | 状态 | 现状与改动点 |
 |---|---|---|---|---|
-| 16 | 销售订单列表补「商品明细」展示 | P2（纯前端小改） | 待办 | 后端已返回 `items`（productName/quantity/unitPrice/amount），仅 [SalesOrdersView.vue](../frontend-vue/src/views/SalesOrdersView.vue) 未渲染明细；无后端/迁移 |
-| 17 | 退货关联销售订单 | P1（跨前后端 + 财务口径待定） | 待办 | [ReturnOrder](../backend-python/app/models/orders.py) 无指向 sales_orders 的外键；需模型加 `source_order_no`（**迁移依赖 A 轨 Q1**）+ payload 带来源 + 前端带出历史订单。**口径待定**：是否强制关联已发货订单、退货是否红冲应收 |
+| 16 | 销售订单列表补「商品明细」展示 | P2（纯前端小改） | 待办 | 后端已返回 `items`（productName/quantity/unitPrice/amount），仅 [SalesOrdersView.vue](../../frontend-vue/src/views/SalesOrdersView.vue) 未渲染明细；无后端/迁移 |
+| 17 | 退货关联销售订单 | P1（跨前后端 + 财务口径待定） | 待办 | [ReturnOrder](../../backend-python/app/models/orders.py) 无指向 sales_orders 的外键；需模型加 `source_order_no`（**迁移依赖 A 轨 Q1**）+ payload 带来源 + 前端带出历史订单。**口径待定**：是否强制关联已发货订单、退货是否红冲应收 |
 
 ---
 
@@ -138,9 +139,9 @@
 
 ## 相关文档
 
-- [NOTES.md](../NOTES.md)：开发说明、AI 沉淀、遇到的问题与 P0-P3 详述
-- [MVP_DESIGN.md](../MVP_DESIGN.md)：M1-M7 里程碑历史设计
-- [TASKS.md](../TASKS.md)：任务与进展实录（以仓库真实代码为准）
-- [VERIFICATION.md](../VERIFICATION.md)：交付验证记录（**待按 Q12 更新**）
-- [docs/API_SPEC.md](API_SPEC.md) / [docs/PRD.md](PRD.md)
-- `openspec/changes/*/tasks.md`：各 change 实施待办（本地，不随仓库分发）
+- [NOTES.md](../../NOTES.md)：开发说明、AI 沉淀、遇到的问题与 P0-P3 详述
+- [MVP_DESIGN.md](../../MVP_DESIGN.md)：M1-M7 里程碑历史设计
+- [TASKS.md](../../TASKS.md)：任务与进展实录（以仓库真实代码为准）
+- [VERIFICATION.md](../../VERIFICATION.md)：交付验证记录（**待按 Q12 更新**）
+- [docs/API_SPEC.md](../API_SPEC.md) / [docs/PRD.md](../PRD.md)
+- [`openspec/changes/*/tasks.md`](../../openspec/changes/)：各 change 实施待办（`code-review` Spec 轴事实源，随仓库分发）

@@ -260,6 +260,7 @@ cd frontend-vue && npm run test:e2e
 - [MVP_DESIGN.md](./MVP_DESIGN.md) — MVP 里程碑设计（M1-M7 历史文档，含仍有效的架构设计与开发规范）
 - [docs/API_SPEC.md](./docs/API_SPEC.md) — API 接口规范
 - [TASKS.md](./TASKS.md) — 任务与进展实录
+- [docs/roadmap/README.md](./docs/roadmap/README.md) — Roadmap / 待办总入口（对外五阶段主干 + 内部工程质量/业务功能执行明细）
 
 ---
 

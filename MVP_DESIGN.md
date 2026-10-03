@@ -3,8 +3,8 @@
 > 定位：本文是 **MVP 阶段（M1-M7）的设计文档**，当时按「活文档」维护。M1-M7 已全部交付完成，
 > 本文转为**历史设计记录**：保留至今仍然有效的架构设计与开发规范，移除已过时的进度快照与面试交付期内容。
 > - 当前任务与进展 → [TASKS.md](./TASKS.md)（进展实录）
-> - 待办与阶段规划总入口 → 本地规划文档 `docs/ROADMAP_TODO.md`（暂未入库）
-> - 面试交付期检查清单、2026-08 进度快照原文 → 本地归档 `docs/interview/MVP_DESIGN-历史归档.md`（未入库）
+> - 待办与阶段规划总入口 → [`docs/roadmap/README.md`](./docs/roadmap/README.md)（五阶段主干 + 内部执行明细）
+> - 面试交付期检查清单、2026-08 进度快照原文 → 本地归档 `docs/interview/_归档/MVP_DESIGN-历史归档.md`（未入库）
 
 ---
 
@@ -21,7 +21,7 @@
 | M7 用户权限 | User/Role（admin/operator）、PBKDF2-SHA256、Token 鉴权、路由守卫 | ✅ | `routers/auth.py`、`auth_service` |
 
 > 交付之后项目继续演进：盘点闭环（P0-1）、业财一体收入侧闭环（销售订单 → 应收 → 核销 → 账龄 → 驾驶舱）、
-> Vercel/Neon/Pages 部署体系。这些**不在本文 MVP 范围内**，见 TASKS.md 与 ROADMAP_TODO.md。
+> Vercel/Neon/Pages 部署体系。这些**不在本文 MVP 范围内**，见 TASKS.md 与 docs/roadmap/。
 
 ## 二、架构设计（仍然有效）
 
@@ -64,4 +64,4 @@ User ── Role
 ## 四、当年预留、尚未实现的方向（以 ROADMAP 为准）
 
 MVP 设计时在 P1/P2 预留过：计费与多货主、箱级库存、物流商对接（`erp_adapter`/`carrier_adapter`）、PDA 移动端、
-Redis 缓存 / MQ 削峰、多语言时区等。**这些是否推进、优先级如何，一律以本地规划文档 `docs/ROADMAP_TODO.md` 的 P0-P3 表为准**，本文不再维护待办。
+Redis 缓存 / MQ 削峰、多语言时区等。**这些是否推进、优先级如何，一律以 [`docs/roadmap/ROADMAP_TODO.md`](./docs/roadmap/ROADMAP_TODO.md) 的 P0-P3 表为准**，本文不再维护待办。
