@@ -34,7 +34,7 @@
 |---|---|---|---|
 | Q1 | **落地 Alembic 迁移** | 依赖含 `alembic` 但无 `alembic.ini` / `versions/`，schema 仅靠 [main.py](../../backend-python/app/main.py) lifespan 的 `create_all` | 初始化 alembic；生成 baseline 迁移；CI 增加 `alembic upgrade head` 冒烟；后续任何列变更走迁移脚本。**是 B 轨 #17（退货关联）前置** |
 | Q2 | **金额 float → Decimal/Numeric(18,2)** | [models/finance.py](../../backend-python/app/models/finance.py) `total_amount/unit_price/amount=Float`；[finance_service.py](../../backend-python/app/services/finance_service.py) `round(float,2)`；accounting 同 | 模型列改 `Numeric(18,2)`、服务层用 `Decimal` 计算、序列化稳定两位小数；补金额累加/借贷平衡的精度单测；对齐记忆「财务金额精度规范」 |
-| Q3 | **扣减/锁定循环加次数上限** | [inventory_service.py](../../backend-python/app/services/inventory_service.py) `deduct_stock`/`lock_stock`/`ship_stock` 的 `while remaining>0` + `rowcount==0: continue` 无 attempt cap | 加最大重试次数与明确失败抛出（BusinessError 409）；补一个并发压力用例证明不死循环 |
+| Q3 | ~~扣减/锁定循环加次数上限~~ **已处理（2026-10-04）** | 原 `deduct_stock`/`lock_stock`/`ship_stock` 的 `while remaining>0` + `rowcount==0: continue` 无 attempt cap | 已加 `MAX_STOCK_CONFLICT_RETRY = 50`（只统计冲突次数，故跨批次消耗多行的合法长循环不会被误伤）与共用放弃函数 `_conflict_give_up`（BusinessError 409）。取证：`tests/test_inventory_service.py::test_stock_mutation_gives_up_on_persistent_conflict[deduct_stock\|lock_stock\|ship_stock]`；测试侧另设 `_TEST_SPIN_CEILING=400` 护栏，未修前红态报“重试 401 次仍未收手”而非挂死 CI |
 
 ### A-P1 可观测性与 CI 守门（高价值）
 
@@ -74,7 +74,7 @@
 | # | 项目 | 状态 | 关联资产 |
 |---|---|---|---|
 | 1 | 盘点闭环（4 种范围快照 / 实盘录入 / 自动盘盈盘亏 / 准确率） | ✅ 已完成 | NOTES.md §P0-1 |
-| 2 | **严格批次 FIFO + 效期（FEFO、临期/过期/呆滞预警）** | 待实施（0/13） | openspec change `p0-2-strict-fifo-expiry`；现状扣减按 `Inventory.id` 近似（VERIFICATION §五.3） |
+| 2 | **严格批次 FIFO + 效期（FEFO、临期/过期/呆滞预警）** | **已开工（3/12）** | openspec change `p0-2-strict-fifo-expiry`：组 1（`batch_lifecycle` 纯函数 + 阈值常量）与组 2（`FEFO_ORDER_KEYS` 已接管三个扣减入口的候选排序，旧 `Inventory.id` 排序已不在代码里；3 条 FEFO 用例）已落。剩余：组 3 查询字段与状态筛选、组 4 拣货/发货同序回归、组 5 前端预警展示、组 6 集成验证 |
 | 3 | 复核扫码验货（逐件校验 SKU+批次+数量） | 待办（未设计） | 状态机已有 REVIEWED，缺扫码录入实现 |
 | 4 | 实时对账任务（行锁代码已有，对账缺失） | 待办 | 依赖 Q4 可观测性与 P2 迁移 PG |
 
@@ -92,7 +92,7 @@
 |---|---|---|---|
 | 8 | RBAC 细粒度权限（角色-权限-资源 + 审计日志；现为 admin/operator） | 待办 | 审计日志依赖 Q4 日志 |
 | 9 | Redis 缓存 + MQ 削峰 | 待办 | — |
-| 10 | 数据库升级 PostgreSQL（行锁/备份/监控） | 待办 | **前置 Q1 Alembic 迁移** |
+| 10 | 数据库升级 PostgreSQL（行锁/备份/监控） | **已完成（2026-10-07）** | compose 主库切 `postgres:16`（MySQL 8 收进 `--profile mysql`）、`tests/conftest.py` 与 CI `backend-test` 均跑在 PG 16 上，线上演示本就是 Neon PostgreSQL。原「前置 Q1 Alembic」已满足。**遗留**：D12 连接池参数（tasks 1.6b）、启动入口接 `alembic upgrade head`（tasks 1.5b）、`pg_dump` 备份运维文档（tasks 1.9） |
 
 ### P3 — 集成与扩展
 
@@ -115,25 +115,44 @@
 
 ## 三、openspec change 资产状态
 
-> 注：`openspec/` 已于 2026-09-26 随 `08e034d` 入库（Q14 的决策），不再是本地专有资产；
-> 本节表格只列当时在飞的 change，完整清单以 `openspec/changes/` 目录为准。
+> `openspec/` 已于 2026-09-26 随 `08e034d` 入库（Q14 的决策），不再是本地专有资产。
+> 本表与 `openspec list --json` 同源，最近刷新 2026-10-04；完成数以该命令实测为准，不手抄。
 
-| change | 范围 | 规划产物 | 实施进度 | 状态 |
-|---|---|---|---|---|
-| `bi-dashboard-apple-style` | Apple 风格 BI 看板 | ✅ | 23/23 | complete；**待 archive 沉淀主 specs** |
-| `business-console-demo` | 业财中后台演示页 | ✅ | 6/8 | in-progress（剩 2.2 文案 QA、2.3 窄屏） |
-| `p0-2-strict-fifo-expiry` | 严格 FIFO + 效期 | ✅ | 0/13 | 规划完成，**待按 `tasks.md` 逐项实施** |
+### 在飞（2）
+
+| change | 范围 | 进度 | 状态 |
+|---|---|---|---|
+| `oss-finance-ai-platform` | 开源门面 + 财务内核 + AI 层（Phase 0–4） | 10/40 | Phase 0 新增落地：tasks 1.6a（compose 主库切 PG 16）与 1.7b（全量单测跑在 PG 16、本地与 CI 同步）；1.9 的「既有审计口径」已订正为不存在并拆出 1.9a。Phase 1 仍仅 2.0 + 2.1 落地（`models/accounting.py` + `services/accounting_service.py` + 单测；2.0d 分录缺科目已改 `BusinessError`）。**会计内核尚无 router**（`routers/` 无 `accounting.py`、`main.py` 未挂载）→ 2.2 未开始；Phase 3 的 `app/ai/` 目录不存在。分母从 35 变 40 是因为本轮新增了子项，不是任务被拆细。冲突项见下表 |
+| `p0-2-strict-fifo-expiry` | 严格 FIFO + 效期 | 3/12 | **推进中**。组 1（`batch_lifecycle` 纯函数）与组 2（`FEFO_ORDER_KEYS` 三入口共用 + 3 条 FEFO 用例，2026-10-07）完成，全量 148 passed。剩余 9 项未实施，下一组是组 3（查询接口扩展字段与状态筛选）。⚠ 组 2 带走一个跨库坑：`with_for_update()` 必须改 `of=Inventory`，否则 PG 下「排序键取自批次表 → outerjoin Batch」会撞上「FOR UPDATE cannot be applied to the nullable side of an outer join」；MySQL 方言将 `of` 丢弃、渲染裸 `FOR UPDATE`（锁范围偏大，不破不变量）。细节见该 change `tasks.md` 组 2 完成记录 |
+
+### 已归档
+
+| change | 进度 | 归档处置 |
+|---|---|---|
+| `bi-workbench-vue-integration` | 19/19 | `archive/2026-10-04-…`；delta 已合入 `specs/bi-workbench/{shell,overview,inventory-analysis,flow-analysis,efficiency,mock-data}`，共 34 条 Requirement |
+| `deploy-pages-mock-demo` | 14/14 | `archive/2026-10-04-…`；已合入 `specs/deployment/{mock-api,pages-static-site}` |
+| `bi-dashboard-apple-style` | 23/23 | `archive/2026-10-04-…`，**走 `--skip-specs`**：交付物是 `preview/apple-store-wms.html` 静态原型，同一能力已由 `bi-workbench-vue-integration` 移植进 Vue，不合 `specs/bi-dashboard/`，免生两版现状规格 |
+| `business-console-demo` | 6/8 | 2026-09-12 已归档；本表此前仍列为 in-progress，已订正 |
+
+### 待裁定（`code-review` Spec 轴冲突项）
+
+| # | 冲突 | 两侧证据 | 需定的口径 |
+|---|---|---|---|
+| C1 | 凭证号 —— **已裁定（2026-10-04）：改 D14，代码不动** | `design.md` D14 已划线保留原决策并附三条取代理由（`period_code` 已满足聚合 / 不可变账簿改标识符代价最高 / 本项目声明非报账报税用途）；`tasks.md` 2.0 与 2.0c 已收口 | 无需再定。旧版本行写的「两侧都主张权威」已不成立 |
+| C2 | 主库 —— **已消解（2026-10-07）** | `docker-compose.yml` 已改 `postgres:16` 为主库、MySQL 进 `--profile mysql`，D17 的现在时不再超前于现实（见 tasks 1.6a）。驱动口径也已收口：D17「迁移成本」段与本表下方原写「切 `psycopg[binary]`」均已划线，由 1.6c / D17 驱动口径修正条取代（实装 `psycopg2-binary`） | 无需再定；评审按修正条而非原句判定 |
+| C3 | D10 已订正文本 | `design.md` L95「业务域暂不改动」已被 L97 的 2026-09-26 修正取代，但**原文未删且排在前面** | 把被否决的原文划掉而非就地注释，否则评审仍会命中旧半句 |
 
 ---
 
 ## 四、下一步行动（建议顺序）
 
-1. **A 轨 Q1（Alembic）+ Q2（Decimal）**：数据完整性阻塞项，且 Q1 同时解锁 B 轨 #10（PG）与 #17（退货关联）。
+1. **A 轨 Q1（Alembic）+ Q2（Decimal）**：数据完整性阻塞项，且 Q1 同时解锁 B 轨 #10（PG）与 #17（退货关联）。⚠ 本表 §一 Q1/Q2 行的现状描述已过期——`alembic.ini`、`migrations/versions/`（`0001_baseline`、`0002_money_numeric`）、`app/common/money.py` 均已存在（见 D10/D11 进度注），Q1 实际只剩 1.5b/1.5c（启动入口与 CI 漂移门），**待单独核实后刷新 §一**。
 2. **A 轨 Q4（日志）+ Q5/Q6/Q7（CI 守门）**：建立可观测性与「不腐化」的流水线护栏。
 3. **A 轨 Q12/Q13（文档）**：低工作量，先止住 VERIFICATION/README 漂移。
-4. **B 轨 P0-2**：进入 `p0-2-strict-fifo-expiry` 执行实施（P0 唯一未动的数据可信项）。
-5. **A 轨 Q9/Q10/Q11（前端重构）**：与功能扩张并行推进，纯前端、风险低。
-6. 收尾 `business-console-demo`、归档 `bi-dashboard-apple-style`。
+4. ~~**裁定 §三 C1–C3**~~ **C1 已裁定（2026-10-04，改 D14 不动代码）**；剩 C2（D17 措辞）与 C3（D10 旧文本未删）。不定就一直是评审误判源——`code-review` 已加 2a freshness gate，会把它们降级成 `## Conflict` 而非错判，但降级不等于解决。
+5. **B 轨 P0-2**：**已决定开工（2026-10-04）**，按 `tasks.md` 分组推进。组 1、组 2 完成（2026-10-07）。**下一组是组 3**（`query_inventory` location 视图与 `query_batches` 返回批次状态字段 + `status` 筛选）；「拣货与发货同序」的回归断言在组 4（tasks 4.1），不要把组 2 的改动视为已验证完。
+6. **A 轨 Q9/Q10/Q11（前端重构）**：与功能扩张并行推进，纯前端、风险低。Q10 的孤儿 `ExecutiveView.vue`（`/executive` 已重定向）随本轮归档确认仍未删，归 Q10 处理。
+7. ~~收尾 `business-console-demo`、归档 `bi-dashboard-apple-style`~~ **已完成（2026-10-04）**：三个 complete change 已归档，在飞池 5 → 2，`openspec validate --all` 15 项全绿。
 
 ---
 
@@ -144,4 +163,4 @@
 - [TASKS.md](../../TASKS.md)：任务与进展实录（以仓库真实代码为准）
 - [VERIFICATION.md](../../VERIFICATION.md)：交付验证记录（**待按 Q12 更新**）
 - [docs/API_SPEC.md](../API_SPEC.md) / [docs/PRD.md](../PRD.md)
-- [`openspec/changes/*/tasks.md`](../../openspec/changes/)：各 change 实施待办（`code-review` Spec 轴事实源，随仓库分发）
+- [`openspec/changes/*/tasks.md`](../../openspec/changes/)：各 change 实施待办（`code-review` Spec 轴事实源，随仓库分发；**须经该 skill 的 2a freshness gate 校验后才可用**，backlog change 不得充当事实源）

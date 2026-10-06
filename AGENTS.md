@@ -36,7 +36,8 @@
 ## 4. 提交前必须运行（全绿才可提交）
 
 ```bash
-# 后端单测（不连真实数据库）
+# 后端单测跑在真实 PostgreSQL 16 上，得先起库（仓库根目录执行）
+docker compose up -d postgres
 cd backend-python; uv run pytest
 
 # 前端单测（vitest）+ 构建（含 vue-tsc 类型检查）
@@ -46,7 +47,7 @@ cd frontend-vue; npm test; npm run build
 cd frontend-vue; npm run test:e2e
 
 # 动过 models/ 里的列类型时必跑（create_all 不会 ALTER，没这一步等于没改）
-cd backend-python; $env:DATABASE_URL="..."; uv run alembic upgrade head
+cd backend-python; uv run alembic upgrade head   # 连接串取自 .env / DATABASE_URL
 uv run python scripts/check_money_columns.py   # 问数据库本身，而不是问迁移命令的退出码
 ```
 
@@ -59,10 +60,18 @@ uv run python scripts/check_money_columns.py   # 问数据库本身，而不是�
   `app/main.py` 启动时的 `Base.metadata.create_all` 只建缺失的表，**不会 ALTER 已存在的列**；
   只改模型不写迁移，等于新库和测试库对了、线上与本地 `psi_fin.db` 仍是旧类型。
   迁移只从 `DATABASE_URL` 取串，缺省即报错退出，不静默回退 SQLite。
-- **单测跑在 SQLite 上（`tests/conftest.py`），`SELECT ... FOR UPDATE` 被静默忽略**；不设
-  `DATABASE_URL` 时本地开发也是 SQLite（`app/database.py` 默认 `psi_fin.db`）。本地 compose
-  是 MySQL 8.0，线上真后端演示是 Vercel Serverless + Neon PostgreSQL（`render.yaml` 为备选）。
-  并发与锁、以及列类型约束，以 SQLite 绿的测试为证据等于没有证据，须在 MySQL/PostgreSQL 上复现。
+- **单测跑在 PostgreSQL 16 上（`tests/conftest.py`），不再是 SQLite**。SQLite 不强制外键、静默忽略
+  `FOR UPDATE`、不校验 varchar 长度，以它绿的测试为证据等于没有证据 —— 2026-10-07 切库当天
+  就揪出 `auth_service.delete_user` 的 bug：先 `db.delete(user)` 再批量删令牌，autoflush 会把
+  `DELETE FROM users` 提前发出去，SQLite 一直默许，PG 直接 `ForeignKeyViolation`。
+  夹具优先读 `TEST_DATABASE_URL`，缺省则从 `backend-python/.env` 的 `DATABASE_URL` 把库名派生成
+  `<name>_test`，并**拒绝在非 `_test` 结尾的库上 TRUNCATE**；拿不到库就报错，不静默回退 SQLite
+  （与 `migrations/env.py` 同一条原则）。不设 `DATABASE_URL` 时 `app/database.py` 仍回退本地
+  `psi_fin.db`，所以**开发库要单独在 `backend-python/.env` 里指到 PG**。
+  本地 compose 主库 PostgreSQL 16（MySQL 8.0 收进 `--profile mysql` 作兼容选项），线上真后端演示是
+  Vercel Serverless + Neon PostgreSQL（`render.yaml` 为备选）。
+  **切库不等于并发已验证**：pytest 是单连接串行，真 PG 只证明了带 `FOR UPDATE` 的 SQL 在真库
+  可执行、外键与列类型真实生效；跨事务争锁那类行为仍需 CI 的 PG 轨或手工双会话取证。
 
 ## 5. Seam 纪律（写测试之前）
 

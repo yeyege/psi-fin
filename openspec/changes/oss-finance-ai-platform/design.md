@@ -139,7 +139,13 @@ account_mapping(id, event_type, dimension, account_code)  -- 维度值 → 科�
 
 ### D14: 凭证编号口径
 
-**决策：记账凭证实行「按会计期间连续编号」：`JV-{yyyyMM}-{seq}`（新增 `generate_voucher_no(db, period_code)`），区别于业务单据的按日序列；已关闭期间的号段永久封存不得补号（断号容忍，错序不容忍）。** 业务单据号规则不变。
+~~**决策：记账凭证实行「按会计期间连续编号」：`JV-{yyyyMM}-{seq}`（新增 `generate_voucher_no(db, period_code)`），区别于业务单据的按日序列；已关闭期间的号段永久封存不得补号（断号容忍，错序不容忍）。** 业务单据号规则不变。~~
+
+- **2026-10-04 修正（本条取代上方划线决策；代码不动）**：凭证号保留 `JV-YYYYMMDD-XXX`（走 `generate_order_no`）。三条理由：
+  1. `Voucher.period_code` 列已存在并用于期间聚合（`models/accounting.py`），划线方案想要的实质收益只剩「凭证号本身可读」，不是数据一致性；
+  2. D3 已定凭证不可变。改编号口径要么造成同一张表两套编号并存，要么给已 posted 的凭证重编号——后者是给不可变账簿改标识符，属本项目最贵的一类迁移，而换来的只是格式；
+  3. 按期间连续编号的动机是会计惯例，但本项目定位「管理会计/内部核算」并显式声明非报账报税用途（见 Risks 节），合规理由在此不成立。
+  业务单据号规则同样不变，此点与划线部分一致。
 
 ### D15: 目录结构 —— 撤销物理 Monorepo 重组
 
@@ -158,7 +164,19 @@ account_mapping(id, event_type, dimension, account_code)  -- 维度值 → 科�
 
 ### D17: 主数据库 —— 切 PostgreSQL 16，MySQL 降级为兼容选项
 
-**决策：生产/演示主库 PostgreSQL 16；MySQL 8.0 保留为兼容部署选项（compose profile + 每周 nightly CI 轨）；开发/测试 SQLite 不变。**
+**决策：生产/演示主库 PostgreSQL 16；MySQL 8.0 保留为兼容部署选项（compose profile + 每周 nightly CI 轨）；~~开发/测试 SQLite 不变~~。**
+
+- **2026-10-07 修正（开发库与单测一并切 PG，本条取代上方划线部分）**：本地开发与 `tests/conftest.py` 全部跑在
+  PostgreSQL 16 上（compose 的 `postgres` 服务 + 自动建的 `psi_fin_test`），单测拿不到库直接报错，不回退 SQLite。
+  划线那句不是被牵强推翻，而是它建立在一个已被证伪的前提上：「并发与锁以 SQLite 绿的测试为证据等于没有证据，
+  须去真库复现」这条纪律要靠人自觉执行，实际兜不住。p0-2 组 2 的 `with_for_update()` 必须加 `of=Inventory`
+  （PG 禁止锁 LEFT JOIN 可空侧）与 `auth_service.delete_user` 的 autoflush 外键顺序 bug，两个都是 SQLite 默许、
+  PG 报错，均在切库当天被 148 个既有用例直接照出。既然 `psycopg2` 驱动早已就位、Docker 就在本机，「零配置」
+  省下的那点成本换不来它掩盖的东西。
+  被否方案：测试维持 SQLite、只切开发库（即划线原状）—— SQLite 轨永远更省事，没人会去跑那条真正能给证据的轨；
+  约束要么默认生效，要么等于没有。
+  **仍未拿到的一块证据**：pytest 是单连接串行，所以本次切库只买到「外键/列类型/SQL 形状在真库成立」，
+  没有买到「跨事务争锁」行为 —— 该补什么见 tasks 1.7b 修正条。
 
 这不是赶时髦，是 D11/D12 工程纪律倒逼的结果：
 
@@ -170,7 +188,10 @@ account_mapping(id, event_type, dimension, account_code)  -- 维度值 → 科�
 | 开源先例 | Odoo/Metabase/n8n 等「可自托管企业开源软件」的默认面孔，与产品定位同构 |
 | AI 协同预留 | pgvector：Phase 4 审计 Agent 的相似凭证比对/语义检索零新增组件 |
 
-**迁移成本（现在切换恰为最低）**：SQLAlchemy 方言抹平差异，实际改动 = compose `mysql:8.0→postgres:16`、驱动 `pymysql→psycopg[binary]`、`.env.example` 与 CI 轨调整；业务代码零改动，越晚切越贵。
+**迁移成本（现在切换恰为最低）**：SQLAlchemy 方言抹平差异，实际改动 = compose `mysql:8.0→postgres:16`、~~驱动 `pymysql→psycopg[binary]`~~、`.env.example` 与 CI 轨调整；业务代码零改动，越晚切越贵。
+
+- **2026-10-07 执行进度**：compose 已切 `postgres:16`（MySQL 收进 `--profile mysql`）、`.env.example`/`README`/`AGENTS.md` 已同步、CI `backend-test` 已挂 PG 16 service；未做 D12 的 `pool_pre_ping/pool_recycle/pool_size`（见 tasks 1.6b）。
+- **驱动口径修正（取代上方划线的 `psycopg[binary]`，裁决过程见 tasks 1.6c）**：实装并保持 `psycopg2-binary`。理由：`database.py::normalize_database_url` 需要把平台注入的裸 `postgresql://` 钉成显式 `+psycopg2`，而 SQLAlchemy 2.1 取消了「缺 psycopg3 则回退 psycopg2」的行为，已装驱动才是确定项。
 - 面试叙事：国内企业 MySQL 为主流，「一套 ORM 代码双库可移植」比死守单库更能证明工程能力；MySQL 兼容轨保留即为此服务
 - 被否方案：维持 MySQL 主库 → D11 迁移体系长期不可靠；双主库同优先级 → CI 三倍轨维护成本，仅 PG 主流 + MySQL nightly 性价比最优
 

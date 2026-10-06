@@ -8,20 +8,25 @@
   - [x] 1.5a 工具链与基线：`alembic.ini` + `migrations/env.py`（只认 `DATABASE_URL`，缺失即退出）+ `0001_baseline`（create_all 实现，对存量库 no-op、无需 stamp）；空库 upgrade 到 head 已在 SQLite 实跑；`alembic check` 零漂移
   - [ ] 1.5b 启动入口接 `alembic upgrade head`（compose backend entrypoint / 本地脚本）；决定 `main.py` lifespan 的 create_all 是否彻底移除（见 D11 进度注）
   - [ ] 1.5c `alembic check` 进 CI，漂移即红（当前只有 PG 上的迁移可跑性 job，不等于漂移检测）
-- [ ] 1.6 引擎与连接配置（D12/D17）：pool_pre_ping/pool_recycle/pool_size、load_dotenv 补齐；compose 主库切 `postgres:16`（MySQL 保留为 profile 兼容选项）、驱动加 psycopg[binary]、.env.example/README 同步。验证：PG 容器重启后首请求成功；alembic autogenerate 在 PG 上零噪声 diff
+- [ ] 1.6 引擎与连接配置（D12/D17）：pool_pre_ping/pool_recycle/pool_size、load_dotenv 补齐；compose 主库切 `postgres:16`（MySQL 保留为 profile 兼容选项）、~~驱动加 psycopg[binary]~~（已按 1.6c 裁决：继续 `psycopg2-binary`，串中显式写明驱动）、.env.example/README 同步。验证：PG 容器重启后首请求成功；alembic autogenerate 在 PG 上零噪声 diff
+  - [x] 1.6a compose 主库切 postgres:16（2026-10-07）：新增 `postgres` 服务（5432、命名卷 pg-data、healthcheck），`backend` 的 `DATABASE_URL` 与 `depends_on` 改指 PG；MySQL 8.0 收进 `--profile mysql`，不再是缺省启动项。测试库由 `docker/postgres/init/10-create-test-db.sql` 在首次建卷时自动创（`psi_fin_test`），不靠人手动 `createdb`。`.env.example`、`README.md`、`AGENTS.md` §4 同步改口径
+  - [ ] 1.6b 引擎参数（D12）仍未落地：`app/database.py` 的 `create_engine` 现在只有 `connect_args`，**没有** `pool_pre_ping/pool_recycle/pool_size/max_overflow`。断链防护这一项不得当成已交付
+  - [ ] 1.6c 驱动口径与 D17 原文不一致（已决定，非遗漏）：继续用 `psycopg2-binary`，不加 `psycopg[binary]`。理由见 `database.py::normalize_database_url` —— 项目需要把平台注入的裸 `postgresql://` 钉成显式驱动，而 2.0.x 靠「缺 psycopg3 则回退 psycopg2」能跑、2.1 取消该回退就会在 `create_engine` 直接 `ModuleNotFoundError`。收口方式是把 D17 这句改写为「驱动 psycopg2，串中显式写明」
+  - [ ] 1.6d 本项两条验收均未取证：「PG 容器重启后首请求成功」与「alembic autogenerate 在 PG 上零噪声 diff」。E2E 在 PG 上跑通只能证明建表+种子+业务链路可用，不等于这两条
 - [ ] 1.7 CI 数据库矩阵（D12/D17）：backend-test 增 PostgreSQL 16 service 轨（DATABASE_URL 注入）为主流真实库轨，行锁/并发防重类用例标 `@pytest.mark.pg_only`（SQLite 轨跳过）；MySQL 8.0 兼容轨每周 nightly。验证：PG 轨全绿且 pg_only 收集数 > 0；nightly 可手动触发
   - [x] 1.7a CI 已有 PG 16 service 轨，但只跑迁移（`backend-migrate-postgres`：upgrade → 核对列类型 → downgrade → 再 upgrade），尚未跑 pytest 全量用例
-  - [ ] 1.7b 全量用例在 PG 轨上跑 + `@pytest.mark.pg_only` 标记体系（当前未实现）；MySQL nightly 未实现
+  - [x] 1.7b 全量用例已在 PostgreSQL 16 上跑（2026-10-07）：`backend-test` job 新增 `postgres:16` service + `TEST_DATABASE_URL`，与 `tests/conftest.py` 同步切库。**原设想的 `@pytest.mark.pg_only` 标记体系因单测不再跑 SQLite 而失去对象**，不要再去建它；真正缺的是「跨事务争锁/并发防重」类用例（pytest 现在单连接串行，真 PG 只证明 SQL 可执行、外键与列类型生效，没有证明锁行为），需显式开新项补。MySQL nightly 仍未实现
 - [ ] 1.8 覆盖率基线：dev 依赖加 pytest-cov，CI 输出总覆盖率并生成 README 徽章。验证：徽章渲染，阈值先设当前值只降不升
-- [ ] 1.9 可观测性最小集：`GET /healthz`（探活含 DB 连通）；请求级结构化访问日志（uvicorn access log 加 request_id 字段）；财务写入与反结账进既有审计口径；docs 补一页部署运维（PG 备份 `pg_dump`/恢复步骤）。验证：compose 环境下 healthz 200、日志可 grep request_id、备份命令实跑一次成功
+- [ ] 1.9 可观测性最小集：`GET /healthz`（探活含 DB 连通）；请求级结构化访问日志（uvicorn access log 加 request_id 字段）；财务写入与反结账进审计口径（措辞订正 2026-10-07：原文写的「既有审计口径」**并不存在** —— 全仓 grep `audit|审计` 零命中，无现成机制可接入，见 1.9a）；docs 补一页部署运维（PG 备份 `pg_dump`/恢复步骤）。验证：compose 环境下 healthz 200、日志可 grep request_id、备份命令实跑一次成功
+  - [ ] 1.9a 操作审计日志（自 accounting-core spec 派来，2026-10-07 决定不阻塞 Phase 1）：`accounting-core` spec 的 Scenario「反结账留痕」要求「记录含操作人的审计日志」，而 `reopen_period` 当前只改 `status/closed_at`，无操作人留痕。本项需建操作日志表（新表需 Alembic 迁移，AGENTS.md §4）并接进 close/reopen 与凭证写入；**在它落地前，该 Scenario 处于未覆盖状态，`code-review` Spec 轴应把它记为一个缺失项而非实现错误**
 
 ## 2. Phase 1 · 财务内核 + 凭证引擎（3-4 周，本期核心）
 
-- [ ] 2.0 2.1 整改（D10/D14，前置）：凭证域金额 Float → `Numeric(18,2)` + Decimal，消除 EPS 浮点比较；凭证号改期间序列 `JV-{yyyyMM}-{seq}`；`create_voucher` 对缺失 accountId 给显式 BusinessError；`account_balances` 返回 Decimal。验证：新增「0.1+0.2 精确等于 0.3」类断言，14 个存量用例适配后全绿
+- [x] 2.0 2.1 整改（D10，前置）：凭证域金额 Float → `Numeric(18,2)` + Decimal，消除 EPS 浮点比较；`create_voucher` 对缺失 accountId 给显式 BusinessError；`account_balances` 返回 Decimal。本项原包里的「凭证号改期间序列」已按 D14 的 2026-10-04 修正撤订，不在本项范围。验证：新增「0.1+0.2 精确等于 0.3」类断言，14 个存量用例适配后全绿
   - [x] 2.0a 金额口径：按 D10 的 2026-09-26 修正，范围已从凭证域扩大到全部 7 个金额列；EPS 与两处 `1e-9` 删除，借贷平衡改精确比较；`account_balances` 返回 Decimal；量化入口 `app/common/money.py`
   - [x] 2.0b 断言：新增 `3×0.1 + HALF_UP(0.125) = 0.43` 与「借贷差 1 分拒过账」两条回归；金额类断言由 `pytest.approx` 改精确比较（适配面：`test_finance_service.py` + `test_accounting_core.py`，130 passed）
-  - [ ] 2.0c 凭证号仍为 `JV-YYYYMMDD-XXX`（走 `generate_order_no`），未改为 D14 的期间序列 `JV-{yyyyMM}-{seq}`
-  - [ ] 2.0d `create_voucher` 对缺失 `accountId` 的分录现在抛 `KeyError`（`line["accountId"]`），未改成显式 `BusinessError`
+  - [x] 2.0c 凭证号口径已收口（2026-10-04 决策：撤订改号，保留 `JV-YYYYMMDD-XXX`，见 D14 修正条）。本项以 spec 对齐代码的方式完成，代码未动；`accounting_service.py` 顶部注释与 `models/accounting.py` 的列注释已是该口径的现成记录
+  - [x] 2.0d `create_voucher` 分录缺 `accountId`（缺键或显式 null）已改走 `BusinessError` 400，文案指明第 N 行缺少科目；不再以 `KeyError` 绕过全局异常处理器变成 500。`assert_postable` 只负责科目存在/启用/明细三项，缺键兜底在 `create_voucher` 入口处完成。取证：`tests/test_accounting_core.py::test_voucher_line_missing_account_id_rejected`；spec 已补 Scenario「分录缺少科目引用」；2026-10-04 全量 139 passed
 - [x] 2.1 数据模型：`account`（科目树）、`voucher`/`voucher_line`、`period`，含状态机与约束；建表迁移/初始化脚本。验证：pytest 覆盖科目树构建、非明细科目拒绝记账
 - [ ] 2.2 会计内核 API + 前端页：科目表维护、凭证列表/详情/手工录入、过账/冲销、期间结账/反结账。验证：posted 凭证改删返回 409；红字冲销双向关联；closed 期间写入被拒；借贷不平过账被拒（spec: accounting-core 全 Scenario）
 - [ ] 2.3 凭证引擎：`posting_rule/rule_line/account_mapping` 三表 + `generate_voucher()`；幂等键 `(event_type, doc_type, doc_id)`；规则试算接口。验证：同事件重复触发只出一张凭证；试算不落库（spec: voucher-engine Req 1 全 Scenario）
