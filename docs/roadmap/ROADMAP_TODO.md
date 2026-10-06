@@ -74,9 +74,9 @@
 | # | 项目 | 状态 | 关联资产 |
 |---|---|---|---|
 | 1 | 盘点闭环（4 种范围快照 / 实盘录入 / 自动盘盈盘亏 / 准确率） | ✅ 已完成 | NOTES.md §P0-1 |
-| 2 | **严格批次 FIFO + 效期（FEFO、临期/过期/呆滞预警）** | **已开工（3/12）** | openspec change `p0-2-strict-fifo-expiry`：组 1（`batch_lifecycle` 纯函数 + 阈值常量）与组 2（`FEFO_ORDER_KEYS` 已接管三个扣减入口的候选排序，旧 `Inventory.id` 排序已不在代码里；3 条 FEFO 用例）已落。剩余：组 3 查询字段与状态筛选、组 4 拣货/发货同序回归、组 5 前端预警展示、组 6 集成验证 |
+| 2 | **严格批次 FIFO + 效期（FEFO、临期/过期/呆滞预警）** | **已开工（5/12）** | openspec change `p0-2-strict-fifo-expiry`：组 1（`batch_lifecycle` 纯函数 + 阈值常量）、组 2（`FEFO_ORDER_KEYS` 已接管三个扣减入口的候选排序，旧 `Inventory.id` 排序已不在代码里；3 条 FEFO 用例）与组 3（两个查询出口返回批次效期/库龄/状态，批次列表支持 `status` 筛选）已落。剩余：组 4 拣货/发货同序回归、组 5 前端预警展示、组 6 集成验证 |
 | 3 | 复核扫码验货（逐件校验 SKU+批次+数量） | 待办（未设计） | 状态机已有 REVIEWED，缺扫码录入实现 |
-| 4 | 实时对账任务（行锁代码已有，对账缺失） | 待办 | 依赖 Q4 可观测性与 P2 迁移 PG |
+| 4 | 实时对账任务（行锁代码已有，对账缺失） | 待办 | 依赖 Q4 可观测性；PG 迁移已完成（见 B 轨 #10），原「依赖 P2 迁移 PG」已不成立 |
 
 ### P1 — 作业效率与系统性能
 
@@ -123,7 +123,7 @@
 | change | 范围 | 进度 | 状态 |
 |---|---|---|---|
 | `oss-finance-ai-platform` | 开源门面 + 财务内核 + AI 层（Phase 0–4） | 10/40 | Phase 0 新增落地：tasks 1.6a（compose 主库切 PG 16）与 1.7b（全量单测跑在 PG 16、本地与 CI 同步）；1.9 的「既有审计口径」已订正为不存在并拆出 1.9a。Phase 1 仍仅 2.0 + 2.1 落地（`models/accounting.py` + `services/accounting_service.py` + 单测；2.0d 分录缺科目已改 `BusinessError`）。**会计内核尚无 router**（`routers/` 无 `accounting.py`、`main.py` 未挂载）→ 2.2 未开始；Phase 3 的 `app/ai/` 目录不存在。分母从 35 变 40 是因为本轮新增了子项，不是任务被拆细。冲突项见下表 |
-| `p0-2-strict-fifo-expiry` | 严格 FIFO + 效期 | 3/12 | **推进中**。组 1（`batch_lifecycle` 纯函数）与组 2（`FEFO_ORDER_KEYS` 三入口共用 + 3 条 FEFO 用例，2026-10-07）完成，全量 148 passed。剩余 9 项未实施，下一组是组 3（查询接口扩展字段与状态筛选）。⚠ 组 2 带走一个跨库坑：`with_for_update()` 必须改 `of=Inventory`，否则 PG 下「排序键取自批次表 → outerjoin Batch」会撞上「FOR UPDATE cannot be applied to the nullable side of an outer join」；MySQL 方言将 `of` 丢弃、渲染裸 `FOR UPDATE`（锁范围偏大，不破不变量）。细节见该 change `tasks.md` 组 2 完成记录 |
+| `p0-2-strict-fifo-expiry` | 严格 FIFO + 效期 | 5/12 | **推进中**。组 1（`batch_lifecycle` 纯函数）、组 2（`FEFO_ORDER_KEYS` 三入口共用 + 3 条 FEFO 用例）与组 3（location 视图与批次列表返回效期/库龄/状态字段，`GET /api/inventory/batches` 支持 `status` 筛选）完成，全量 152 passed。剩余 7 项未实施，**下一组是组 4**（tasks 4.1：「拣货与发货同序」的回归断言 —— 目前同序仅由三入口共用排序隐式保证，无测试锁住，任一入口未来私改排序不会红灯）。⚠ 组 2 带走一个跨库坑：`with_for_update()` 必须改 `of=Inventory`，否则 PG 下「排序键取自批次表 → outerjoin Batch」会撞上「FOR UPDATE cannot be applied to the nullable side of an outer join」；MySQL 方言将 `of` 丢弃、渲染裸 `FOR UPDATE`（锁范围偏大，不破不变量）。细节见该 change `tasks.md` 各组完成记录 |
 
 ### 已归档
 
@@ -149,8 +149,8 @@
 1. **A 轨 Q1（Alembic）+ Q2（Decimal）**：数据完整性阻塞项，且 Q1 同时解锁 B 轨 #10（PG）与 #17（退货关联）。⚠ 本表 §一 Q1/Q2 行的现状描述已过期——`alembic.ini`、`migrations/versions/`（`0001_baseline`、`0002_money_numeric`）、`app/common/money.py` 均已存在（见 D10/D11 进度注），Q1 实际只剩 1.5b/1.5c（启动入口与 CI 漂移门），**待单独核实后刷新 §一**。
 2. **A 轨 Q4（日志）+ Q5/Q6/Q7（CI 守门）**：建立可观测性与「不腐化」的流水线护栏。
 3. **A 轨 Q12/Q13（文档）**：低工作量，先止住 VERIFICATION/README 漂移。
-4. ~~**裁定 §三 C1–C3**~~ **C1 已裁定（2026-10-04，改 D14 不动代码）**；剩 C2（D17 措辞）与 C3（D10 旧文本未删）。不定就一直是评审误判源——`code-review` 已加 2a freshness gate，会把它们降级成 `## Conflict` 而非错判，但降级不等于解决。
-5. **B 轨 P0-2**：**已决定开工（2026-10-04）**，按 `tasks.md` 分组推进。组 1、组 2 完成（2026-10-07）。**下一组是组 3**（`query_inventory` location 视图与 `query_batches` 返回批次状态字段 + `status` 筛选）；「拣货与发货同序」的回归断言在组 4（tasks 4.1），不要把组 2 的改动视为已验证完。
+4. ~~**裁定 §三 C1–C3**~~ **C1 已裁定（2026-10-04，改 D14 不动代码）、C2 已随切库消解（2026-10-07）**；只剩 C3（D10 旧文本未删）。不定就一直是评审误判源——`code-review` 已加 2a freshness gate，会把它们降级成 `## Conflict` 而非错判，但降级不等于解决。
+5. **B 轨 P0-2**：**已决定开工（2026-10-04）**，按 `tasks.md` 分组推进。组 1、组 2、组 3 完成（2026-10-07）。**下一组是组 4**（tasks 4.1：「拣货与发货同序」回归断言）—— 它是组 2 那改排序的唯一定锁手段，不要再当「已由共享实现保证」略过；其后是组 5（前端预警展示）与组 6（集成验证）。
 6. **A 轨 Q9/Q10/Q11（前端重构）**：与功能扩张并行推进，纯前端、风险低。Q10 的孤儿 `ExecutiveView.vue`（`/executive` 已重定向）随本轮归档确认仍未删，归 Q10 处理。
 7. ~~收尾 `business-console-demo`、归档 `bi-dashboard-apple-style`~~ **已完成（2026-10-04）**：三个 complete change 已归档，在飞池 5 → 2，`openspec validate --all` 15 项全绿。
 

@@ -85,6 +85,9 @@ BATCH_STATUS_NORMAL = "NORMAL"
 BATCH_STATUS_EXPIRING = "EXPIRING"
 BATCH_STATUS_EXPIRED = "EXPIRED"
 BATCH_STATUS_AGING = "AGING"
+# 枚举集合单一来源：路由的 status 参数校验由它拼出，不在 HTTP 层另写一份四个魔串
+BATCH_STATUSES = (BATCH_STATUS_NORMAL, BATCH_STATUS_EXPIRING,
+                  BATCH_STATUS_EXPIRED, BATCH_STATUS_AGING)
 
 
 class BatchLifecycle(NamedTuple):
@@ -385,6 +388,28 @@ def ship_stock(db: Session, *, product_id: int, location_code: str, quantity: in
 
 # ==================== 查询 ====================
 
+def _row_lifecycle_kwargs(r) -> dict:
+    """从 location 视图的查询行得出三个生命周期字段，供响应构造使用。
+
+    状态口径仍只存在于 `batch_lifecycle`（p0-2 D3）：这里只是把行上的批次日期装成一个
+    游离 Batch 传给它，而不是在查询处重写一份 if/elif —— 两份口径必然漂移。
+    用 `batch_inbound_date` 而非 `batch_no` 做判据：它在 Batch 上 NOT NULL，有批次必有值；
+    未挂批次的库存行（盘盈/调整产生）则三个字段全返回 None，不得回 0 天或误标 NORMAL。
+    """
+    if r.batch_inbound_date is None:
+        return {"days_to_expiry": None, "age_days": None, "batch_status": None}
+    lifecycle = batch_lifecycle(Batch(
+        inbound_date=r.batch_inbound_date,
+        manufacture_date=r.batch_manufacture_date,
+        expiry_date=r.batch_expiry_date,
+    ))
+    return {
+        "days_to_expiry": lifecycle.days_to_expiry,
+        "age_days": lifecycle.age_days,
+        "batch_status": lifecycle.status,
+    }
+
+
 def query_inventory(
     db: Session,
     view: str = "location",  # product | location
@@ -440,6 +465,10 @@ def query_inventory(
                 Warehouse.name.label("warehouse_name"),
                 Location.zone_id.label("zone_id"),
                 Batch.batch_no.label("batch_no"),
+                # 三个日期取出来才能算生命周期：同一个 outerjoin，不额外查库（避免 N+1）
+                Batch.inbound_date.label("batch_inbound_date"),
+                Batch.manufacture_date.label("batch_manufacture_date"),
+                Batch.expiry_date.label("batch_expiry_date"),
                 Inventory.available_qty.label("available_qty"),
                 Inventory.locked_qty.label("locked_qty"),
                 Inventory.updated_at.label("updated_at"),
@@ -477,6 +506,9 @@ def query_inventory(
                 available_qty=r.available_qty, locked_qty=r.locked_qty,
                 total_qty=(r.available_qty or 0) + (r.locked_qty or 0),
                 updated_at=r.updated_at,
+                manufacture_date=r.batch_manufacture_date,
+                expiry_date=r.batch_expiry_date,
+                **_row_lifecycle_kwargs(r),
             )
             for r in rows
         ]
@@ -536,9 +568,31 @@ def query_flows(
     return page_result([m.model_dump(by_alias=True) for m in list_data], total, page, page_size)
 
 
-def query_batches(db: Session, keyword: str | None = None,
+def _batch_row(b: Batch) -> dict:
+    """批次列表的单行响应；库龄与状态统一由 `batch_lifecycle` 算（p0-2 D3）。"""
+    lifecycle = batch_lifecycle(b)
+    return BatchResponse(
+        id=b.id, batch_no=b.batch_no, product_id=b.product_id,
+        product_name=b.product.name if b.product else "",
+        sku=b.product.sku if b.product else "",
+        inbound_date=b.inbound_date,
+        manufacture_date=b.manufacture_date, expiry_date=b.expiry_date,
+        age_days=lifecycle.age_days, batch_status=lifecycle.status,
+    ).model_dump(by_alias=True)
+
+
+def query_batches(db: Session, keyword: str | None = None, status: str | None = None,
                   page: int = 1, page_size: int = 20) -> dict:
-    """批次列表。"""
+    """批次列表：每行带库龄与批次状态，可按状态筛选（p0-2 tasks 3.2）。
+
+    状态是派生值、不入库，口径只存在于 `batch_lifecycle` 一处，所以带 status 时不能改写成
+    SQL WHERE + CASE：那等于把同一段判定复制成第二份，而 spec 明确要求批次列表与库位明细
+    两处状态口径一致，漂移正好发生在这类「看起来等价」的复制上。
+    代价：筛选时先取全部匹配 keyword 的行算完状态再分页。当前批次量级可控（演示数据约千行）；
+    真实量级上去后的正解是把口径做成单一 SQL 表达式让两处共用，而不是各写一份。
+    缺省（不带 status）仍走 SQL 分页，不给既有路径加负担；total 返回筛选后的条数，
+    否则前端分页会算出不存在的尾页。
+    """
     # joinedload 一次加载商品，避免拼响应时 N+1 逐行查库
     query = db.query(Batch).options(joinedload(Batch.product))
     if keyword:
@@ -548,21 +602,23 @@ def query_batches(db: Session, keyword: str | None = None,
                 db.query(Product.id).filter(Product.name.like(like) | Product.sku.like(like))
             ))
         )
-    total = query.count()
-    rows = (
-        query.order_by(Batch.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
-    list_data = [
-        BatchResponse(
-            id=b.id, batch_no=b.batch_no, product_id=b.product_id,
-            product_name=b.product.name if b.product else "",
-            sku=b.product.sku if b.product else "",
-            inbound_date=b.inbound_date,
-            manufacture_date=b.manufacture_date, expiry_date=b.expiry_date,
+
+    if status is None:
+        total = query.count()
+        rows = (
+            query.order_by(Batch.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
         )
-        for b in rows
-    ]
-    return page_result([m.model_dump(by_alias=True) for m in list_data], total, page, page_size)
+        list_data = [_batch_row(b) for b in rows]
+    else:
+        computed = [
+            _batch_row(b)
+            for b in query.order_by(Batch.created_at.desc()).all()
+        ]
+        matched = [row for row in computed if row["batchStatus"] == status]
+        total = len(matched)
+        list_data = matched[(page - 1) * page_size: page * page_size]
+
+    return page_result(list_data, total, page, page_size)

@@ -2,9 +2,9 @@
 
 一个「进销存 + 业财一体」中后台系统：库存底座对标领星跨境仓储系统（入库 / 出库 / 波次拣货 / 退货 / 移库调拨 / 盘点 / 批次），业务层新增**销售订单**与**财务应收**，打通 **销售订单 → 发货自动生成应收 → 收款核销（含部分核销/预收）→ 应收余额与账龄 → 经营驾驶舱** 的收入侧业财闭环。后端 Python + FastAPI，前端 Vue 3 + Element Plus + ECharts，支持 Docker 一键启动。
 
-- 后端测试：**148 用例**（pytest，全绿；跑在真实 PostgreSQL 16 上）
+- 后端测试：**152 用例**（pytest，全绿；跑在真实 PostgreSQL 16 上）
 - 前端测试：**31 用例**（vitest，全部通过）
-- 合计 **179 个自动化测试**（148 + 31），另有 12 个 Playwright E2E 覆盖入库/退货/波次/BI 工作台/登录预热等核心正向流程
+- 合计 **183 个自动化测试**（152 + 31），另有 12 个 Playwright E2E 覆盖入库/退货/波次/BI 工作台/登录预热等核心正向流程
 - CI：GitHub Actions（pytest + PostgreSQL 上的 Alembic 迁移轨 + 前端 build/vitest + docker build 校验）
 
 ---
@@ -90,7 +90,7 @@ psi-fin/
 │   │   ├── services/         # 业务服务（库存变动统一入口）
 │   │   ├── common/           # 全局异常 / 通用响应
 │   │   └── main.py           # FastAPI 入口（lifespan 自动建表 + 种子数据）
-│   ├── tests/                # pytest 测试（148 用例，跑在真实 PostgreSQL 上）
+│   ├── tests/                # pytest 测试（152 用例，跑在真实 PostgreSQL 上）
 │   ├── migrations/           # Alembic 迁移（持久库列变更必须同步补迁移）
 │   ├── init_data.py          # 示例数据初始化
 │   ├── Dockerfile
@@ -146,7 +146,7 @@ docker compose up -d postgres
 cd backend-python
 uv sync                                     # 安装依赖
 uv run uvicorn app.main:app --port 8000     # 启动 http://localhost:8000（自动建表 + 种子数据）
-uv run pytest                               # 运行测试（148 用例）
+uv run pytest                               # 运行测试（152 用例）
 ```
 
 > 本地开发库靠 `backend-python/.env` 的 `DATABASE_URL` 指定（写法见根 `.env.example`），该文件不入库。
@@ -185,7 +185,7 @@ npm start           # concurrently 同时拉起后端 + 前端
 
 ### 选做任务
 - **出库单 + 防超卖**：锁定机制 + 原子扣减 + 整单回滚（含并发双线程防超卖测试）
-- **单元测试**：后端 148 + 前端 31 用例
+- **单元测试**：后端 152 + 前端 31 用例
 - **前端性能优化**：服务端分页 + 搜索防抖（300ms）+ 筛选逻辑抽离纯函数
 
 ### MVP 扩展（M1-M7）
@@ -226,7 +226,7 @@ npm start           # concurrently 同时拉起后端 + 前端
 ## 测试
 
 ```bash
-# 后端单元测试（148 用例，跑在真实 PostgreSQL 16 上；先 docker compose up -d postgres）
+# 后端单元测试（152 用例，跑在真实 PostgreSQL 16 上；先 docker compose up -d postgres）
 cd backend-python && uv run pytest
 
 # 前端单元测试（31 用例）

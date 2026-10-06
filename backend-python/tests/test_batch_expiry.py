@@ -208,3 +208,94 @@ def _available_total(db) -> int:
     return db.query(func.coalesce(func.sum(Inventory.available_qty), 0)).filter(
         Inventory.product_id == 1, Inventory.location_code == LOCATION
     ).scalar()
+
+
+# ============ 查询接口返回生命周期字段与状态筛选（tasks 3.1 / 3.2） ============
+
+def _row_by_batch(rows, batch_no_prefix: str | None) -> dict:
+    """按批次号前缀取 location 视图里的一行；传 None 则取无批次的那一行。"""
+    for row in rows:
+        if batch_no_prefix is None:
+            if row["batchNo"] is None:
+                return row
+        elif row["batchNo"] and row["batchNo"].startswith(batch_no_prefix):
+            return row
+    raise AssertionError(f"未找到批次 {batch_no_prefix!r} 的库存行")
+
+
+def test_location_view_returns_batch_lifecycle_fields(db_session):
+    """spec Requirement「库存库位明细返回批次效期与状态」。
+
+    状态必须由 `batch_lifecycle` 这一个实现点算出，不得在查询处重写口径。
+    """
+    _inbound(db_session, batch_no="Q-EXPIRING", qty=5, expiry_in=10, inbound_ago=5)
+    _inbound(db_session, batch_no="Q-AGING", qty=5, inbound_ago=200)
+    inventory_service.add_stock(
+        db_session, product_id=1, location_code=LOCATION, batch_id=None, quantity=5,
+        flow_type=inventory_service.FLOW_TYPE_INBOUND,
+        order_type=inventory_service.ORDER_TYPE_INBOUND, order_no="T-IN-Q-LOOSE",
+    )
+
+    rows = inventory_service.query_inventory(db_session, view="location")["list"]
+
+    expiring = _row_by_batch(rows, "Q-EXPIRING")
+    assert expiring["batchStatus"] == "EXPIRING"
+    assert expiring["daysToExpiry"] == 10
+    assert expiring["ageDays"] == 5
+    assert expiring["expiryDate"] is not None
+
+    aging = _row_by_batch(rows, "Q-AGING")
+    assert aging["batchStatus"] == "AGING"
+    assert aging["daysToExpiry"] is None      # 未设有效期，距到期天数置空
+    assert aging["ageDays"] == 200
+
+    # 无批次行没有任何批次日期可算，五个派生字段全空而不是报 0 或乱标状态
+    loose = _row_by_batch(rows, None)
+    assert loose["batchStatus"] is None
+    assert loose["daysToExpiry"] is None
+    assert loose["ageDays"] is None
+    assert loose["expiryDate"] is None
+    assert loose["manufactureDate"] is None
+
+
+def test_product_view_untouched_by_location_lifecycle_fields(db_session):
+    """只给 location 明细加字段；product 汇总视图跨批次聚合，批次状态无意义，不得出现该列。"""
+    _inbound(db_session, batch_no="Q-SUM", qty=5, expiry_in=10)
+
+    rows = inventory_service.query_inventory(db_session, view="product")["list"]
+
+    assert rows and all("batchStatus" not in row for row in rows)
+    assert rows[0]["availableQty"] == 5
+
+
+def test_query_batches_returns_lifecycle_fields(db_session):
+    """spec Requirement「批次列表返回生命周期字段」：每行带 ageDays 与 batchStatus。"""
+    _inbound(db_session, batch_no="L-NORMAL", qty=3, expiry_in=90, inbound_ago=2)
+    _inbound(db_session, batch_no="L-EXPIRING", qty=3, expiry_in=5, inbound_ago=40)
+
+    data = inventory_service.query_batches(db_session)
+
+    by_no = {row["batchNo"]: row for row in data["list"]}
+    assert by_no["L-NORMAL"]["batchStatus"] == "NORMAL"
+    assert by_no["L-NORMAL"]["ageDays"] == 2
+    assert by_no["L-EXPIRING"]["batchStatus"] == "EXPIRING"
+    assert by_no["L-EXPIRING"]["ageDays"] == 40
+
+
+def test_query_batches_status_filter_keeps_pagination_consistent(db_session):
+    """spec Scenario「批次列表按状态筛选」与「缺省返回全部」。
+
+    total 必须是筛选后的条数而不是全表条数，否则前端分页会算出空尾页。
+    """
+    _inbound(db_session, batch_no="F-EXP", qty=1, expiry_in=3)
+    _inbound(db_session, batch_no="F-AGING", qty=1, inbound_ago=300)
+    _inbound(db_session, batch_no="F-NORMAL", qty=1, expiry_in=400)
+
+    all_data = inventory_service.query_batches(db_session)
+    assert all_data["total"] == 3
+    assert {row["batchStatus"] for row in all_data["list"]} == {"EXPIRING", "AGING", "NORMAL"}
+
+    filtered = inventory_service.query_batches(db_session, status="AGING")
+    assert filtered["total"] == 1
+    assert [row["batchNo"] for row in filtered["list"]] == ["F-AGING"]
+    assert all(row["batchStatus"] == "AGING" for row in filtered["list"])

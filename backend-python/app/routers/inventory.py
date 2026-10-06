@@ -53,10 +53,17 @@ def query_flows(
 @router.get("/api/inventory/batches", response_model=ApiResponse[PageResult[BatchResponse]])
 def query_batches(
     keyword: str | None = Query(default=None),
+    # 枚举值由 inventory_service.BATCH_STATUSES 拼出，不在路由里重写一份
+    status: str | None = Query(
+        default=None,
+        pattern=f"^({'|'.join(inventory_service.BATCH_STATUSES)})$",
+        description="按批次生命周期状态筛选；缺省返回全部",
+    ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
     db: Session = Depends(get_db),
 ):
-    """库存批次"""
-    result = inventory_service.query_batches(db, keyword=keyword, page=page, page_size=page_size)
+    """库存批次：每行含库龄与批次状态，可按状态筛选（非法枚举值 422）"""
+    result = inventory_service.query_batches(
+        db, keyword=keyword, status=status, page=page, page_size=page_size)
     return {"code": 200, "message": "success", "data": result}

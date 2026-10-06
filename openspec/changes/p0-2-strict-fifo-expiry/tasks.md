@@ -15,8 +15,12 @@
 
 ## 3. 后端：查询接口扩展字段与状态筛选
 
-- [ ] 3.1 `query_inventory`（view=location）每行增加 `manufactureDate` / `expiryDate` / `daysToExpiry` / `ageDays` / `batchStatus`（沿用 joinedload 或 outerjoin Batch 取日期字段，避免 N+1）。验证：`uv run pytest` 新增 location 视图断言返回新字段用例通过
-- [ ] 3.2 `query_batches` 每行增加 `ageDays` / `batchStatus`；router `GET /api/inventory/batches` 增加可选 `status` 参数（缺省返回全部），service 按状态过滤。验证：`uv run pytest` 新增「status=EXPIRING 只返回临期批次」「缺省返回全部」用例通过
+- [x] 3.1 `query_inventory`（view=location）每行增加 `manufactureDate` / `expiryDate` / `daysToExpiry` / `ageDays` / `batchStatus`（沿用 joinedload 或 outerjoin Batch 取日期字段，避免 N+1）。验证：`uv run pytest` 新增 location 视图断言返回新字段用例通过
+  - 完成记录（2026-10-07）：三个批次日期字段直接并入 location 视图已有的 `outerjoin(Batch, ...)` 投影，不额外查库；新增 `_row_lifecycle_kwargs()` 把行上的日期装成一个游离 `Batch` 交给 `batch_lifecycle`，而不是在查询处重写一份 if/elif —— D3 的单一实现点必须在查询层也保住。无批次行的判据用 `batch_inbound_date`（Batch 上 NOT NULL，有批次必有值），五个派生字段全返回 None 而不是 0 天或被误标 NORMAL。product 汇总视图刻意不加这些字段（跨批次聚合后批次状态无意义），已用一条用例锁住不外泄
+- [x] 3.2 `query_batches` 每行增加 `ageDays` / `batchStatus`；router `GET /api/inventory/batches` 增加可选 `status` 参数（缺省返回全部），service 按状态过滤。验证：`uv run pytest` 新增「status=EXPIRING 只返回临期批次」「缺省返回全部」用例通过
+  - 完成记录（2026-10-07）：状态是派生值、不入库，所以带 `status` 时在 Python 侧算完再过滤切片分页，**不**改写成 SQL WHERE + CASE —— 那是把同一段判定复制成第二份，而 spec 明确要求批次列表与库位明细两处口径一致，漂移正好发生在这类「看起来等价」的复制上。代价写在 docstring 里（筛选时先取全部匹配 keyword 的行），并注明真实量级上去后的正解是把口径做成单一 SQL 表达式让两处共用；缺省路径仍走 SQL 分页，不背这个成本。`total` 返回筛选后的条数，否则前端会算出不存在的尾页
+  - router 的 `status` 用 `Query(pattern=...)` 校验，枚举由 `inventory_service.BATCH_STATUSES` 拼出（新增该常量元组），不在 HTTP 层重写四个魔串；非法枚举值 422
+  - 实测：`tests/test_batch_expiry.py` 10 passed（本轮新增 4 例）、全量 **152 passed**（真 PG 16）、前端 31 passed + build 通过、E2E 12 passed；既有用例零破坏（响应为向后兼容的增字段）
 
 ## 4. 后端：发货与拣货同序回归
 
