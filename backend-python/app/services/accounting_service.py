@@ -170,8 +170,8 @@ def create_voucher(db, *, voucher_date: date, lines: list[dict],
     """创建草稿凭证。
 
     lines: [{accountId, direction(D/C), amount, auxType?, auxId?, auxName?, memo?}]
-    保存即校验:方向合法、科目必须为可记账明细科目(spec: 非明细科目拒绝记账)。
-    先校验后落库,任一行不合法整单拒绝,不产生半成品凭证。
+    保存即校验:科目必填、方向合法、科目必须为可记账明细科目(spec: 非明细科目拒绝记账)。
+    先校验后落库,任一行不合法则整单驳回并回滚,不产生半成品凭证。
     借贷平衡在过账时校验(post_voucher)。
     """
     if not lines:
@@ -183,7 +183,10 @@ def create_voucher(db, *, voucher_date: date, lines: list[dict],
         direction = line.get("direction")
         if direction not in LINE_DIRECTIONS:
             raise BusinessError(f"第 {seq} 行分录方向不合法: {direction}(应为 D/C)")
-        account = assert_postable(db, line["accountId"])
+        account_id = line.get("accountId")
+        if account_id is None:
+            raise BusinessError(f"第 {seq} 行分录缺少科目 accountId")
+        account = assert_postable(db, account_id)
         amount = money(line.get("amount", 0))
         if amount == 0:
             raise BusinessError(f"第 {seq} 行分录金额不得为 0")

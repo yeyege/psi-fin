@@ -27,11 +27,11 @@
 
 - 销售订单：草稿 → 确认 → 发货 → 完成/作废，确认后明细锁定
 - 发货自动生成应收（幂等由 DB 唯一约束兜底）→ 收款核销（部分核销/预收）→ 应收余额与账龄 → 经营驾驶舱
-- 会计内核：凭证/科目（COA）体系，`tests/test_accounting_core.py` 覆盖
+- 会计内核：凭证/科目（COA）体系，`tests/test_accounting_core.py` 覆盖（**仅 models + service**，尚未挂 router）
 
 ### 4. 工程化与交付
 
-- 测试：**后端 126 + 前端 31 = 157+ 自动化用例**，另有 4 条 Playwright E2E
+- 测试：**后端 145 + 前端 31 = 176 自动化用例**（2026-10-04 实测：`uv run pytest` → 145 passed；`npm test` → 31 passed / 3 文件），另有 Playwright E2E（本轮为后端改动未跑，**用例数待实测**，不手抄）
 - CI：GitHub Actions（pytest + build/vitest + docker build）
 - 部署：Vercel Serverless + Neon PostgreSQL（真后端演示）；GitHub Pages（纯前端 Mock 演示）；Docker Compose 一键全栈
 
@@ -39,7 +39,10 @@
 
 ## 二、当前进行中
 
-- **P0-2 严格批次 FIFO + 效期管理（FEFO）**：规划已完成（openspec change `p0-2-strict-fifo-expiry`），实施 0/13，按其 tasks.md 推进。
+> 进度数以 `openspec list --json` 实测为准（2026-10-04 刷新）。
+
+- **开源业财一体演进（openspec change `oss-finance-ai-platform`）**：8/35。Phase 1 仅 2.0 + 2.1 落地；**尚无 router 与前端页**（`routers/` 无 `accounting.py`、`main.py` 未挂载）→ §一.3 所述「会计内核」目前未对外暴露；Phase 3 AI 层（`app/ai/`）未开工。含两条待裁定的 spec/代码冲突（C2 主库口径、C3 D10 旧文本未删；C1 凭证号已于 2026-10-04 按 D14 修正收口），见 [`docs/roadmap/ROADMAP_TODO.md`](./docs/roadmap/ROADMAP_TODO.md) §三。
+- **P0-2 严格批次 FIFO + 效期管理（FEFO）**：**已开工（1/12）**（openspec change `p0-2-strict-fifo-expiry`）。组 1 已落：`inventory_service.batch_lifecycle()` 批次生命周期纯函数 + `tests/test_batch_expiry.py`；**FEFO 扣减排序未动**，`inventory_service.py` L203 / L262 / L318 仍按改造前的 `Inventory.id`。剩余范围以该 change `proposal.md` 顶部状态行为准。
 
 后续阶段（P0-3 复核扫码、P0-4 实时对账、P1/P2/P3）统一见 [`docs/roadmap/ROADMAP_TODO.md`](./docs/roadmap/ROADMAP_TODO.md)。
 

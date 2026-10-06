@@ -1,3 +1,9 @@
+> **归档说明（2026-10-04）**：本 change 交付物是 `preview/apple-store-wms.html` 静态可交互原型（23/23 完成）。
+> 同一能力随后由 `bi-workbench-vue-integration` 移植进 Vue 应用（路由 `/bi`，并新增财务面板），后者才是现状实现。
+> 因此归档走 `--skip-specs`：本 change 的 `specs/bi-dashboard/**` **不合入** `openspec/specs/`，
+> 以免与 `specs/bi-workbench/**` 形成同一能力的两版现状规格。原型文件与本目录的 delta specs 随归档目录长期保留，
+> 需要回溯原型口径时到 `openspec/changes/archive/` 取。
+
 ## Why
 
 当前 WMS 项目的 Vue 前端采用传统侧边栏管理后台风格，视觉表现较为普通。已有的 Apple Store 风格静态预览页（`preview/apple-store-wms.html`）设计优秀，玻璃拟态（Glassmorphism）+ 顶部栏/侧边栏/底部 Dock 的 macOS 风格布局非常现代化，但目前仅是纯静态展示：图表用纯 CSS 绘制无法交互、无法切换时间维度、无多页面板切换、无点击下钻能力。用户需要一个**可交互、带 Mock 数据、可快速落地**的 BI 数据看板原型，用于评估 Apple Store 风格是否适合整体 UI 重构方向，同时可作为演示 Demo 使用。

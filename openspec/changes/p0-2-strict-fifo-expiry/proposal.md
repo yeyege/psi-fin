@@ -1,3 +1,12 @@
+> **状态（2026-10-04）：已开工 1/12。** `tasks 1.1` 完成——`inventory_service.batch_lifecycle()` 批次生命周期纯函数
+> （+ `EXPIRY_WARN_DAYS` / `AGING_DAYS` 常量）与 `tests/test_batch_expiry.py` 3 例；**其余 11 项未实施**。
+> 排期入口见 `docs/roadmap/ROADMAP_TODO.md` §二 B 轨 #2。
+> **尚未落地的部分**（本文件 Context 描述的仍是改造前状态，已逐处核对）：三处扣减排序仍为
+> `.order_by(Inventory.id.asc())`（现位于 `inventory_service.py` L203 / L262 / L318），无 FEFO 共享排序 helper；
+> 查询接口未返回 `batchStatus` / `daysToExpiry` / `ageDays`；`BatchesView.vue` 只有一列原始「有效期至」（L71），无状态 Tag 与筛选。
+> **用作 `code-review` Spec 轴事实源前注意**：tasks 2.1–4.1 指向 `deduct_stock` / `lock_stock` / `ship_stock` 这三个全项目最热改动面，
+> 未勾选项会让碰这三函数的 diff 背上 11 条尚不成立的缺失项；按组推进时先对齐本行写的剩余范围。
+
 ## Why
 
 当前库存扣减（`deduct_stock` / `lock_stock` / `ship_stock`）跨批次时一律按 `Inventory.id`（≈建批/入库先后）顺序先出，虽满足近似 FIFO，但完全未利用批次已存的 `manufacture_date` / `expiry_date`：到期最近的批次可能滞留到最后才被扣，且系统对临期、已过期、长库龄（呆滞）批次没有任何预警能力。这直接对应 NOTES.md P0-2 目标——降「长库龄物料占比」、控「效期风险」，让「先到期先出（FEFO）」真正落地。

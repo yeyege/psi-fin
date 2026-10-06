@@ -2,7 +2,7 @@
 
 覆盖 openspec/changes/oss-finance-ai-platform/specs/finance/accounting-core/spec.md:
 - 科目树:子科目编码前缀约束、新增下级自动置父科目非明细、类别/方向一致性
-- 非明细科目与停用科目拒绝挂分录(422)
+- 非明细科目与停用科目拒绝挂分录(422);分录缺 accountId 拒绝(400,不得泄 KeyError)
 - 凭证借贷平衡、单边挂账拦截、posted 禁改删(409)、红字冲销双向关联
 - closed 期间拒写(409)、结账前草稿检查、反结账倒序约束
 - 金额口径(AGENTS.md §4):分录金额为 Decimal、四舍五入到分,借贷平衡用精确比较不留容差
@@ -115,7 +115,7 @@ def test_duplicate_code_and_invalid_enums_rejected(db_session, coa):
                            category="ASSET", direction="UP")
 
 
-# ============ 非明细科目拒绝记账 ============
+# ============ 非明细科目与分录取数拒绝 ============
 
 def test_voucher_line_on_non_leaf_account_rejected(db_session, coa):
     """spec: 分录引用非明细科目 → 拒绝保存(422),提示选择下级明细。"""
@@ -140,6 +140,32 @@ def test_voucher_line_on_inactive_account_rejected(db_session, coa):
         )
     assert ei.value.status == 422
     assert "停用" in ei.value.message
+
+
+def test_voucher_line_missing_account_id_rejected(db_session, coa):
+    """spec(AGENTS.md §1): 业务异常一律 BusinessError。
+
+    分录缺 accountId 是请求形态错误,不得以 KeyError 泄到全局异常处理器之外(那会变成 500)。
+    缺键与显式 None 走同一个拒绝分支,且整单拒绝不得留下半成品凭证。
+    """
+    broken = _line(coa["bank"], "C", 100.0)
+    del broken["accountId"]
+    with pytest.raises(BusinessError) as ei:
+        svc.create_voucher(
+            db_session, voucher_date=date(2026, 9, 15),
+            lines=[{"direction": "D", "amount": 100.0}, broken],
+        )
+    assert ei.value.status == 400
+    assert "第 1 行分录缺少科目" in ei.value.message
+    assert db_session.query(Voucher).count() == 0
+
+    with pytest.raises(BusinessError) as ei2:
+        svc.create_voucher(
+            db_session, voucher_date=date(2026, 9, 15),
+            lines=[_line(coa["bank"], "D", 100.0), {"accountId": None, "direction": "C", "amount": 100.0}],
+        )
+    assert "缺少科目" in ei2.value.message
+    assert db_session.query(Voucher).count() == 0
 
 
 # ============ 凭证状态机 ============

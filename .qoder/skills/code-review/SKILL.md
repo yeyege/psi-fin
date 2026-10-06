@@ -29,12 +29,26 @@ Confirm here, before spawning sub-agents, that the target resolves (`git rev-par
 
 ### 2. Identify the spec source
 
-In this order:
+There is rarely **one** active change, so resolve the source before reading it. `openspec list --json` is the mechanical starting point: it returns every non-archived change with `status`, `completedTasks` / `totalTasks`, and `lastModified` — use it rather than eyeballing the directory.
+
+Resolution order:
 
 1. A change name the user passed.
-2. `openspec/changes/<change-name>/` for the branch's active change — read `proposal.md`, `design.md`, `specs/**/spec.md`, `tasks.md`.
-3. A change name referenced in a commit message.
+2. A change name referenced in a commit message.
+3. `openspec/changes/<change-name>/` — read `proposal.md`, `design.md`, `specs/**/spec.md`, `tasks.md`. If `list --json` shows more than one non-archived change, **do not pick one by inference**: the diff's file paths may disambiguate, and if they do not, ask.
 4. If nothing resolves, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent skips and reports "no spec available".
+
+#### 2a. freshness gate — run this before handing the spec to the sub-agent
+
+A spec is a fact source only while the code agrees with it. An unverified stale one is worse than none: the sub-agent will report legitimately evolved code as scope creep, and report unbuilt requirements as missing. So for the resolved change:
+
+- **Reject a parked change as the originating spec.** `status: in-progress` with `completedTasks: 0` (or a `proposal.md` banner saying 未实施 / backlog) means the change is *designed but not started* — it is a plan, not the thing this diff implements. Such a change may be named as "the work this diff did *not* do", never as a list of missing requirements. Watch for the compounding case: a parked change whose `tasks.md` points at the repo's hottest files (for this repo: the `deduct_stock` / `lock_stock` / `ship_stock` trio in `inventory_service.py`) will silently attach a dozen phantom findings to *any* diff touching them.
+- **Check each decision the diff touches against the code, not just against the text.** `design.md` entries are written as present-tense decisions (`决策：主库切 PostgreSQL`) whether or not they landed, so skim reads them as fact. Before judging fidelity, confirm the named symbol, column type, path, or route actually matches; `grep` the identifier the decision mandates and look at what the code says, including comments — a code comment stating a different deliberate choice (`凭证号沿用单据号体系：JV-YYYYMMDD-XXX`) is a live conflict, not an oversight.
+- **A dated correction supersedes only the text it replaces.** When an entry carries a correction that says it supersedes earlier wording, quote only the corrected version; never let the superseded sentence lead, because it usually sits first and still reads as live. Reporting the stale half *is* the misjudgment. If the stale sentence is still physically present where a skim will hit it, report that as a finding against the spec itself: superseded text should be struck, not annotated in place.
+- **Where spec and code disagree, downgrade the verdict.** Emit `## Conflict` — "both sides claim authority; which one wins is an unrecorded decision" — rather than (a) missing-requirement or (b) scope-creep. Either side may be correct, and an invented verdict here costs more than an open question.
+- **Compare against the current-truth layer too.** `openspec/specs/<capability>/spec.md` holds what a capability was when its change was archived; an in-flight delta holds what a change wants it to become. If the diff's capability has a main spec and the two disagree, report that as `## Conflict` as well — and note that a capability can have been re-implemented by a *later* change whose deltas live under a different namespace, in which case the archived main spec is the older truth and should be re-synced.
+
+Record what the gate consumed (change name, `completedTasks/totalTasks`, which decisions were code-checked) so the next review can tell a verified source from an assumed one.
 
 ### 3. Identify the standards sources
 
@@ -87,7 +101,8 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 
 - The diff command and commit list.
 - The path or fetched contents of the openspec change.
-- The brief: "Report: (a) requirements the spec asked for that are missing or partial — check every `tasks.md` item and every requirement in `specs/**/spec.md`; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
+- The outcome of the 2a freshness gate: which decisions were confirmed against the code, and which are already known to conflict. Pass this down as a constraint, not as background — without it the brief below will happily convert stale text into findings.
+- The brief: "Report: (a) requirements the spec asked for that are missing or partial — check every `tasks.md` item and every requirement in `specs/**/spec.md`, but only for a spec source that passed the freshness gate; a parked change contributes nothing here; (b) behaviour in the diff that wasn't asked for (scope creep) — this verdict is available **only** for a requirement the gate confirmed the spec still asserts, never for a decision entry carrying a dated correction or a code comment that contradicts it; (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Add a `## Conflict` section for spec-vs-code disagreements flagged by the gate and put nothing in (a) or (b) that depends on resolving one. Under 400 words."
 
 If the spec is missing, skip the Spec sub-agent and note that in the final report.
 
@@ -95,7 +110,9 @@ If the spec is missing, skip the Spec sub-agent and note that in the final repor
 
 Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate.
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
+Carry the Spec axis's `## Conflict` items out as their own heading, separate from both. A conflict is not a Spec finding with a softer label and not a Standards violation: it is an unrecorded decision, and folding it into either axis turns a question the repo cannot answer into a verdict it did not earn. Each conflict gets one line stating which two artefacts disagree, quoted from both sides, and the decision needed to close it.
+
+End with a one-line summary: total findings per axis, the worst issue _within each axis_ (if any), and the count of open conflicts. Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
 
 ### 6. Run the checks
 
