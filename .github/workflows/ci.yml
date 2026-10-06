@@ -8,13 +8,30 @@ on:
     branches: [master]
 
 jobs:
-  # ===== 后端：单元测试（pytest，不连真实数据库）=====
+  # ===== 后端：单元测试（pytest，跑在真实 PostgreSQL 16 上）=====
+  # 单测不再跑 SQLite：SQLite 不强制外键、静默忽略 FOR UPDATE、不校验 varchar 长度，
+  # 拿它当证据等于没证据（AGENTS.md §4）。因此这个 job 必须带 postgres service，
+  # 且库名以 _test 结尾 —— tests/conftest.py 会 TRUNCATE 全表，并拒绝在非 *_test 库上跑。
   backend-test:
     name: Backend pytest
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend-python
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: psi_fin
+          POSTGRES_PASSWORD: psi_fin
+          POSTGRES_DB: psi_fin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U psi_fin" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://psi_fin:psi_fin@localhost:5432/psi_fin_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,9 +43,10 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-  # ===== 后端：迁移在真实 PostgreSQL 上跑通（单测的 SQLite 不构成这类证据）=====
-  # AGENTS.md §4：create_all 不会 ALTER 已存在的表；列类型/锁相关行为必须以真库为准。
+  # ===== 后端：迁移在真实 PostgreSQL 上跑通 =====
+  # AGENTS.md §4：create_all 不会 ALTER 已存在的表；列类型变更必须验证到库本身。
   # 这里做三件事：空库 upgrade head → 核对 7 个金额列真是 numeric(18,2) → downgrade 再 upgrade（可逆且幂等）。
+  # 注：单测轨已升到同一镜像版本（postgres:16），与 compose 主库、线上 Neon 对齐。
   backend-migrate-postgres:
     name: Backend alembic on PostgreSQL
     runs-on: ubuntu-latest

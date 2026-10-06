@@ -1,0 +1,14 @@
+-- Creates the separate database that the pytest suite runs against.
+--
+-- Why a second database: tests/conftest.py truncates every table between test
+-- cases to get isolation. Pointing it at the developer's `psi_fin` database
+-- would wipe the locally seeded demo data on the very first test run.
+--
+-- This directory is mounted at /docker-entrypoint-initdb.d, so it executes only
+-- when the pg-data volume is empty. After editing it, recreate the volume
+-- (`docker compose down -v` then up) or create the database by hand.
+--
+-- Kept ASCII on purpose: the file is piped through psql inside the container,
+-- and the repo already has one encoding lesson (alembic.ini is read with the
+-- Windows locale, so it must stay ASCII too).
+CREATE DATABASE psi_fin_test OWNER psi_fin;

@@ -1,8 +1,34 @@
 # ===== PSI-FIN 全栈一键启动 =====
 # 用法：docker compose up -d --build
 # 访问：前端 http://localhost:8080  后端 API http://localhost:8000/docs
+#
+# 数据库口径（openspec D17）：PostgreSQL 16 是主库；MySQL 8.0 保留为兼容部署选项，
+# 只在 `--profile mysql` 时启动，免得两套库同时吃内存。开发/测试都连本机 postgres 服务：
+#   DATABASE_URL=postgresql+psycopg2://psi_fin:psi_fin@localhost:5432/psi_fin
 services:
+  postgres:
+    image: postgres:16
+    container_name: psi-fin-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-psi_fin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-psi_fin}
+      POSTGRES_DB: ${POSTGRES_DB:-psi_fin}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      # 首次创建数据卷时自动建 pytest 专用的 psi_fin_test 库（改脚本后需
+      # `docker compose down -v postgres` 或手动建库才会重跑，initdb 只在空卷执行一次）
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-psi_fin} -d ${POSTGRES_DB:-psi_fin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   mysql:
+    profiles: ["mysql"]
     image: mysql:8.0
     container_name: psi-fin-mysql
     environment:
@@ -23,10 +49,10 @@ services:
     build: ./backend-python
     container_name: psi-fin-backend
     environment:
-      # 容器内通过服务名访问 MySQL
-      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-psi_fin}:${MYSQL_PASSWORD:-psi_fin}@mysql:3306/${MYSQL_DATABASE:-psi_fin}?charset=utf8mb4
+      # 容器内通过服务名访问 PostgreSQL（主库，见 D17）
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-psi_fin}:${POSTGRES_PASSWORD:-psi_fin}@postgres:5432/${POSTGRES_DB:-psi_fin}
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -43,3 +69,4 @@ services:
 
 volumes:
   mysql-data:
+  pg-data:

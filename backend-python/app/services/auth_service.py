@@ -107,8 +107,11 @@ def delete_user(db: Session, user_id: int) -> None:
     admin_count = db.query(User).filter(User.role == ROLE_ADMIN, User.status == STATUS_ACTIVE).count()
     if user.role == ROLE_ADMIN and admin_count <= 1:
         raise BusinessError("不能删除最后一个启用管理员", 409)
-    db.delete(user)
+    # 顺序要紧：先删令牌，再删用户。反过来先 `db.delete(user)`，紧随的批量删除会触发
+    # autoflush，把 DELETE FROM users 提前发出去 —— SQLite 不强制外键所以从没错，
+    # PostgreSQL 直接 ForeignKeyViolation。（2026-10-07 单测跑上真 PG 后暴露）
     db.query(AuthToken).filter(AuthToken.user_id == user_id).delete()
+    db.delete(user)
     db.commit()
 
 
